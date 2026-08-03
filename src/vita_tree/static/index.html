@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <title>vita-tree</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="grain" aria-hidden="true"></div>
+    <main class="shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="Branch Run home">
+          <span class="brand-mark">VT</span>
+          <span>VITA TREE</span>
+        </a>
+        <div class="repo-chip">
+          <span class="status-dot"></span>
+          <span id="repository">LOADING REPOSITORY</span>
+        </div>
+      </header>
+
+      <section class="hero">
+        <div>
+          <p class="eyebrow">GIT / ACTIVITY BOARD</p>
+          <h1>Latest moves.<br /><span>Zero noise.</span></h1>
+        </div>
+        <div class="metrics" aria-label="Repository metrics">
+          <div class="metric">
+            <strong id="total-count">—</strong>
+            <span>BRANCHES</span>
+          </div>
+          <div class="metric">
+            <strong id="recent-count">—</strong>
+            <span>ACTIVE · 7D</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="board" aria-labelledby="board-title">
+        <div class="board-head">
+          <div>
+            <p class="section-index">01 / BRANCHES</p>
+            <h2 id="board-title">RECENT ACTIVITY</h2>
+          </div>
+          <div class="controls">
+            <label class="search">
+              <span class="search-icon" aria-hidden="true"></span>
+              <span class="sr-only">Filter branches</span>
+              <input id="search" type="search" placeholder="FILTER BRANCHES" autocomplete="off" />
+              <kbd>/</kbd>
+            </label>
+            <button id="refresh" class="refresh" type="button" title="Refresh branch data">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8.1 8.1 0 0 0-14.9-4M4 4v5h5M4 13a8.1 8.1 0 0 0 14.9 4M20 20v-5h-5"/></svg>
+              <span>REFRESH</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <div class="table-header" aria-hidden="true">
+            <span>BRANCH</span>
+            <span>LAST COMMIT</span>
+            <span>MODIFIED</span>
+          </div>
+          <div id="branch-list" class="branch-list" aria-live="polite">
+            <div class="loading-row"><span></span><span></span><span></span></div>
+            <div class="loading-row"><span></span><span></span><span></span></div>
+            <div class="loading-row"><span></span><span></span><span></span></div>
+          </div>
+        </div>
+
+        <footer class="board-footer">
+          <span id="result-count">FETCHING BRANCHES…</span>
+          <span>SORTED BY LATEST MODIFICATION <b>↓</b></span>
+        </footer>
+      </section>
+    </main>
+
+    <template id="branch-template">
+      <article class="branch-row">
+        <div class="branch-cell">
+          <span class="branch-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><circle cx="6" cy="5" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="6" cy="19" r="2.5"/><path d="M6 7.5v9M17.9 8.5c-.4 4-3.2 5.6-9.4 5.6"/></svg>
+          </span>
+          <div class="branch-name-wrap">
+            <button class="branch-name" type="button" title="Open main.tex"></button>
+            <div class="badges"></div>
+          </div>
+        </div>
+        <div class="commit-cell">
+          <p class="subject"></p>
+          <span class="commit-meta"><code class="sha"></code><i></i><span class="author"></span></span>
+        </div>
+        <time class="date-cell"></time>
+      </article>
+    </template>
+
+    <dialog id="source-modal" class="source-modal">
+      <div class="modal-shell">
+        <header class="modal-head">
+          <div>
+            <p class="section-index">BRANCH DOCUMENT / MAIN.TEX</p>
+            <h2 id="modal-branch">BRANCH</h2>
+          </div>
+          <div class="modal-actions">
+            <div class="view-switch" aria-label="Preview format">
+              <button class="view-option active" data-view="clean" type="button">DOC</button>
+              <button class="view-option" data-view="source" type="button">SOURCE</button>
+            </div>
+            <button id="copy-source" class="modal-button" type="button">COPY</button>
+            <button id="close-modal" class="modal-close" type="button" aria-label="Close preview">×</button>
+          </div>
+        </header>
+        <div class="source-meta">
+          <span id="modal-path">main.tex</span>
+          <span id="modal-commit"></span>
+        </div>
+        <div id="source-state" class="source-state">READING SOURCE…</div>
+        <div id="clean-view" class="clean-view"><article class="clean-document"></article></div>
+        <pre id="source-view" class="source-view" tabindex="0"><code></code></pre>
+      </div>
+    </dialog>
+
+    <script src="app.js"></script>
+  </body>
+</html>
