@@ -17,7 +17,10 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
 ]
-dependencies = []
+dependencies = ["pylatexenc==2.10"]
+
+[project.optional-dependencies]
+test = ["playwright>=1.50,<2", "pypdf>=6,<7"]
 
 [project.scripts]
 vt = "vita_tree.cli:main"
@@ -30,4 +33,4 @@ include-package-data = true
 where = ["src"]
 
 [tool.setuptools.package-data]
-vita_tree = ["static/*"]
+vita_tree = ["static/*", "static/vendor/*", "static/vendor/standard_fonts/*", "static/vendor/cmaps/*", "static/vendor/wasm/*"]

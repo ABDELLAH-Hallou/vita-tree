@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 from vita_tree.server import branch_content_payload, branch_payload, resolve_repository
+from support import cleanup_repo
 
 
 class ServerTests(unittest.TestCase):
@@ -38,7 +39,7 @@ class ServerTests(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls) -> None:
-        cls.temporary_directory.cleanup()
+        cleanup_repo(cls.temporary_directory)
 
     def test_resolves_repository_root(self) -> None:
         self.assertEqual(resolve_repository(self.repository), self.repository.resolve())

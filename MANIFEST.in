@@ -1,0 +1,3 @@
+include package.json package-lock.json
+recursive-include scripts *.mjs
+recursive-include tests *.py

@@ -1,0 +1,10 @@
+{
+  "name": "vita-tree-assets",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "vendor": "node scripts/vendor-pdf.mjs",
+    "test": ".venv/Scripts/python.exe -m unittest discover -s tests -v"
+  },
+  "devDependencies": {"pdfjs-dist": "6.4.299"}
+}

@@ -33,6 +33,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="document path inside each branch (default: main.tex)",
     )
     run.add_argument("--no-browser", action="store_true")
+    run.add_argument("--vita-source", type=Path, help="Path to a local vita-cv checkout (optional)")
     return parser
 
 
@@ -47,6 +48,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 port=args.port,
                 document_path=args.document_path,
                 open_browser=not args.no_browser,
+                vita_source=args.vita_source.resolve() if args.vita_source else None,
             )
         except (OSError, RuntimeError) as error:
             print(f"vt: {error}", file=sys.stderr)

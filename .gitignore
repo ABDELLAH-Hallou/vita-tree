@@ -5,3 +5,6 @@ __pycache__/
 .venv/
 dist/
 build/
+node_modules/
+.test-artifacts/
+.vita-tree-test-*/

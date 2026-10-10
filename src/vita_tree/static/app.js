@@ -1,286 +1,234 @@
-const state = { branches: [], query: "", source: "", cleanText: "", view: "clean", deepLinkOpened: false };
-
-const elements = {
-  repository: document.querySelector("#repository"),
-  total: document.querySelector("#total-count"),
-  recent: document.querySelector("#recent-count"),
-  search: document.querySelector("#search"),
-  refresh: document.querySelector("#refresh"),
-  list: document.querySelector("#branch-list"),
-  resultCount: document.querySelector("#result-count"),
-  template: document.querySelector("#branch-template"),
-  modal: document.querySelector("#source-modal"),
-  modalBranch: document.querySelector("#modal-branch"),
-  modalCommit: document.querySelector("#modal-commit"),
-  sourceState: document.querySelector("#source-state"),
-  sourceCode: document.querySelector("#source-view code"),
-  cleanDocument: document.querySelector(".clean-document"),
-  viewOptions: document.querySelectorAll(".view-option"),
-  copySource: document.querySelector("#copy-source"),
-  closeModal: document.querySelector("#close-modal"),
-};
-
-function relativeTime(timestamp) {
-  const seconds = Math.max(0, Math.floor(Date.now() / 1000 - timestamp));
-  const units = [
-    [31536000, "year"], [2592000, "month"], [604800, "week"],
-    [86400, "day"], [3600, "hour"], [60, "minute"], [1, "second"],
-  ];
-  const [divisor, label] = units.find(([value]) => seconds >= value) || units.at(-1);
-  const amount = Math.floor(seconds / divisor);
-  return `${amount} ${label}${amount === 1 ? "" : "s"} ago`;
+﻿const $ = selector => document.querySelector(selector);
+const state = {branches: [], session: null, snapshot: null, view: 'structure', generation: 0, pdfs: {}, pdfGeneration: 0, dirty: false, jobDirty: false, polling: null, leaf: null};
+const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+const aiChoices = new Map();
+const providerNames = {codex:'Codex',gemini:'Gemini',google:'Google Gemini',openai:'OpenAI',anthropic:'Anthropic'};
+const effortNames = {none:'None',minimal:'Minimal',low:'Low',medium:'Medium',high:'High',xhigh:'Extra high',max:'Maximum',ultra:'Ultra'};
+function selectedModel() {return state.catalog?.options.find(o=>o.provider===$('#provider').value && o.model===$('#model').value);}
+function rememberAI() {
+  if(state.snapshot) aiChoices.set(state.snapshot.branch,{provider:$('#provider').value,model:$('#model').value,reasoning:$('#reasoning').value});
 }
-
-function absoluteTime(isoDate) {
-  return new Intl.DateTimeFormat(undefined, {
-    year: "numeric", month: "short", day: "2-digit",
-    hour: "2-digit", minute: "2-digit",
-  }).format(new Date(isoDate));
+function renderReasoning(preferred='') {
+  const option=selectedModel(), efforts=option?.reasoning || [];
+  $('#reasoning').replaceChildren(new Option('Provider default',''),...efforts.map(e=>new Option(effortNames[e]||e,e)));
+  $('#reasoning').value=efforts.includes(preferred)?preferred:'';
+  $('#reasoning').disabled=!efforts.length || !!state.snapshot?.running;
+  $('#reasoning-hint').textContent=efforts.length?'Reasoning applies to both analysis and adaptation. Higher levels can take longer.':
+    option?.provider==='codex'?(state.catalog.reasoningBridge?'Select a model with reasoning levels in your local Codex catalog.':'Reasoning requires VITA source integration. Start with --vita-source pointing to vita-cv.'):
+    'This provider/model uses its default reasoning; the current VITA integration has no effort control for it.';
+  $('#provider-hint').textContent=`Providers and models found across ${state.catalog.refCount} branch refs and local settings. Model access depends on your provider account.`;
+  $('#model').title=option?`Found in:\n${option.sources.join('\n')}`:'';
 }
-
-function badge(text, className = "") {
-  const node = document.createElement("span");
-  node.className = `badge ${className}`.trim();
-  node.textContent = text;
-  return node;
+function renderModels(preferred,reasoning='') {
+  const options=state.catalog.options.filter(o=>o.provider===$('#provider').value);
+  $('#model').replaceChildren(...options.map(o=>new Option(o.model||'CLI / provider default',o.model)));
+  if(options.some(o=>o.model===preferred)) $('#model').value=preferred;
+  else if($('#provider').value===state.catalog.default.provider) $('#model').value=state.catalog.default.model;
+  $('#model').disabled=!!state.snapshot?.running;
+  renderReasoning(reasoning);
 }
-
-function commandArguments(source, command) {
-  const results = [];
-  const token = `\\${command}`;
-  let cursor = 0;
-  while ((cursor = source.indexOf(token, cursor)) !== -1) {
-    let start = cursor + token.length;
-    while (/\s/.test(source[start] || "")) start += 1;
-    if (source[start] !== "{") { cursor = start; continue; }
-    let depth = 0;
-    for (let end = start; end < source.length; end += 1) {
-      if (source[end] === "{" && source[end - 1] !== "\\") depth += 1;
-      if (source[end] === "}" && source[end - 1] !== "\\") depth -= 1;
-      if (depth === 0) {
-        results.push(source.slice(start + 1, end));
-        cursor = end + 1;
-        break;
-      }
-    }
+function renderProviders() {
+  const choice=aiChoices.get(state.snapshot.branch)||state.catalog.default;
+  const names=[...new Set(state.catalog.options.filter(o=>o.supported).map(o=>o.provider))];
+  $('#provider').replaceChildren(...names.map(p=>new Option(providerNames[p]||p,p)));
+  if(names.includes(choice.provider)) $('#provider').value=choice.provider;
+  $('#provider').disabled=!!state.snapshot.running;
+  renderModels(choice.model,choice.reasoning);
+}
+$('#provider').onchange=()=>{renderModels();rememberAI();};
+$('#model').onchange=()=>{renderReasoning();rememberAI();};
+$('#reasoning').onchange=rememberAI;
+async function api(path, data) {
+  const response = await fetch(path, data === undefined ? {cache: 'no-store'} : {method:'POST', headers:{'Content-Type':'application/json','X-Vita-Token':state.session.token}, body:JSON.stringify(data)});
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error || `Request failed (${response.status})`);
+  return result;
+}
+function notice(text = '', error = false) { $('#notice').textContent = text; $('#notice').hidden = !text; $('#notice').classList.toggle('error', error); }
+function toast(text) { $('#toast').textContent = text; $('#toast').hidden = false; clearTimeout(state.toast); state.toast = setTimeout(() => $('#toast').hidden = true, 4000); }
+function relative(timestamp) {
+  const age = Math.max(0, Date.now()/1000-timestamp);
+  for (const [seconds, unit] of [[31536000,'y'],[2592000,'mo'],[86400,'d'],[3600,'h'],[60,'m']]) if(age>=seconds) return `${Math.floor(age/seconds)}${unit} ago`;
+  return 'Just now';
+}
+function renderBranches() {
+  const query = $('#search').value.toLowerCase();
+  const branches = state.branches.filter(b => `${b.name} ${b.subject} ${b.author}`.toLowerCase().includes(query));
+  $('#branch-list').replaceChildren();
+  for (const b of branches) {
+    const row = document.createElement('button'); row.className='branch-row'; row.setAttribute('aria-label', `Open ${b.name}`);
+    row.innerHTML=`<span class="branch-cell"><span class="branch-icon" aria-hidden="true">⑂</span><span class="branch-info"><span class="branch-name">${esc(b.name)}</span><span class="branch-detail">${b.current?'Current branch':b.local?'Local branch':`Remote · ${esc(b.remote)}`}</span></span></span><span class="commit-cell"><span class="commit-subject">${esc(b.subject)}</span><span class="commit-meta">${esc(b.commit)} · ${esc(b.author)}</span></span><time class="branch-date" datetime="${esc(b.modifiedAt)}" title="${esc(new Date(b.modifiedAt).toLocaleString())}">${relative(b.timestamp)}</time>`;
+    row.onclick=() => openBranch(b.name); $('#branch-list').append(row);
   }
-  return results;
+  if(!branches.length) $('#branch-list').innerHTML='<p class="empty">No matching branches.</p>';
+  $('#result-count').textContent=`${branches.length} ${branches.length===1?'branch':'branches'}`;
+  $('#total-count').textContent=state.branches.length;
 }
-
-function stripComment(line) {
-  for (let index = 0; index < line.length; index += 1) {
-    if (line[index] === "%" && line[index - 1] !== "\\") return line.slice(0, index);
-  }
-  return line;
-}
-
-function cleanInline(value) {
-  let text = value;
-  const protectedChars = new Map([
-    ["\\&", "\uE000"], ["\\%", "\uE001"], ["\\_", "\uE002"],
-    ["\\#", "\uE003"], ["\\$", "\uE004"], ["\\{", "\uE005"], ["\\}", "\uE006"],
-  ]);
-  protectedChars.forEach((placeholder, latex) => { text = text.split(latex).join(placeholder); });
-  text = text.replace(/\\href\{[^{}]*\}\{([^{}]*)\}/g, "$1");
-  text = text.replace(/\\url\{([^{}]*)\}/g, "$1");
-  for (let pass = 0; pass < 5; pass += 1) {
-    text = text.replace(/\\(?:textbf|textit|emph|textrm|texttt)\s*\{([^{}]*)\}/g, "$1");
-    text = text.replace(/\{\\(?:bf|it|large|small)\s+([^{}]*)\}/g, "$1");
-  }
-  text = text.replace(/\\hfill/g, "  —  ");
-  text = text.replace(/\\\\(?:\[[^\]]*\])?/g, "\n");
-  text = text.replace(/\$([^$]*)\$/g, "$1");
-  text = text.replace(/\\(?:large|small|bf|it)\b/g, "");
-  text = text.replace(/\\[A-Za-z@]+\*?(?:\[[^\]]*\])?/g, "");
-  text = text.replace(/[{}]/g, "");
-  text = text.replace(/\s*&\s*/g, "  —  ");
-  text = text.replace(/~/g, " ");
-  const restored = ["&", "%", "_", "#", "$", "{", "}"];
-  restored.forEach((char, index) => { text = text.split(String.fromCharCode(0xE000 + index)).join(char); });
-  return text.split("\n").map((part) => part.replace(/[ \t]+/g, " ").trim()).filter(Boolean);
-}
-
-function cleanLatex(source) {
-  const blocks = [];
-  const name = commandArguments(source, "name")[0];
-  if (name) blocks.push({ type: "name", text: cleanInline(name).join(" ") });
-  commandArguments(source, "address").forEach((address) => {
-    cleanInline(address).forEach((line) => blocks.push({ type: "contact", text: line }));
-  });
-
-  const documentBody = source.split("\\begin{document}")[1]?.split("\\end{document}")[0] || source;
-  let centered = false;
-  for (const rawLine of documentBody.split(/\r?\n/)) {
-    let line = stripComment(rawLine).trim();
-    if (!line) continue;
-    const section = line.match(/^\\begin\{rSection\}\{(.+)\}$/);
-    if (section) {
-      blocks.push({ type: "section", text: cleanInline(section[1]).join(" ") });
-      continue;
-    }
-    if (/^\\begin\{center\}/.test(line)) { centered = true; continue; }
-    if (/^\\end\{center\}/.test(line)) { centered = false; continue; }
-    if (/^\\(?:begin|end)\{/.test(line) || /^\\(?:itemsep|setlength|vspace|pagebreak)/.test(line)) continue;
-
-    const isBullet = /^\\item(?:\s|$)/.test(line);
-    line = line.replace(/^\\item\s*/, "");
-    const parts = cleanInline(line);
-    parts.forEach((text, index) => blocks.push({
-      type: isBullet && index === 0 ? "bullet" : (centered ? "lead" : "line"),
-      text,
-    }));
-  }
-
-  const plainText = blocks.map((block) => {
-    if (block.type === "section") return `\n${block.text.toUpperCase()}\n`;
-    if (block.type === "bullet") return `• ${block.text}`;
-    return block.text;
-  }).join("\n").replace(/\n{3,}/g, "\n\n").trim();
-  return { blocks, plainText };
-}
-
-function renderCleanDocument(source) {
-  const clean = cleanLatex(source);
-  elements.cleanDocument.replaceChildren();
-  clean.blocks.forEach((block) => {
-    const node = document.createElement(block.type === "section" ? "h3" : block.type === "name" ? "h1" : "p");
-    node.className = `clean-${block.type}`;
-    node.textContent = block.text;
-    elements.cleanDocument.append(node);
-  });
-  return clean.plainText;
-}
-
-function setPreviewView(view) {
-  state.view = view;
-  elements.modal.dataset.view = view;
-  elements.viewOptions.forEach((button) => button.classList.toggle("active", button.dataset.view === view));
-}
-
-async function openBranchSource(branch) {
-  setPreviewView("clean");
-  elements.modal.classList.remove("loaded");
-  elements.sourceState.classList.remove("error");
-  elements.sourceState.textContent = "READING SOURCE…";
-  elements.sourceCode.textContent = "";
-  elements.modalBranch.textContent = branch.name;
-  elements.modalCommit.textContent = branch.commit;
-  elements.copySource.textContent = "COPY";
-  elements.modal.showModal();
-
-  try {
-    const query = new URLSearchParams({ branch: branch.name });
-    const response = await fetch(`/api/branch-content?${query}`, { cache: "no-store" });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "Unable to read main.tex");
-    state.source = data.content;
-    state.cleanText = renderCleanDocument(data.content);
-    elements.sourceCode.textContent = data.content;
-    elements.modalCommit.textContent = `${data.commit} · ${absoluteTime(data.modifiedAt)}`;
-    elements.modal.classList.add("loaded");
-  } catch (error) {
-    elements.sourceState.classList.add("error");
-    elements.sourceState.textContent = error.message;
-  }
-}
-
-function render() {
-  const query = state.query.trim().toLocaleLowerCase();
-  const visible = state.branches.filter((branch) =>
-    `${branch.name} ${branch.subject} ${branch.author}`.toLocaleLowerCase().includes(query),
-  );
-
-  elements.list.replaceChildren();
-  visible.forEach((branch, index) => {
-    const row = elements.template.content.firstElementChild.cloneNode(true);
-    row.style.animationDelay = `${Math.min(index * 18, 220)}ms`;
-    row.classList.toggle("current", branch.current);
-    const branchName = row.querySelector(".branch-name");
-    branchName.textContent = branch.name;
-    branchName.addEventListener("click", () => openBranchSource(branch));
-    row.querySelector(".subject").textContent = branch.subject || "No commit message";
-    row.querySelector(".sha").textContent = branch.commit;
-    row.querySelector(".author").textContent = branch.author;
-
-    const badges = row.querySelector(".badges");
-    if (branch.current) badges.append(badge("CURRENT", "current"));
-    if (!branch.local) badges.append(badge(branch.remote || "REMOTE"));
-
-    const time = row.querySelector("time");
-    time.dateTime = branch.modifiedAt;
-    time.append(document.createTextNode(relativeTime(branch.timestamp)));
-    const exact = document.createElement("small");
-    exact.textContent = absoluteTime(branch.modifiedAt);
-    time.append(exact);
-    elements.list.append(row);
-  });
-
-  if (!visible.length) {
-    const empty = document.createElement("div");
-    empty.className = "empty";
-    empty.textContent = state.branches.length ? "NO BRANCHES MATCH YOUR FILTER" : "NO BRANCHES FOUND";
-    elements.list.append(empty);
-  }
-
-  elements.resultCount.textContent = query
-    ? `${visible.length} OF ${state.branches.length} BRANCHES`
-    : `${visible.length} BRANCH${visible.length === 1 ? "" : "ES"} SHOWN`;
-}
-
 async function loadBranches() {
-  elements.refresh.classList.add("loading");
-  elements.refresh.disabled = true;
-  try {
-    const response = await fetch("/api/branches", { cache: "no-store" });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "Unable to read branches");
-    state.branches = data.branches;
-    elements.repository.textContent = data.detached
-      ? `${data.repository} / DETACHED HEAD`
-      : `${data.repository} / ${data.currentBranch}`;
-    elements.total.textContent = data.branches.length.toString().padStart(2, "0");
-    const weekAgo = Date.now() / 1000 - 7 * 24 * 60 * 60;
-    elements.recent.textContent = data.branches.filter((branch) => branch.timestamp >= weekAgo).length.toString().padStart(2, "0");
-    render();
-    const previewBranch = new URLSearchParams(window.location.search).get("branch");
-    if (previewBranch && !state.deepLinkOpened) {
-      const branch = state.branches.find((item) => item.name === previewBranch);
-      if (branch) {
-        state.deepLinkOpened = true;
-        openBranchSource(branch);
-      }
-    }
-  } catch (error) {
-    elements.list.innerHTML = `<div class="empty error"></div>`;
-    elements.list.firstElementChild.textContent = error.message;
-    elements.resultCount.textContent = "FAILED TO LOAD";
-  } finally {
-    elements.refresh.classList.remove("loading");
-    elements.refresh.disabled = false;
-  }
+  $('#refresh').disabled=true;
+  try {const result=await api('/api/branches');state.branches=result.branches;$('#repository').textContent=result.repository;renderBranches();}
+  catch(error) {$('#branch-list').innerHTML=`<p class="empty">${esc(error.message)}</p>`;}
+  finally {$('#refresh').disabled=false;}
 }
-
-elements.search.addEventListener("input", (event) => {
-  state.query = event.target.value;
-  render();
-});
-elements.refresh.addEventListener("click", loadBranches);
-elements.closeModal.addEventListener("click", () => elements.modal.close());
-elements.viewOptions.forEach((button) => button.addEventListener("click", () => setPreviewView(button.dataset.view)));
-elements.modal.addEventListener("click", (event) => {
-  if (event.target === elements.modal) elements.modal.close();
-});
-elements.copySource.addEventListener("click", async () => {
-  if (!elements.modal.classList.contains("loaded")) return;
-  await navigator.clipboard.writeText(state.view === "clean" ? state.cleanText : state.source);
-  elements.copySource.textContent = "COPIED";
-  setTimeout(() => { elements.copySource.textContent = "COPY"; }, 1400);
-});
-document.addEventListener("keydown", (event) => {
-  if (event.key === "/" && document.activeElement !== elements.search) {
-    event.preventDefault();
-    elements.search.focus();
+function canLeave() {return !(state.dirty || state.jobDirty) || window.confirm('Discard your unsaved editor changes?');}
+async function openBranch(name, force=false) {
+  if(!force && !canLeave()) return;
+  const generation=++state.generation;
+  state.snapshot=null;
+  for(const id of ['provider','model','reasoning']) $('#'+id).disabled=true;
+  for(const id of ['save-source','save-job','run-adapt','branch-from','compile']) $('#'+id).disabled=true;
+  $('#current-source').readOnly=true;$('#job-description').readOnly=true;
+  $('#board').hidden=true;$('#workspace').hidden=false;document.body.classList.add('in-workspace');
+  $('#branch-title').textContent=name; notice('Loading the branch…');
+  try {
+    const [data,catalog]=await Promise.all([api('/api/workspace?branch='+encodeURIComponent(name)),api('/api/providers?branch='+encodeURIComponent(name))]);
+    if(generation!==state.generation) return;
+    state.snapshot=data; state.catalog=catalog; state.dirty=false; state.jobDirty=false; state.pdfs={};state.pdfGeneration++;
+    renderProviders();
+    history.replaceState(null,'','?branch='+encodeURIComponent(name));
+    updateSnapshot(); setView(state.view);
+    if(state.view!=='structure')notice();
+    if(data.running) pollJob(data.running.id, name);
+  } catch(error) { if(generation===state.generation) notice(error.message,true); }
+}
+function updateSnapshot() {
+  const s=state.snapshot;
+  $('#branch-title').textContent=s.branch;$('#workspace-caption').textContent='Read, compare, and shape your next application.';
+  $('#original-label').textContent=s.baseBranch;$('#current-label').textContent=s.branch;
+  $('#version-label').textContent=s.editable?'Editable':'Remote';
+  $('#original-source').value=s.original;$('#current-source').value=s.content;$('#current-source').readOnly=!s.editable||!!s.running;
+  renderDocument('original',s.originalDocument);renderDocument('current',s.document);
+  $('#job-description').value=s.job;$('#job-description').readOnly=!s.editable||!!s.running;$('#job-state').textContent=s.job?'Saved as job.md':'No job description yet';
+  $('#save-job').disabled=!s.editable||!!s.running;$('#branch-from').disabled=!!s.running;$('#compile').disabled=false;$('#ai-dot').textContent=Object.keys(s.artifacts).length?'•':'';
+  $('#ai-capability').textContent=state.session.vita?'Runs vita analyze --auto, then vita adapt --auto.': 'VITA CLI is unavailable. Restart with --vita-source pointing to your vita-cv folder.';
+  $('#run-adapt').disabled=!state.session.vita || !s.editable || !!s.running || !selectedModel()?.supported;
+  $('#ai-status').textContent=s.running?.message || 'Ready when you are';
+  $('#worktree-path').textContent=s.worktree || 'A separate worktree will be created on first save.';
+  $('#diff').replaceChildren();
+  if(!s.diff) $('#diff').textContent='No changes from the original.';
+  else for(const line of s.diff.split('\n')) {const item=document.createElement('span');item.textContent=line+'\n';if(line.startsWith('+')&&!line.startsWith('+++'))item.className='added';else if(line.startsWith('-')&&!line.startsWith('---'))item.className='removed';$('#diff').append(item);}
+  const added=s.diff.split('\n').filter(x=>x.startsWith('+')&&!x.startsWith('+++')).length;
+  const removed=s.diff.split('\n').filter(x=>x.startsWith('-')&&!x.startsWith('---')).length;
+  $('#change-count').textContent=added||removed?`+${added} −${removed}`:'';
+  $('#artifacts').replaceChildren();
+  if(!Object.keys(s.artifacts).length) $('#artifacts').innerHTML='<p class="helper">No reports yet. Run Analyze & adapt, or reload after running VITA in this branch’s worktree.</p>';
+  for(const [key,artifact] of Object.entries(s.artifacts)) {const detail=document.createElement('details');detail.open=key==='analyze';detail.innerHTML=`<summary>${esc(artifact.path)}</summary><pre>${esc(artifact.content)}</pre>`;$('#artifacts').append(detail);}
+  updateSaveState();
+}
+function renderDocument(side, data) {
+  const target=$(`#${side}-document .cv-document`);
+  // HTML is produced by the source-mapped renderer; every source string is escaped there.
+  target.innerHTML=data.error?`<p class="empty">${esc(data.error)}<br>Use LaTeX to repair the source.</p>`:data.html;
+}
+function updateSaveState(){
+  $('#save-state').textContent=state.dirty?'Unsaved edits':state.snapshot?.dirty?'Saved locally · uncommitted':'Saved';
+  $('#save-source').disabled=!state.dirty || !state.snapshot?.editable || !!state.snapshot?.running;
+}
+function setView(view){
+  state.view=view;
+  document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.view===view)));
+  $('#comparison').hidden=!['structure','source','pdf'].includes(view);$('#structure-hint').hidden=view!=='structure';$('#pdf-toolbar').hidden=view!=='pdf';$('#changes-panel').hidden=view!=='changes';$('#ai-panel').hidden=view!=='ai';$('#document-actions').hidden=['ai','pdf'].includes(view);
+  for(const side of ['original','current']) {$(`#${side}-document`).hidden=view!=='structure';$(`#${side}-source`).hidden=view!=='source';$(`#${side}-pdf`).hidden=view!=='pdf';}
+  if(!state.snapshot)return;
+  if(view==='structure'){
+    const warnings=[...new Set([...state.snapshot.document.warnings,...state.snapshot.originalDocument.warnings])];
+    notice(state.dirty?'The reading view shows the saved version. Save your LaTeX edits to update it.':warnings.join('\n'));
+  } else if(view==='pdf') {
+    notice(state.dirty?'PDF preview uses the saved version. Save your LaTeX changes first.':'');
+    for(const side of ['original','current']) if(!state.pdfs[side]) $(`#${side}-pdf`).innerHTML='<p class="pdf-message">Compile to see the exact PDF layout.<br>Text will remain selectable.</p>';
+  } else notice();
+}
+async function saveSource(){
+  if(!state.dirty||!state.snapshot)return;
+  if(state.jobDirty){notice('Save job.md before saving your LaTeX edits.',true);return;}
+  const s=state.snapshot, value=$('#current-source').value;$('#save-source').disabled=true;$('#current-source').readOnly=true;$('#job-description').readOnly=true;$('#save-job').disabled=true;
+  try {await api('/api/save',{branch:s.branch,path:s.path,revision:s.revision,content:value});await openBranch(s.branch,true);toast('Saved to '+s.path);}
+  catch(error){notice(error.message,true);$('#current-source').readOnly=false;$('#job-description').readOnly=false;$('#save-job').disabled=false;updateSaveState();}
+}
+async function saveJob(){
+  if(!state.snapshot)return;
+  const s=state.snapshot;$('#save-job').disabled=true;
+  try{const result=await api('/api/save',{branch:s.branch,path:'job.md',revision:s.jobRevision,content:$('#job-description').value});s.job=result.content;s.jobRevision=result.revision;state.jobDirty=false;$('#job-state').textContent='Saved as job.md';toast('Job description saved');}
+  catch(error){notice(error.message,true);}finally{$('#save-job').disabled=!s.editable;}
+}
+async function showCreate(){
+  if(!canLeave())return;
+  $('#base-branch').innerHTML=state.branches.map(b=>`<option value="${esc(b.name)}">${esc(b.name)}</option>`).join('');
+  $('#base-branch').value=state.snapshot?.branch||state.branches.find(b=>b.current)?.name||state.branches[0]?.name||'';
+  $('#create-error').textContent='';$('#create-dialog').showModal();$('#branch-name').focus();
+}
+$('#create-form').onsubmit=async event=>{
+  event.preventDefault();const button=event.submitter;button.disabled=true;
+  try{const base=$('#base-branch').value;const original=await api('/api/workspace?branch='+encodeURIComponent(base));const s=await api('/api/create',{base,name:$('#branch-name').value.trim(),job:$('#new-job').value,revision:original.revision});$('#create-dialog').close();state.dirty=false;state.jobDirty=false;await loadBranches();state.view='structure';await openBranch(s.branch,true);toast('Branch created with main.tex and job.md');$('#create-form').reset();}
+  catch(error){$('#create-error').textContent=error.message;}finally{button.disabled=false;}
+};
+$('#current-document').ondblclick=event=>{
+  const leaf=event.target.closest('[data-leaf]');if(!leaf||!state.snapshot?.editable)return;
+  if(state.dirty||state.jobDirty){notice('Save your LaTeX and job edits before editing the reading view.',true);return;}
+  if(state.snapshot.running){notice('Wait for the AI run to finish before editing.',true);return;}
+  state.leaf=leaf.dataset.leaf;$('#edit-text').value=state.snapshot.document.leaves[state.leaf].text;$('#edit-error').textContent='';$('#edit-dialog').showModal();$('#edit-text').focus();
+};
+$('#edit-form').onsubmit=async event=>{
+  event.preventDefault();event.submitter.disabled=true;const s=state.snapshot;
+  try{await api('/api/save',{branch:s.branch,path:s.path,revision:s.revision,leaf:state.leaf,text:$('#edit-text').value});$('#edit-dialog').close();await openBranch(s.branch,true);toast('Text updated in '+s.path);}
+  catch(error){$('#edit-error').textContent=error.message;}finally{event.submitter.disabled=false;}
+};
+async function runAdapt(){
+  if(!state.snapshot)return;
+  if(state.dirty||state.jobDirty){notice('Save your CV and job description before starting AI.',true);return;}
+  $('#run-adapt').disabled=true;$('#current-source').readOnly=true;$('#job-description').readOnly=true;$('#save-job').disabled=true;$('#branch-from').disabled=true;const s=state.snapshot;
+  rememberAI();
+  try{const job=await api('/api/adapt',{branch:s.branch,revision:s.revision,jobRevision:s.jobRevision,provider:$('#provider').value,model:$('#model').value,reasoning:$('#reasoning').value,language:$('#language').value});s.running=job;renderProviders();updateSaveState();pollJob(job.id,s.branch);}
+  catch(error){notice(error.message,true);$('#run-adapt').disabled=false;$('#current-source').readOnly=!s.editable;$('#job-description').readOnly=!s.editable;$('#save-job').disabled=!s.editable;$('#branch-from').disabled=false;}
+}
+async function pollJob(id, branch){
+  clearTimeout(state.polling);
+  try{const job=await api('/api/job?id='+encodeURIComponent(id));if(state.snapshot?.branch!==branch)return;$('#ai-status').textContent=job.message;
+    if(job.status==='running'){state.snapshot.running=job;state.polling=setTimeout(()=>pollJob(id,branch),1800);return;}
+    state.snapshot.running=null;await openBranch(branch,true);$('#ai-status').textContent=job.message;notice(job.message+(job.status==='failed'&&job.runPath?'\nRun files: '+job.runPath:''),job.status==='failed');toast(job.status==='succeeded'?'AI results are ready to review':'AI run needs attention');
+  }catch(error){notice(error.message,true);state.polling=setTimeout(()=>pollJob(id,branch),4000);}
+}
+let pdfjs;
+async function pdfLibrary(){if(!pdfjs){pdfjs=await import('./vendor/pdf.mjs');pdfjs.GlobalWorkerOptions.workerSrc='/vendor/pdf.worker.mjs';}return pdfjs;}
+async function renderPDF(side, info, generation){
+  const library=await pdfLibrary();const container=$(`#${side}-pdf`);
+  const loadingTask=library.getDocument({url:info.url,cMapUrl:'/vendor/cmaps/',cMapPacked:true,standardFontDataUrl:'/vendor/standard_fonts/',wasmUrl:'/vendor/wasm/'});
+  const pdf=await loadingTask.promise;
+  if(generation!==state.pdfGeneration){await loadingTask.destroy();return;}
+  container.replaceChildren();const link=document.createElement('a');link.className='pdf-download';link.href=info.url;link.target='_blank';link.rel='noopener';link.textContent='Open PDF ↗';container.append(link);
+  for(let pageNumber=1;pageNumber<=pdf.numPages;pageNumber++){
+    const page=await pdf.getPage(pageNumber);if(generation!==state.pdfGeneration){await loadingTask.destroy();return;}
+    const natural=page.getViewport({scale:1});const available=Math.max(200,container.clientWidth-30);const zoom=$('#zoom').value;const scale=zoom==='fit'?available/natural.width:Number(zoom);const viewport=page.getViewport({scale});
+    const wrapper=document.createElement('div');wrapper.className='pdf-page';wrapper.style.width=viewport.width+'px';wrapper.style.height=viewport.height+'px';wrapper.style.setProperty('--scale-factor',scale);wrapper.style.setProperty('--total-scale-factor',scale);wrapper.style.setProperty('--user-unit','1');
+    const canvas=document.createElement('canvas');const ratio=Math.min(window.devicePixelRatio||1,2);canvas.width=Math.floor(viewport.width*ratio);canvas.height=Math.floor(viewport.height*ratio);canvas.style.width=viewport.width+'px';canvas.style.height=viewport.height+'px';wrapper.append(canvas);container.append(wrapper);
+    await page.render({canvasContext:canvas.getContext('2d'),viewport,transform:ratio===1?null:[ratio,0,0,ratio,0,0]}).promise;
+    const layer=document.createElement('div');layer.className='textLayer';wrapper.append(layer);await new library.TextLayer({textContentSource:await page.getTextContent(),container:layer,viewport}).render();
+    const label=document.createElement('div');label.className='pdf-page-label';label.textContent=`Page ${pageNumber} of ${pdf.numPages}`;container.append(label);
   }
-});
-
-loadBranches();
+  await loadingTask.destroy();
+}
+async function compilePDFs(){
+  if(state.dirty){notice('Save your LaTeX edits before compiling.',true);return;}
+  const generation=++state.pdfGeneration, branch=state.snapshot.branch;$('#compile').disabled=true;notice('Compiling the saved versions with the real TeX engine…');
+  try{
+    const results=await Promise.allSettled(['original','current'].map(async side=>{
+      $(`#${side}-pdf`).innerHTML='<p class="pdf-message">Compiling PDF…</p>';
+      try{const result=await api('/api/pdf',{branch,side,engine:$('#engine').value});if(generation!==state.pdfGeneration)return;state.pdfs[side]=result;await renderPDF(side,result,generation);return result;}
+      catch(error){if(generation===state.pdfGeneration)$(`#${side}-pdf`).innerHTML=`<p class="pdf-message">${esc(error.message)}</p>`;throw error;}
+    }));
+    if(generation!==state.pdfGeneration)return;
+    const warnings=results.flatMap(r=>r.status==='fulfilled'?r.value?.warnings||[]:[r.reason.message]);notice(warnings.length?warnings.join('\n'):'Both PDFs compiled. Select text directly on either page.',results.some(r=>r.status==='rejected'));
+  }finally{$('#compile').disabled=false;}
+}
+$('#zoom').onchange=async()=>{const generation=++state.pdfGeneration;try{for(const side of ['original','current'])if(state.pdfs[side])await renderPDF(side,state.pdfs[side],generation);}catch(error){notice(error.message,true);}};
+$('#search').oninput=renderBranches;$('#refresh').onclick=loadBranches;$('#new-branch').onclick=showCreate;$('#branch-from').onclick=showCreate;
+$('#back').onclick=()=>{if(!canLeave())return;state.generation++;state.pdfGeneration++;clearTimeout(state.polling);state.snapshot=null;state.dirty=false;state.jobDirty=false;$('#workspace').hidden=true;$('#board').hidden=false;document.body.classList.remove('in-workspace');history.replaceState(null,'','/');loadBranches();};
+$('#reload').onclick=()=>openBranch(state.snapshot?.branch||$('#branch-title').textContent);
+document.querySelectorAll('[data-view]').forEach(button=>button.onclick=()=>setView(button.dataset.view));
+document.querySelectorAll('.close-dialog').forEach(button=>button.onclick=()=>button.closest('dialog').close());
+$('#current-source').oninput=()=>{state.dirty=$('#current-source').value!==state.snapshot.content;updateSaveState();};
+$('#job-description').oninput=()=>{state.jobDirty=$('#job-description').value!==state.snapshot.job;$('#job-state').textContent=state.jobDirty?'Unsaved changes':'Saved as job.md';};
+$('#save-source').onclick=saveSource;$('#save-job').onclick=saveJob;$('#run-adapt').onclick=runAdapt;$('#compile').onclick=compilePDFs;
+window.addEventListener('beforeunload',event=>{if(state.dirty||state.jobDirty){event.preventDefault();event.returnValue='';}});
+document.addEventListener('keydown',event=>{if(event.key==='/'&&!event.target.closest('input,textarea,select,[contenteditable]')&&!$('#board').hidden){event.preventDefault();$('#search').focus();}if((event.ctrlKey||event.metaKey)&&event.key==='s'&&state.snapshot){event.preventDefault();state.view==='ai'?saveJob():saveSource();}});
+try{state.session=await api('/api/session');await loadBranches();const branch=new URLSearchParams(location.search).get('branch');if(branch)await openBranch(branch);}catch(error){$('#branch-list').innerHTML=`<p class="empty">${esc(error.message)}</p>`;}

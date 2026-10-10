@@ -1,128 +1,42 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="dark" />
-    <title>vita-tree</title>
-    <link rel="stylesheet" href="styles.css" />
-  </head>
-  <body>
-    <div class="grain" aria-hidden="true"></div>
-    <main class="shell">
-      <header class="topbar">
-        <a class="brand" href="/" aria-label="Branch Run home">
-          <span class="brand-mark">VT</span>
-          <span>VITA TREE</span>
-        </a>
-        <div class="repo-chip">
-          <span class="status-dot"></span>
-          <span id="repository">LOADING REPOSITORY</span>
-        </div>
-      </header>
-
-      <section class="hero">
-        <div>
-          <p class="eyebrow">GIT / ACTIVITY BOARD</p>
-          <h1>Latest moves.<br /><span>Zero noise.</span></h1>
-        </div>
-        <div class="metrics" aria-label="Repository metrics">
-          <div class="metric">
-            <strong id="total-count">—</strong>
-            <span>BRANCHES</span>
-          </div>
-          <div class="metric">
-            <strong id="recent-count">—</strong>
-            <span>ACTIVE · 7D</span>
-          </div>
-        </div>
-      </section>
-
-      <section class="board" aria-labelledby="board-title">
-        <div class="board-head">
-          <div>
-            <p class="section-index">01 / BRANCHES</p>
-            <h2 id="board-title">RECENT ACTIVITY</h2>
-          </div>
-          <div class="controls">
-            <label class="search">
-              <span class="search-icon" aria-hidden="true"></span>
-              <span class="sr-only">Filter branches</span>
-              <input id="search" type="search" placeholder="FILTER BRANCHES" autocomplete="off" />
-              <kbd>/</kbd>
-            </label>
-            <button id="refresh" class="refresh" type="button" title="Refresh branch data">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8.1 8.1 0 0 0-14.9-4M4 4v5h5M4 13a8.1 8.1 0 0 0 14.9 4M20 20v-5h-5"/></svg>
-              <span>REFRESH</span>
-            </button>
-          </div>
-        </div>
-
-        <div class="table-wrap">
-          <div class="table-header" aria-hidden="true">
-            <span>BRANCH</span>
-            <span>LAST COMMIT</span>
-            <span>MODIFIED</span>
-          </div>
-          <div id="branch-list" class="branch-list" aria-live="polite">
-            <div class="loading-row"><span></span><span></span><span></span></div>
-            <div class="loading-row"><span></span><span></span><span></span></div>
-            <div class="loading-row"><span></span><span></span><span></span></div>
-          </div>
-        </div>
-
-        <footer class="board-footer">
-          <span id="result-count">FETCHING BRANCHES…</span>
-          <span>SORTED BY LATEST MODIFICATION <b>↓</b></span>
-        </footer>
-      </section>
-    </main>
-
-    <template id="branch-template">
-      <article class="branch-row">
-        <div class="branch-cell">
-          <span class="branch-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><circle cx="6" cy="5" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="6" cy="19" r="2.5"/><path d="M6 7.5v9M17.9 8.5c-.4 4-3.2 5.6-9.4 5.6"/></svg>
-          </span>
-          <div class="branch-name-wrap">
-            <button class="branch-name" type="button" title="Open main.tex"></button>
-            <div class="badges"></div>
-          </div>
-        </div>
-        <div class="commit-cell">
-          <p class="subject"></p>
-          <span class="commit-meta"><code class="sha"></code><i></i><span class="author"></span></span>
-        </div>
-        <time class="date-cell"></time>
-      </article>
-    </template>
-
-    <dialog id="source-modal" class="source-modal">
-      <div class="modal-shell">
-        <header class="modal-head">
-          <div>
-            <p class="section-index">BRANCH DOCUMENT / MAIN.TEX</p>
-            <h2 id="modal-branch">BRANCH</h2>
-          </div>
-          <div class="modal-actions">
-            <div class="view-switch" aria-label="Preview format">
-              <button class="view-option active" data-view="clean" type="button">DOC</button>
-              <button class="view-option" data-view="source" type="button">SOURCE</button>
-            </div>
-            <button id="copy-source" class="modal-button" type="button">COPY</button>
-            <button id="close-modal" class="modal-close" type="button" aria-label="Close preview">×</button>
-          </div>
-        </header>
-        <div class="source-meta">
-          <span id="modal-path">main.tex</span>
-          <span id="modal-commit"></span>
-        </div>
-        <div id="source-state" class="source-state">READING SOURCE…</div>
-        <div id="clean-view" class="clean-view"><article class="clean-document"></article></div>
-        <pre id="source-view" class="source-view" tabindex="0"><code></code></pre>
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vita Tree · CV workspace</title><link rel="icon" href="favicon.svg">
+  <script src="theme.js"></script>
+  <link rel="stylesheet" href="vendor/pdf_viewer.css"><link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar"><div class="topbar-inner"><a class="brand" href="/" aria-label="Vita Tree home"><span class="brand-mark">v.</span>Vita Tree</a><span class="divider">/</span><span id="repository">Repository</span><span class="local-label"><i></i> Local workspace</span><label class="theme-control"><span class="sr-only">Appearance</span><select id="theme" aria-label="Appearance"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label></div></header>
+  <main class="shell">
+    <section id="board">
+      <div class="page-heading"><div><p class="eyebrow">YOUR CV, VERSIONED</p><h1>Branches <span id="total-count" class="count">0</span></h1><p class="subtitle">One foundation. A thoughtful version for every opportunity.</p></div><button id="new-branch" class="primary">＋ New branch</button></div>
+      <div class="list-toolbar"><label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Search branches…" aria-label="Search branches"><kbd>/</kbd></label><button id="refresh" class="quiet">↻ Refresh</button></div>
+      <div class="list-head"><span>Branch</span><span>Latest commit</span><span>Updated</span></div>
+      <div id="branch-list" aria-live="polite"><p class="empty">Loading branches…</p></div>
+      <footer class="list-footer"><span id="result-count"></span><span>Latest activity first</span></footer>
+    </section>
+    <section id="workspace" hidden>
+      <div class="workspace-heading"><div><button id="back" class="back">← All branches</button><h1 id="branch-title"></h1><p id="workspace-caption" class="subtitle"></p></div><div class="actions"><button id="reload">↻ Reload</button><button id="branch-from" class="primary">＋ Branch from this</button></div></div>
+      <div class="workspace-toolbar"><div class="tabs" role="tablist" aria-label="Workspace view"><button role="tab" data-view="structure" aria-selected="true">Structure</button><button role="tab" data-view="source" aria-selected="false">LaTeX</button><button role="tab" data-view="pdf" aria-selected="false">PDF</button><button role="tab" data-view="changes" aria-selected="false">Changes <span id="change-count"></span></button><button role="tab" data-view="ai" aria-selected="false">Job & AI <span id="ai-dot"></span></button></div><div id="document-actions" class="actions"><span id="save-state">Saved</span><button id="save-source" class="primary" disabled>Save changes</button></div></div>
+      <div id="notice" class="notice" role="status" hidden></div>
+      <div id="structure-hint" class="view-hint"><span>Selectable reading view · double-click text in the new version to edit.</span><span>PDF shows the exact layout.</span></div>
+      <div id="pdf-toolbar" class="view-hint" hidden><div class="actions"><label>Engine <select id="engine"><option value="auto">Auto</option><option>pdflatex</option><option>xelatex</option><option>lualatex</option></select></label><button id="compile">Compile both PDFs</button></div><div class="actions"><label>Zoom <select id="zoom"><option value="fit">Fit width</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option></select></label><span>Selectable text · actual TeX output</span></div></div>
+      <div id="comparison" class="comparison">
+        <section class="pane"><header class="pane-heading"><div><span class="pane-dot"></span><strong>Original</strong><span id="original-label"></span></div><span class="pill">Read only</span></header><div id="original-document" class="document-scroll"><article class="cv-document"></article></div><textarea id="original-source" class="source-editor" aria-label="Original LaTeX" readonly spellcheck="false" hidden></textarea><div id="original-pdf" class="pdf-scroll" hidden></div></section>
+        <section class="pane"><header class="pane-heading"><div><span class="pane-dot purple"></span><strong>New version</strong><span id="current-label"></span></div><span id="version-label" class="pill accent">Editable</span></header><div id="current-document" class="document-scroll"><article class="cv-document"></article></div><textarea id="current-source" class="source-editor" aria-label="New version LaTeX" spellcheck="false" hidden></textarea><div id="current-pdf" class="pdf-scroll" hidden></div></section>
       </div>
-    </dialog>
-
-    <script src="app.js"></script>
-  </body>
-</html>
+      <section id="changes-panel" class="content-panel" hidden><div class="panel-heading"><h2>What changed</h2><p>Compared with the original shown on the left.</p></div><pre id="diff" class="diff"></pre></section>
+      <section id="ai-panel" class="ai-grid" hidden>
+        <div class="content-panel"><div class="panel-heading"><span class="eyebrow">01 / CONTEXT</span><h2>Job description</h2><p>Saved as <code>job.md</code> in this branch.</p></div><textarea id="job-description" aria-label="Job description" placeholder="Paste the role, company, requirements, and full job description…"></textarea><div class="panel-footer"><span id="job-state"></span><button id="save-job">Save job.md</button></div></div>
+        <div class="content-panel"><div class="panel-heading"><span class="eyebrow">02 / ADAPT</span><h2>A version for this opportunity</h2><p>Analyze the role, then adapt main.tex using your VITA provider. Review every change before you commit.</p></div><div class="ai-controls"><label>Provider<select id="provider" disabled><option>Loading providers?</option></select></label><label>Model<select id="model" disabled><option>Loading models?</option></select></label><label>Reasoning<select id="reasoning" aria-describedby="reasoning-hint" disabled><option value="">Provider default</option></select></label><label>Language<select id="language"><option value="en">English</option><option value="fr">French</option><option value="ar">Arabic</option><option value="de">German</option><option value="es">Spanish</option></select></label></div><p id="provider-hint" class="helper"></p><p id="reasoning-hint" class="helper"></p><p id="ai-capability" class="helper"></p><div class="panel-footer"><span id="ai-status" role="status">Ready when you are</span><button id="run-adapt" class="primary">Analyze & adapt</button></div><p class="helper privacy">Uses your configured AI provider and sends it the CV and job context.</p></div>
+        <div class="content-panel artifacts"><div class="panel-heading"><h2>AI results</h2><p>Reports from this branch’s VITA workflow.</p></div><div id="artifacts"></div></div>
+      </section>
+      <footer class="workspace-footer"><span id="worktree-path"></span><span>Saved edits stay local and uncommitted.</span></footer>
+    </section>
+  </main>
+  <dialog id="create-dialog"><form id="create-form"><div class="dialog-heading"><div><p class="eyebrow">A NEW OPPORTUNITY</p><h2>Create a branch</h2></div><button type="button" class="close-dialog quiet" aria-label="Close create dialog">×</button></div><label>From branch<select id="base-branch" required></select></label><label>Branch name<input id="branch-name" placeholder="etp-company-role" required pattern="[^ ]+" autocomplete="off"></label><label>Job description<textarea id="new-job" placeholder="Paste the full job description…" required></textarea></label><p class="helper">Creates a separate Git worktree with the current CV and a new job.md. Your original stays in place.</p><p id="create-error" class="form-error" role="alert"></p><footer class="dialog-footer"><button type="button" class="close-dialog">Cancel</button><button type="submit" class="primary">Create branch</button></footer></form></dialog>
+  <dialog id="edit-dialog"><form id="edit-form"><div class="dialog-heading"><div><p class="eyebrow">EDIT TEXT</p><h2>Make it yours</h2></div><button type="button" class="close-dialog quiet" aria-label="Close text editor">×</button></div><label>Text<textarea id="edit-text" required></textarea></label><p class="helper">Updates this text in main.tex. LaTeX special characters are escaped automatically.</p><p id="edit-error" class="form-error" role="alert"></p><footer class="dialog-footer"><button type="button" class="close-dialog">Cancel</button><button type="submit" class="primary">Save text</button></footer></form></dialog>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <script src="app.js" type="module"></script>
+</body></html>
