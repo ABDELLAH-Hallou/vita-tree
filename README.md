@@ -1,15 +1,49 @@
 ﻿# Vita Tree
 
-A local CV workspace for Git branches: a centered branch list, source-mapped LaTeX reading view, side-by-side comparison, editing, job context, VITA AI results, and real PDF previews.
+Browse, edit, and adapt LaTeX CVs across Git branches. Compare versions side by side, keep a job description with each branch, and preview the compiled PDFs.
 
 ## Install and run
 
-```powershell
-python -m pip install -e .
-vt run C:\path\to\cv-repository --vita-source C:\path\to\vita-cv
+Requires **Python 3.10+**, **Git**, and a Git repository containing a LaTeX CV.
+Install the CLI in an isolated environment with pipx:
+
+```sh
+pipx install "vita-tree[ai]"
+vt run /path/to/your/cv-repository
 ```
 
-`--vita-source` uses that local VITA checkout with Vita Tree's Python interpreter. Alternatively install `vita-cv` so `vita` is on PATH. VITA provider authentication/configuration is still required. PDF compilation requires MiKTeX or TeX Live and your template's packages/fonts. The interface and bundled PDF.js viewer work without a CDN.
+Or use uv:
+
+```sh
+uv tool install "vita-tree[ai]"
+vt run /path/to/your/cv-repository
+```
+
+`vita-tree` is also available as an alias for `vt`; `python -m vita_tree` works
+inside the environment where the package is installed. Use `pipx upgrade vita-tree` or `uv tool upgrade vita-tree` to update a published installation.
+
+The optional `[ai]` extra installs the compatible VITA CLI and enables provider
+and reasoning integration automatically. Install plain `vita-tree` if you only
+need browsing, editing, and PDF previews. AI calls still require your VITA
+configuration and provider credentials or Codex login. See
+[VITA](https://github.com/ABDELLAH-Hallou/vita-cv) for CV initialization and provider
+setup. VITA can also be used from a local checkout with `--vita-source`.
+
+**PDF previews:** install MiKTeX (Windows) or TeX Live (Linux/macOS), including your
+template's packages and fonts, and put its executables on PATH. Git and TeX are
+system requirements and are not installed by pip. Browser assets, PDF.js, fonts,
+and character maps are bundled; no Node installation or CDN is needed at runtime.
+
+To run from source:
+
+```sh
+git clone https://github.com/ABDELLAH-Hallou/vita-tree.git
+cd vita-tree
+python -m pip install -e ".[ai]"
+vt run /path/to/your/cv-repository
+```
+
+On Windows use a path such as `vt run "C:\path\to\cv-repository"`.
 
 ```text
 vt run [REPOSITORY] [--port 8765] [--file main.tex] [--no-browser] [--vita-source PATH]
@@ -33,7 +67,7 @@ VITA's local `config.json`, `extensions.json`, and `cv.yaml` are supplied to iso
 
 Provider/model dropdowns scan `.vita/extensions.json` on every local and remote branch ref and in linked working trees. Duplicate choices are combined; hovering over Model lists their sources. Reload rescans the repository. Choosing a model from another branch overrides only the isolated run, leaving your branch configuration intact. These are discovered configurations, not a guarantee that historical model names remain available to your account.
 
-With `--vita-source`, the child-process adapter makes environment credentials available to VITA and forwards Codex reasoning as an explicit `-c model_reasoning_effort` override for both steps. Available levels come from the selected model's entry in `$CODEX_HOME/models_cache.json` (default `~/.codex`). Models absent from that catalog and non-Codex providers offer **Provider default** only; unsupported settings are rejected by the server. No parent VITA source files or global Codex settings are changed.
+With the `[ai]` extra or `--vita-source`, the child-process adapter makes environment credentials available to VITA and forwards Codex reasoning as an explicit `-c model_reasoning_effort` override for both steps. Available levels come from the selected model's entry in `$CODEX_HOME/models_cache.json` (default `~/.codex`). Models absent from that catalog and non-Codex providers offer **Provider default** only; unsupported settings are rejected by the server. No parent VITA source files or global Codex settings are changed.
 
 The **Appearance** selector in the header offers Light, Dark, and System. Your preference is saved in this browser; System follows OS appearance changes. Reading pages and compiled PDFs remain white in dark mode.
 
@@ -45,7 +79,7 @@ For a pipx editable installation, source changes take effect when you restart `v
 | --- | --- |
 | Centered, responsive branch list and original/new comparison | Implemented |
 | Actual LaTeX syntax parsing with positions | `pylatexenc` AST, not regex stripping |
-| sample CV `resume.cls` content: names, addresses, rSection/rSubsection, formatting, bullets, tabularx | Structured reading view supported |
+| Common `resume.cls` content: names, addresses, rSection/rSubsection, formatting, bullets, tabularx | Structured reading view supported |
 | Text selection and mapped editing | HTML reading view and PDF text layer; edits made in Structure/LaTeX update the source |
 | Exact fonts, spacing, line breaks, page breaks | Compiled PDF is authoritative |
 | Arbitrary macro expansion / exact HTML reproduction of every LaTeX package | Not supported; use PDF and source editing |
@@ -60,24 +94,18 @@ Structure preserves unsupported source and explicitly reports unknown commands/e
 
 PDF previews and AI snapshots are stored under the repository Git common directory's `vita-tree/pdf/` and `vita-tree/runs/`. These can accumulate; keep the server stopped before manually cleaning old cache folders. Do not delete `worktrees/` directly; use Git's worktree commands.
 
-## Research behind the implementation
-
-- [pylatexenc's parser and source-position API](https://pylatexenc.readthedocs.io/en/v2.10/latexwalker/) explains its AST and explicitly distinguishes parsing from a full TeX engine.
-- [PDF.js rendering examples](https://mozilla.github.io/pdf.js/examples/) describe page viewports, canvas rendering, and high-DPI scaling. The packaged PDF.js text-layer implementation supplies selection at the same viewport scale.
-- [Git worktree documentation](https://git-scm.com/docs/git-worktree) describes isolated linked checkouts and branch checkout constraints.
-- [MiKTeX engine options](https://docs.miktex.org/manual/miktex-xetex.html) document disabled shell commands, disabled automatic package installation, and noninteractive compilation options.
-- Local `vita-cv/vita/commands/ai_step.py` and `vita/helpers/context_builder.py` define the actual `analyze`/`adapt` artifact contract. The adapter checks outputs because that CLI can report failure while exiting with code zero.
-- [Official Codex configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference) documents model-dependent reasoning levels and explicit model/reasoning overrides. The local model catalog determines the offered choices.
-
 ## Development and verification
 
 ```powershell
 python -m pip install -e ".[test]"
 python -m unittest discover -s tests -v
-python tests/browser_check.py --sample-cv C:\path\to\cv-repository
+python -m playwright install chromium
+python tests/browser_check.py --browser chromium
 ```
 
-The browser smoke test uses installed Google Chrome through Playwright and an isolated Git fixture. It tests provider/model choices across branches, reasoning delivered to both controlled CLI steps, theme persistence and system changes, branch creation, real file saves, mapped edits, source edits, reports, conflicts, desktop/mobile layout, actual TeX compilation, and PDF text selection in both themes. `--sample-cv` additionally compiles copies of sample CV's main.tex and resume.cls and checks its pages. It does not change sample CV or call a paid AI provider. Screenshots and PDFs go in ignored `.test-artifacts/`.
+Browser tests cover editing, branch creation, provider settings, themes, conflicts,
+and real PDF compilation and text selection. They use synthetic CVs and a fake AI
+provider. Screenshots and PDFs are saved in ignored `.test-artifacts/`.
 
 PDF.js is pinned in `package-lock.json`; browser assets and its Apache license are vendored into the Python package. Node is only needed to refresh these assets:
 
@@ -87,3 +115,14 @@ npm run vendor
 ```
 
 Use Node 22.13+ or 24+ when updating PDF.js. The application itself runs on Python 3.10+.
+
+## Releases
+
+Use `feat:` and `fix:` commit messages. Release Please opens a PR updating the
+version and changelog; merging it creates the release tag. Code, browser/PDF,
+package installation, and privacy checks run before TestPyPI and PyPI uploads.
+Publishing uses `PYPI_API_TOKEN` in the `pypi` environment,
+`TEST_PYPI_API_TOKEN` in `testpypi`, and the repository's `RELEASE_PLEASE_TOKEN`.
+
+Vita Tree is MIT licensed. Bundled PDF.js components retain their original licenses;
+see [third-party notices](https://github.com/ABDELLAH-Hallou/vita-tree/blob/main/THIRD_PARTY_NOTICES.md).

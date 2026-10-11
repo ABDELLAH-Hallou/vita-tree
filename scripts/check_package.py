@@ -1,29 +1,59 @@
-"""Check distributable completeness and import the isolated installed wheel."""
-from pathlib import Path
+﻿"""Validate the exact wheel/sdist contents before publication (no upload)."""
+from email.parser import BytesParser
+import hashlib
+from pathlib import Path, PurePosixPath
 import sys
 import tarfile
 import zipfile
 
-with zipfile.ZipFile('dist/vita_tree-0.1.0-py3-none-any.whl') as package:
-    names = package.namelist()
-    for name in ('latex.py', 'pdf.py', 'workspace.py', 'static/app.js',
-                 'static/vendor/pdf.mjs', 'static/vendor/pdf.worker.mjs',
-                 'static/vendor/pdf_viewer.css', 'static/vendor/PDFJS-LICENSE'):
-        assert 'vita_tree/' + name in names, name
-    assert len([n for n in names if '/static/vendor/' in n]) == 202
-    assert b'Requires-Dist: pylatexenc==2.10' in package.read('vita_tree-0.1.0.dist-info/METADATA')
-with tarfile.open('dist/vita_tree-0.1.0.tar.gz') as package:
-    names = package.getnames()
-    for name in ('tests/support.py', 'tests/browser_check.py', 'scripts/vendor-pdf.mjs', 'package-lock.json'):
-        assert any(n.endswith('/' + name) for n in names), name
 
-installed = Path('.test-artifacts/package-smoke').resolve()
-sys.path.insert(0, str(installed))
-from vita_tree import server
-from vita_tree.latex import parse_document
+def check(directory):
+    wheels, sdists = list(directory.glob('*.whl')), list(directory.glob('*.tar.gz'))
+    if len(wheels) != 1 or len(sdists) != 1:
+        raise ValueError('Use a clean dist directory containing exactly one wheel and one sdist.')
+    root = Path(__file__).resolve().parents[1]
+    expected = {str(p.relative_to(root / 'src')).replace('\\', '/'): p
+                for p in (root / 'src/vita_tree').rglob('*')
+                if p.is_file() and '__pycache__' not in p.parts and p.suffix != '.pyc'}
+    with zipfile.ZipFile(wheels[0]) as wheel:
+        names = set(wheel.namelist())
+        missing = expected.keys() - names
+        if missing:
+            raise ValueError(f'Wheel missing files: {sorted(missing)}')
+        for name, path in expected.items():
+            if wheel.read(name) != path.read_bytes():
+                raise ValueError(f'Stale or changed wheel file: {name}')
+        metadata = BytesParser().parsebytes(wheel.read(next(n for n in names if n.endswith('.dist-info/METADATA'))))
+        assert metadata['Name'] == 'vita-tree'
+        assert not metadata['Author-email'] and not metadata['Maintainer-email'], 'Do not publish personal contact metadata'
+        assert metadata['License-Expression'] == 'MIT'
+        assert metadata['Requires-Python'] == '>=3.10'
+        requirements = metadata.get_all('Requires-Dist') or []
+        assert any(r.startswith('pylatexenc==2.10') for r in requirements)
+        assert any(r.startswith('vita-cv') and 'ai' in r for r in requirements)
+        assert len(metadata.get_all('License-File') or []) >= 12
+        version = metadata['Version']
+        assert wheels[0].name == f'vita_tree-{version}-py3-none-any.whl'
+        assert sdists[0].name == f'vita_tree-{version}.tar.gz'
+        entries = wheel.read(next(n for n in names if n.endswith('.dist-info/entry_points.txt'))).decode()
+        assert 'vt = vita_tree.cli:main' in entries and 'vita-tree = vita_tree.cli:main' in entries
+    with tarfile.open(sdists[0]) as sdist:
+        source_names = set(sdist.getnames())
+        for path in ['LICENSE', 'THIRD_PARTY_NOTICES.md', 'README.md', 'CHANGELOG.md', 'pyproject.toml',
+                     'scripts/check_package.py', 'scripts/check_privacy.py', 'scripts/validate_release.py',
+                     'scripts/vendor-pdf.mjs', 'tests/support.py', 'tests/browser_check.py',
+                     'tests/smoke/run_installed_package.py', 'tests/smoke/installed_check.py', 'package-lock.json']:
+            assert f'vita_tree-{version}/{path}' in source_names, path
+        for name in expected:
+            assert f'vita_tree-{version}/src/{name}' in source_names, name
+    for name in names | source_names:
+        parts = PurePosixPath(name).parts
+        assert not set(parts) & {'.env', '.git', '.venv', '.pypirc', '.test-artifacts', 'node_modules', '__pycache__'}, name
+        assert not name.endswith(('.pdf', '.tex', '.pyc')), name
+    for path in [wheels[0], sdists[0]]:
+        print(f'{path.name}  sha256:{hashlib.sha256(path.read_bytes()).hexdigest()}')
+    print(f'PASS: {version} metadata, entry points, licenses, all {len(expected)} package files, and source inputs.')
 
-assert Path(server.__file__).is_relative_to(installed)
-assert server.STATIC_ROOT.is_dir()
-assert (server.STATIC_ROOT / 'vendor/pdf.worker.mjs').is_file()
-assert parse_document(r'\begin{document}\textbf{Installed wheel}\end{document}')["error"] is None
-print('PASS: wheel import, parser, all 202 vendor assets/licenses, dependency metadata, and source-distribution test/build inputs.')
+
+if __name__ == '__main__':
+    check(Path(sys.argv[1]) if len(sys.argv) > 1 else Path('dist'))

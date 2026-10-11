@@ -8,3 +8,15 @@ build/
 node_modules/
 .test-artifacts/
 .vita-tree-test-*/
+.env
+.env.*
+.pypirc
+.coverage*
+htmlcov/
+.ruff_cache/
+.vita/
+*.pem
+*.key
+*.p12
+*.pfx
+*.bundle

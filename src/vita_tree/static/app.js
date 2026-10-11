@@ -14,7 +14,7 @@ function renderReasoning(preferred='') {
   $('#reasoning').value=efforts.includes(preferred)?preferred:'';
   $('#reasoning').disabled=!efforts.length || !!state.snapshot?.running;
   $('#reasoning-hint').textContent=efforts.length?'Reasoning applies to both analysis and adaptation. Higher levels can take longer.':
-    option?.provider==='codex'?(state.catalog.reasoningBridge?'Select a model with reasoning levels in your local Codex catalog.':'Reasoning requires VITA source integration. Start with --vita-source pointing to vita-cv.'):
+    option?.provider==='codex'?(state.catalog.reasoningBridge?'Select a model with reasoning levels in your local Codex catalog.':'Reasoning requires the AI integration. Install vita-tree[ai] or use --vita-source.'):
     'This provider/model uses its default reasoning; the current VITA integration has no effort control for it.';
   $('#provider-hint').textContent=`Providers and models found across ${state.catalog.refCount} branch refs and local settings. Model access depends on your provider account.`;
   $('#model').title=option?`Found in:\n${option.sources.join('\n')}`:'';
@@ -100,7 +100,7 @@ function updateSnapshot() {
   renderDocument('original',s.originalDocument);renderDocument('current',s.document);
   $('#job-description').value=s.job;$('#job-description').readOnly=!s.editable||!!s.running;$('#job-state').textContent=s.job?'Saved as job.md':'No job description yet';
   $('#save-job').disabled=!s.editable||!!s.running;$('#branch-from').disabled=!!s.running;$('#compile').disabled=false;$('#ai-dot').textContent=Object.keys(s.artifacts).length?'•':'';
-  $('#ai-capability').textContent=state.session.vita?'Runs vita analyze --auto, then vita adapt --auto.': 'VITA CLI is unavailable. Restart with --vita-source pointing to your vita-cv folder.';
+  $('#ai-capability').textContent=state.session.vita?'Runs vita analyze --auto, then vita adapt --auto.': 'VITA CLI is unavailable. Install vita-tree[ai] or restart with --vita-source pointing to vita-cv.';
   $('#run-adapt').disabled=!state.session.vita || !s.editable || !!s.running || !selectedModel()?.supported;
   $('#ai-status').textContent=s.running?.message || 'Ready when you are';
   $('#worktree-path').textContent=s.worktree || 'A separate worktree will be created on first save.';

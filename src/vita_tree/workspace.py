@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import difflib
 import hashlib
+from importlib.metadata import distribution, PackageNotFoundError
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -68,6 +69,13 @@ class Workspace:
         self.lock = threading.RLock()
         self.jobs: dict[str, dict] = {}
         self.vita_source = vita_source
+        if self.vita_source is None:
+            try:
+                # The optional [ai] extra installs VITA in this interpreter, so
+                # pipx/uv users get the same bridge as --vita-source users.
+                self.vita_source = Path(distribution('vita-cv').locate_file('')).resolve()
+            except PackageNotFoundError:
+                pass
 
     def branch(self, name):
         for branch in branch_payload(self.repository)["branches"]:

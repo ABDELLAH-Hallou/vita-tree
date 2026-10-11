@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
+from . import __version__
 from .server import resolve_repository, serve
 
 
@@ -15,7 +16,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="vt",
         description="Browse Git branches and preview their LaTeX documents.",
     )
-    parser.add_argument("--version", action="version", version="vita-tree 0.1.0")
+    parser.add_argument("--version", action="version", version=f"vita-tree {__version__}")
     commands = parser.add_subparsers(dest="command", required=True)
     run = commands.add_parser("run", help="start the branch dashboard")
     run.add_argument(

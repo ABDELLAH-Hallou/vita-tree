@@ -1,29 +1,47 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "vita-tree"
-version = "0.1.0"
-description = "A fast visual browser for Git-based CV branches"
+dynamic = ["version"]
+description = "A local Git and LaTeX CV workspace with branch comparison, editing, and PDF previews"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md", "src/vita_tree/static/vendor/*LICENSE*", "src/vita_tree/static/vendor/*/LICENSE*"]
 authors = [{ name = "Vita Tree contributors" }]
 keywords = ["git", "latex", "resume", "dashboard"]
 classifiers = [
-  "Development Status :: 3 - Alpha",
+  "Development Status :: 5 - Production/Stable",
   "Environment :: Console",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Operating System :: OS Independent",
+  "Topic :: Text Processing :: Markup :: LaTeX",
+  "Topic :: Software Development :: Version Control :: Git",
 ]
 dependencies = ["pylatexenc==2.10"]
 
 [project.optional-dependencies]
+ai = ["vita-cv>=2.3,<3"]
 test = ["playwright>=1.50,<2", "pypdf>=6,<7"]
+release = ["build>=1.2,<2", "twine>=6,<7"]
 
 [project.scripts]
 vt = "vita_tree.cli:main"
+vita-tree = "vita_tree.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/ABDELLAH-Hallou/vita-tree"
+Repository = "https://github.com/ABDELLAH-Hallou/vita-tree"
+Issues = "https://github.com/ABDELLAH-Hallou/vita-tree/issues"
+Changelog = "https://github.com/ABDELLAH-Hallou/vita-tree/blob/main/CHANGELOG.md"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
@@ -31,6 +49,10 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["src"]
+include = ["vita_tree*"]
+
+[tool.setuptools.dynamic]
+version = {attr = "vita_tree.__version__"}
 
 [tool.setuptools.package-data]
 vita_tree = ["static/*", "static/vendor/*", "static/vendor/standard_fonts/*", "static/vendor/cmaps/*", "static/vendor/wasm/*"]

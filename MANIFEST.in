@@ -1,3 +1,8 @@
+include README.md LICENSE THIRD_PARTY_NOTICES.md CHANGELOG.md pyproject.toml
 include package.json package-lock.json
-recursive-include scripts *.mjs
+recursive-include scripts *.mjs *.py
 recursive-include tests *.py
+recursive-exclude * __pycache__ *.py[cod]
+prune .test-artifacts
+prune .venv
+prune node_modules

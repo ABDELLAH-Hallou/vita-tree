@@ -17,7 +17,9 @@ from support import init_repo, git
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--sample-cv',type=Path);args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--sample-cv',type=Path)
+    parser.add_argument('--browser',choices=('chrome','chromium'),default='chrome')
+    args=parser.parse_args()
     artifacts=Path('.test-artifacts').resolve();artifacts.mkdir(exist_ok=True)
     root=artifacts/('ui-'+str(time.time_ns()));init_repo(root)
     config=root/'.vita/extensions.json';config.parent.mkdir(exist_ok=True)
@@ -59,7 +61,7 @@ if step=='adapt':
     errors=[]
     try:
         with sync_playwright() as p:
-            browser=p.chromium.launch(channel='chrome',headless=True)
+            browser=p.chromium.launch(**({'channel':'chrome'} if args.browser=='chrome' else {}),headless=True)
             page=browser.new_page(viewport={'width':1440,'height':1000},device_scale_factor=1)
             page.on('pageerror',lambda error:errors.append(str(error)))
             page.goto('http://127.0.0.1:'+str(server.server_port));expect(page.get_by_role('button',name='Open master',exact=True)).to_be_visible()
