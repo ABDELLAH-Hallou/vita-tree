@@ -137,3 +137,14 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(error.exception.code,400)
         with urlopen(self.url+'/vendor/pdf.mjs') as response:
             self.assertIn(response.headers.get_content_type(),('text/javascript','application/javascript'))
+
+    def test_asset_mime_ignores_host_file_associations(self):
+        with patch('mimetypes.guess_type', return_value=('text/plain', None)):
+            for path, expected in (
+                ('/app.js', 'text/javascript'),
+                ('/vendor/pdf.mjs', 'text/javascript'),
+                ('/vendor/pdf_viewer.css', 'text/css'),
+                ('/vendor/wasm/qcms_bg.wasm', 'application/wasm'),
+            ):
+                with self.subTest(path=path), urlopen(self.url+path) as response:
+                    self.assertEqual(response.headers.get_content_type(), expected)

@@ -178,6 +178,15 @@ class VitaTreeServer(ThreadingHTTPServer):
 
 class DashboardHandler(SimpleHTTPRequestHandler):
     server: VitaTreeServer
+    # Windows registry associations can label JS modules as text/plain, which
+    # browsers reject with nosniff. Keep bundled web assets platform-independent.
+    extensions_map = {
+        **SimpleHTTPRequestHandler.extensions_map,
+        ".js": "text/javascript",
+        ".mjs": "text/javascript",
+        ".css": "text/css",
+        ".wasm": "application/wasm",
+    }
 
     def __init__(self, *args: object, **kwargs: object) -> None:
         super().__init__(*args, directory=str(STATIC_ROOT), **kwargs)
