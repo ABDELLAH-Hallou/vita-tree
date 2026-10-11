@@ -19,6 +19,10 @@ PRIVATE_SUFFIXES = {'.pem', '.key', '.p12', '.pfx', '.bundle', '.pdf', '.tex', '
 
 
 def email_is_public_example(value):
+    # GitHub's web-flow committer uses this public service address for PR merge
+    # commits. Allow the exact address, not personal addresses at github.com.
+    if value.lower() == 'noreply@github.com':
+        return True
     domain = value.rsplit('@', 1)[1].lower()
     return domain in {'example.com', 'example.org', 'example.net', 'users.noreply.github.com'} or domain.endswith('.invalid')
 
