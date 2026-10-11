@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.1.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.0.0...v1.1.0) (2026-10-11)
+
+
+### Features
+
+* add LaTeX syntax highlighting and linting ([4b702dc](https://github.com/ABDELLAH-Hallou/vita-tree/commit/4b702dce3f77b79016260dd5859c4dce390a6f43))
+* add LaTeX syntax highlighting and linting ([5fb51a8](https://github.com/ABDELLAH-Hallou/vita-tree/commit/5fb51a8bee46e5fab6d681ed6271253b0c2a3370))
+
+
+### Bug Fixes
+
+* recognize GitHub merge service email in privacy checks ([613b3df](https://github.com/ABDELLAH-Hallou/vita-tree/commit/613b3dfa843a4616d5894e3c8e674c82386a4594))
+* restore project author attribution ([c364d68](https://github.com/ABDELLAH-Hallou/vita-tree/commit/c364d68ef3007b92b8a1efbd1925f4cbae276353))
+
 ## 1.0.0 (2026-10-11)
 
 First public package release.
