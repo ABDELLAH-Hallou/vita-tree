@@ -23,3 +23,8 @@ No upstream license is replaced by the MIT license of Vita Tree.
 `pylatexenc` and the optional `vita-cv` integration are installed as Python
 dependencies; their source is not copied into Vita Tree. They retain their own
 licenses and metadata.
+
+The offline LaTeX editor bundles CodeMirror, Lezer, and their runtime dependencies.
+Their original MIT license notices are collected in `static/vendor/EDITOR-LICENSE`.
+Pinned versions are in `package-lock.json`; `npm run build:editor` rebuilds the
+bundle and notices from `scripts/latex-editor.mjs`.

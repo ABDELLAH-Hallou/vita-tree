@@ -44,7 +44,7 @@ def main():
         with urlopen(base + path) as response:
             return json.load(response)
     try:
-        for name in ('index.html', 'app.js', 'styles.css', 'theme.js', 'vendor/pdf.mjs', 'vendor/pdf.worker.mjs', 'vendor/PDFJS-LICENSE'):
+        for name in ('index.html', 'app.js', 'styles.css', 'theme.js', 'vendor/pdf.mjs', 'vendor/pdf.worker.mjs', 'vendor/PDFJS-LICENSE', 'vendor/editor.mjs', 'vendor/EDITOR-LICENSE'):
             with urlopen(base + '/' + name) as response:
                 assert response.read() == (STATIC_ROOT / name).read_bytes(), name
         assert len(list((STATIC_ROOT / 'vendor').rglob('*.*'))) > 150
@@ -53,6 +53,9 @@ def main():
         snapshot = get('/api/workspace?branch=master')
         assert 'Installed CV' in snapshot['document']['html']
         token = get('/api/session')['token']
+        request = Request(base + '/api/lint', data=json.dumps({'content':r'\textbf{unfinished'}).encode(), headers={'Content-Type':'application/json','X-Vita-Token':token})
+        with urlopen(request) as response:
+            assert json.load(response)['diagnostics'][0]['severity'] == 'error'
         body = {'branch':'master', 'path':'main.tex', 'revision':snapshot['revision'], 'content':source + '\n% Saved from installed package'}
         request = Request(base + '/api/save', data=json.dumps(body).encode(), headers={'Content-Type':'application/json','X-Vita-Token':token})
         with urlopen(request) as response:
