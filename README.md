@@ -131,5 +131,10 @@ package installation, and privacy checks run before TestPyPI and PyPI uploads.
 Publishing uses `PYPI_API_TOKEN` in the `pypi` environment,
 `TEST_PYPI_API_TOKEN` in `testpypi`, and the repository's `RELEASE_PLEASE_TOKEN`.
 
+## Author
+
+Created and maintained by [Abdellah HALLOU](https://github.com/ABDELLAH-Hallou),
+the project's main contributor. Contact: [abdeallahhallou33@gmail.com](mailto:abdeallahhallou33@gmail.com).
+
 Vita Tree is MIT licensed. Bundled PDF.js components retain their original licenses;
 see [third-party notices](https://github.com/ABDELLAH-Hallou/vita-tree/blob/main/THIRD_PARTY_NOTICES.md).

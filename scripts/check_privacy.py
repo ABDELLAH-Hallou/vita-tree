@@ -1,4 +1,4 @@
-"""Fail publication checks on private files, personal email addresses or home paths.
+"""Fail publication checks on private files, unapproved emails or home paths.
 
 Reports locations and categories only, never matched values. This complements a
 credential scanner and human review; it cannot identify every form of private data.
@@ -16,12 +16,15 @@ HOME = re.compile(r'(?:[A-Za-z]:[\\/]+Users[\\/]+[A-Za-z0-9_.-]+[\\/]|/(?:Users|
 PRIVATE_KEY = re.compile(r'-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----')
 PRIVATE_PARTS = {'.git', '.vita', '.env', '.pypirc', '.test-artifacts', '.venv', 'node_modules', '__pycache__'}
 PRIVATE_SUFFIXES = {'.pem', '.key', '.p12', '.pfx', '.bundle', '.pdf', '.tex', '.log', '.pyc'}
+# The project author explicitly approved publishing this contact address.
+# Keep exceptions exact: other personal contacts must still fail the scan.
+PUBLIC_CONTACT_EMAILS = {'abdeallahhallou33@gmail.com', 'noreply@github.com'}
 
 
-def email_is_public_example(value):
+def email_is_public(value):
     # GitHub's web-flow committer uses this public service address for PR merge
     # commits. Allow the exact address, not personal addresses at github.com.
-    if value.lower() == 'noreply@github.com':
+    if value.lower() in PUBLIC_CONTACT_EMAILS:
         return True
     domain = value.rsplit('@', 1)[1].lower()
     return domain in {'example.com', 'example.org', 'example.net', 'users.noreply.github.com'} or domain.endswith('.invalid')
@@ -39,7 +42,7 @@ def inspect(name, data):
         return problems
     text = data.decode('utf-8-sig', errors='replace')
     for match in EMAIL.finditer(text):
-        if not email_is_public_example(match.group()):
+        if not email_is_public(match.group()):
             problems.append((name, f'personal email at line {text[:match.start()].count(chr(10)) + 1}'))
     for pattern, category in ((HOME, 'user home path'), (PRIVATE_KEY, 'private key')):
         for match in pattern.finditer(text):

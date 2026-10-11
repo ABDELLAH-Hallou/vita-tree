@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md", "src/vita_tree/static/vendor/*LICENSE*", "src/vita_tree/static/vendor/*/LICENSE*"]
-authors = [{ name = "Vita Tree contributors" }]
+authors = [{ name = "Abdellah HALLOU", email = "abdeallahhallou33@gmail.com" }]
 keywords = ["git", "latex", "resume", "dashboard"]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
