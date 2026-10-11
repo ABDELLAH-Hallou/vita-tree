@@ -1,5 +1,6 @@
 ﻿"""Validate the exact wheel/sdist contents before publication (no upload)."""
 from email.parser import BytesParser
+from email.utils import getaddresses
 import hashlib
 from pathlib import Path, PurePosixPath
 import sys
@@ -25,7 +26,10 @@ def check(directory):
                 raise ValueError(f'Stale or changed wheel file: {name}')
         metadata = BytesParser().parsebytes(wheel.read(next(n for n in names if n.endswith('.dist-info/METADATA'))))
         assert metadata['Name'] == 'vita-tree'
-        assert not metadata['Author-email'] and not metadata['Maintainer-email'], 'Do not publish personal contact metadata'
+        assert getaddresses(metadata.get_all('Author-email') or []) == [
+            ('Abdellah HALLOU', 'abdeallahhallou33@gmail.com')
+        ], 'Package must credit the approved project author'
+        assert not metadata['Maintainer-email'], 'Unexpected maintainer contact metadata'
         assert metadata['License-Expression'] == 'MIT'
         assert metadata['Requires-Python'] == '>=3.10'
         requirements = metadata.get_all('Requires-Dist') or []

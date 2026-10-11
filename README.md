@@ -53,6 +53,13 @@ The server accepts localhost connections only. It can modify the chosen reposito
 
 ## Workflow
 
+The LaTeX tab includes syntax colors, line numbers, bracket matching, undo/redo,
+and search (Ctrl/Cmd+F). Live syntax checks underline parser errors; click the
+status below the editor for details. Checks report the first syntax error and
+do not validate custom macro expansion or installed packages; compile the PDF
+for full validation. Unsaved and temporarily invalid source can still be saved.
+The editor is bundled locally and follows the selected light/dark theme.
+
 1. Open a branch. Existing checked-out branches display working files, including uncommitted `main.tex`, `job.md`, and `.vita/results/*.md`. Other branches display committed files.
 2. Choose **Branch from this**, name the branch, and paste the job description. Vita Tree creates a Git linked worktree below the repository's Git common directory at `vita-tree/worktrees/`. The original checkout is not switched. The viewed main document and the new `job.md` are written to the new worktree.
 3. In **Structure**, select/copy text normally, or double-click text in the new version to edit it. The parser maps text to its exact source range and escapes LaTeX special characters. **LaTeX** provides the full editable source for other changes. Save writes the branch worktree's real file.
@@ -123,6 +130,11 @@ version and changelog; merging it creates the release tag. Code, browser/PDF,
 package installation, and privacy checks run before TestPyPI and PyPI uploads.
 Publishing uses `PYPI_API_TOKEN` in the `pypi` environment,
 `TEST_PYPI_API_TOKEN` in `testpypi`, and the repository's `RELEASE_PLEASE_TOKEN`.
+
+## Author
+
+Created and maintained by [Abdellah HALLOU](https://github.com/ABDELLAH-Hallou),
+the project's main contributor. Contact: [abdeallahhallou33@gmail.com](mailto:abdeallahhallou33@gmail.com).
 
 Vita Tree is MIT licensed. Bundled PDF.js components retain their original licenses;
 see [third-party notices](https://github.com/ABDELLAH-Hallou/vita-tree/blob/main/THIRD_PARTY_NOTICES.md).

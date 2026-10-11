@@ -1,5 +1,16 @@
 ﻿const $ = selector => document.querySelector(selector);
 const state = {branches: [], session: null, snapshot: null, view: 'structure', generation: 0, pdfs: {}, pdfGeneration: 0, dirty: false, jobDirty: false, polling: null, leaf: null};
+import {createLatexEditor} from './vendor/editor.mjs';
+const editors = Object.fromEntries(['original', 'current'].map(side => [side, createLatexEditor($(`#${side}-source`), {
+  label: side === 'original' ? 'Original LaTeX' : 'New version LaTeX', readOnly: true,
+  onChange: value => {if(side === 'current' && state.snapshot) {state.dirty = value !== state.snapshot.content; updateSaveState();}},
+  lint: async (content, signal) => {
+    const response = await fetch('/api/lint', {method:'POST', signal, headers:{'Content-Type':'application/json','X-Vita-Token':state.session.token}, body:JSON.stringify({content})});
+    const result = await response.json();
+    if(!response.ok) throw new Error(result.error || 'Syntax check failed');
+    return result;
+  },
+})]));
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const aiChoices = new Map();
 const providerNames = {codex:'Codex',gemini:'Gemini',google:'Google Gemini',openai:'OpenAI',anthropic:'Anthropic'};
@@ -77,7 +88,7 @@ async function openBranch(name, force=false) {
   state.snapshot=null;
   for(const id of ['provider','model','reasoning']) $('#'+id).disabled=true;
   for(const id of ['save-source','save-job','run-adapt','branch-from','compile']) $('#'+id).disabled=true;
-  $('#current-source').readOnly=true;$('#job-description').readOnly=true;
+  editors.current.setReadOnly(true);$('#job-description').readOnly=true;
   $('#board').hidden=true;$('#workspace').hidden=false;document.body.classList.add('in-workspace');
   $('#branch-title').textContent=name; notice('Loading the branch…');
   try {
@@ -96,7 +107,7 @@ function updateSnapshot() {
   $('#branch-title').textContent=s.branch;$('#workspace-caption').textContent='Read, compare, and shape your next application.';
   $('#original-label').textContent=s.baseBranch;$('#current-label').textContent=s.branch;
   $('#version-label').textContent=s.editable?'Editable':'Remote';
-  $('#original-source').value=s.original;$('#current-source').value=s.content;$('#current-source').readOnly=!s.editable||!!s.running;
+  editors.original.setDocument(s.original,s.branch);editors.current.setDocument(s.content,s.branch);editors.current.setReadOnly(!s.editable||!!s.running);
   renderDocument('original',s.originalDocument);renderDocument('current',s.document);
   $('#job-description').value=s.job;$('#job-description').readOnly=!s.editable||!!s.running;$('#job-state').textContent=s.job?'Saved as job.md':'No job description yet';
   $('#save-job').disabled=!s.editable||!!s.running;$('#branch-from').disabled=!!s.running;$('#compile').disabled=false;$('#ai-dot').textContent=Object.keys(s.artifacts).length?'•':'';
@@ -129,6 +140,7 @@ function setView(view){
   document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.view===view)));
   $('#comparison').hidden=!['structure','source','pdf'].includes(view);$('#structure-hint').hidden=view!=='structure';$('#pdf-toolbar').hidden=view!=='pdf';$('#changes-panel').hidden=view!=='changes';$('#ai-panel').hidden=view!=='ai';$('#document-actions').hidden=['ai','pdf'].includes(view);
   for(const side of ['original','current']) {$(`#${side}-document`).hidden=view!=='structure';$(`#${side}-source`).hidden=view!=='source';$(`#${side}-pdf`).hidden=view!=='pdf';}
+  if(view==='source') for(const editor of Object.values(editors)) editor.refresh();
   if(!state.snapshot)return;
   if(view==='structure'){
     const warnings=[...new Set([...state.snapshot.document.warnings,...state.snapshot.originalDocument.warnings])];
@@ -141,9 +153,9 @@ function setView(view){
 async function saveSource(){
   if(!state.dirty||!state.snapshot)return;
   if(state.jobDirty){notice('Save job.md before saving your LaTeX edits.',true);return;}
-  const s=state.snapshot, value=$('#current-source').value;$('#save-source').disabled=true;$('#current-source').readOnly=true;$('#job-description').readOnly=true;$('#save-job').disabled=true;
+  const s=state.snapshot, value=editors.current.value;$('#save-source').disabled=true;editors.current.setReadOnly(true);$('#job-description').readOnly=true;$('#save-job').disabled=true;
   try {await api('/api/save',{branch:s.branch,path:s.path,revision:s.revision,content:value});await openBranch(s.branch,true);toast('Saved to '+s.path);}
-  catch(error){notice(error.message,true);$('#current-source').readOnly=false;$('#job-description').readOnly=false;$('#save-job').disabled=false;updateSaveState();}
+  catch(error){notice(error.message,true);editors.current.setReadOnly(!s.editable);$('#job-description').readOnly=false;$('#save-job').disabled=false;updateSaveState();}
 }
 async function saveJob(){
   if(!state.snapshot)return;
@@ -176,10 +188,10 @@ $('#edit-form').onsubmit=async event=>{
 async function runAdapt(){
   if(!state.snapshot)return;
   if(state.dirty||state.jobDirty){notice('Save your CV and job description before starting AI.',true);return;}
-  $('#run-adapt').disabled=true;$('#current-source').readOnly=true;$('#job-description').readOnly=true;$('#save-job').disabled=true;$('#branch-from').disabled=true;const s=state.snapshot;
+  $('#run-adapt').disabled=true;editors.current.setReadOnly(true);$('#job-description').readOnly=true;$('#save-job').disabled=true;$('#branch-from').disabled=true;const s=state.snapshot;
   rememberAI();
   try{const job=await api('/api/adapt',{branch:s.branch,revision:s.revision,jobRevision:s.jobRevision,provider:$('#provider').value,model:$('#model').value,reasoning:$('#reasoning').value,language:$('#language').value});s.running=job;renderProviders();updateSaveState();pollJob(job.id,s.branch);}
-  catch(error){notice(error.message,true);$('#run-adapt').disabled=false;$('#current-source').readOnly=!s.editable;$('#job-description').readOnly=!s.editable;$('#save-job').disabled=!s.editable;$('#branch-from').disabled=false;}
+  catch(error){notice(error.message,true);$('#run-adapt').disabled=false;editors.current.setReadOnly(!s.editable);$('#job-description').readOnly=!s.editable;$('#save-job').disabled=!s.editable;$('#branch-from').disabled=false;}
 }
 async function pollJob(id, branch){
   clearTimeout(state.polling);
@@ -226,7 +238,6 @@ $('#back').onclick=()=>{if(!canLeave())return;state.generation++;state.pdfGenera
 $('#reload').onclick=()=>openBranch(state.snapshot?.branch||$('#branch-title').textContent);
 document.querySelectorAll('[data-view]').forEach(button=>button.onclick=()=>setView(button.dataset.view));
 document.querySelectorAll('.close-dialog').forEach(button=>button.onclick=()=>button.closest('dialog').close());
-$('#current-source').oninput=()=>{state.dirty=$('#current-source').value!==state.snapshot.content;updateSaveState();};
 $('#job-description').oninput=()=>{state.jobDirty=$('#job-description').value!==state.snapshot.job;$('#job-state').textContent=state.jobDirty?'Unsaved changes':'Saved as job.md';};
 $('#save-source').onclick=saveSource;$('#save-job').onclick=saveJob;$('#run-adapt').onclick=runAdapt;$('#compile').onclick=compilePDFs;
 window.addEventListener('beforeunload',event=>{if(state.dirty||state.jobDirty){event.preventDefault();event.returnValue='';}});

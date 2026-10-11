@@ -110,6 +110,21 @@ class WorkspaceTests(unittest.TestCase):
 
 
 class HTTPTests(unittest.TestCase):
+    def test_lint_unsaved_source_is_authenticated_and_does_not_write(self):
+        original = (self.root/'main.tex').read_bytes()
+        req = Request(self.url+'/api/lint', data=json.dumps({'content':r'\textbf{broken'}).encode(), headers={'Content-Type':'application/json'})
+        with self.assertRaises(HTTPError) as error:
+            urlopen(req)
+        self.assertEqual(error.exception.code, 403)
+        req.add_header('X-Vita-Token', self.server.token)
+        with urlopen(req) as response:
+            self.assertEqual(len(json.load(response)['diagnostics']), 1)
+        self.assertEqual((self.root/'main.tex').read_bytes(), original)
+        req = Request(self.url+'/api/lint', data=b'{"content":42}', headers={'Content-Type':'application/json', 'X-Vita-Token':self.server.token})
+        with self.assertRaises(HTTPError) as error:
+            urlopen(req)
+        self.assertEqual(error.exception.code, 400)
+
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory(prefix='.vita-tree-test-',dir=Path.cwd())
         self.root=init_repo(Path(self.temp.name));self.server=VitaTreeServer(('127.0.0.1',0),self.root,'main.tex')

@@ -177,6 +177,27 @@ class Renderer:
         return ""
 
 
+def lint_source(source: str) -> list[dict]:
+    """Report the first syntax problem; ranges use browser UTF-16 offsets.
+
+    This does not expand arbitrary macros or validate installed TeX packages.
+    """
+    try:
+        LatexWalker(source, latex_context=context(), tolerant_parsing=False).get_latex_nodes()
+    except (ValueError, RecursionError, LatexWalkerError) as error:
+        pos = max(0, min(getattr(error, "pos", 0) or 0, len(source)))
+        offset = len(source[:pos].encode("utf-16-le", errors="surrogatepass")) // 2
+        end = offset + len(source[pos:pos + 1].encode("utf-16-le", errors="surrogatepass")) // 2
+        message = getattr(error, "msg", str(error))
+        severity = "error"
+        if isinstance(error, RecursionError):
+            message = "Source nesting exceeds the syntax check limit. Compile the PDF to validate it."
+            severity = "warning"
+        return [{"from": offset, "to": end, "severity": severity,
+                 "message": message, "source": "LaTeX syntax"}]
+    return []
+
+
 def parse_document(source: str) -> dict:
     renderer = Renderer(source)
     try:

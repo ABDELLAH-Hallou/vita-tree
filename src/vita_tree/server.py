@@ -285,6 +285,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             "/api/create": lambda: workspace.create(data["base"], data["name"], data["job"], data["revision"]),
             "/api/adapt": lambda: workspace.start_ai(data["branch"], data["revision"], data["jobRevision"], data.get("provider", ""), data.get("language", "en"), data.get("model"), data.get("reasoning", "")),
             "/api/parse": lambda: self.parse_source(data),
+            "/api/lint": lambda: self.parse_source(data, lint_only=True),
             "/api/pdf": lambda: self.server.compiler.compile(data["branch"], data.get("side", "current"), data.get("engine", "auto")),
         }
         if path not in actions:
@@ -292,12 +293,12 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             return
         self.api_call(actions[path])
 
-    def parse_source(self, data):
-        from .latex import parse_document
+    def parse_source(self, data, lint_only=False):
+        from .latex import parse_document, lint_source
         content = data["content"]
         if not isinstance(content, str) or len(content) > 2_000_000:
             raise ValueError("Invalid source")
-        return parse_document(content)
+        return {"diagnostics": lint_source(content)} if lint_only else parse_document(content)
 
     def api_call(self, action):
         from .workspace import ConflictError

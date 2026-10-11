@@ -1,9 +1,26 @@
 import unittest
-from vita_tree.latex import parse_document, replace_leaf
+from vita_tree.latex import parse_document, replace_leaf, lint_source
 from support import SOURCE
 
 
 class LatexTests(unittest.TestCase):
+    def test_lint_valid_comments_math_verbatim_and_custom_macros(self):
+        source = r'\begin{document}\custom{Text} \% $x^2$ \verb|{|' + '\n% unmatched } in a comment\n' + r'\end{document}'
+        self.assertEqual(lint_source(source), [])
+
+    def test_lint_reports_braces_environments_and_math(self):
+        for source in (r'\textbf{broken', r'\begin{itemize}\end{enumerate}', '$broken'):
+            with self.subTest(source=source):
+                diagnostics = lint_source(source)
+                self.assertEqual(len(diagnostics), 1)
+                self.assertEqual(diagnostics[0]['severity'], 'error')
+                self.assertTrue(diagnostics[0]['message'])
+                self.assertLessEqual(diagnostics[0]['to'], len(source))
+
+    def test_lint_positions_use_utf16_for_non_bmp_characters(self):
+        diagnostic, = lint_source('\U0001f600 }')
+        self.assertEqual((diagnostic['from'], diagnostic['to']), (3, 4))
+
     def test_structure_nested_formatting_lists_tables(self):
         doc = parse_document(SOURCE)
         self.assertIsNone(doc["error"])

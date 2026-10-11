@@ -23,3 +23,31 @@ class PrivacyTests(unittest.TestCase):
     def test_preserves_examples_and_original_upstream_notices(self):
         self.assertFalse(privacy.inspect('tests/example.py', b'test@example.invalid sample@example.com'))
         self.assertFalse(privacy.inspect('vita_tree/static/vendor/LICENSE', b'Original upstream attribution'))
+
+    def test_github_generated_merge_metadata_is_public(self):
+        metadata = b'Contributor <123+contributor@users.noreply.github.com>\nGitHub <noreply@github.com>\nMerge feature into main'
+        self.assertFalse(privacy.inspect('pr-merge/commit-metadata', metadata))
+
+    def test_approved_author_contact_is_public(self):
+        contact = 'Abdellah HALLOU <abdeallahhallou33@gmail.com>'
+        for location in ('README.md', 'package/METADATA', 'commit-metadata'):
+            with self.subTest(location=location):
+                self.assertFalse(privacy.inspect(location, contact.encode()))
+
+    def test_author_exception_does_not_allow_other_contacts(self):
+        for local, domain in [('another.person', 'gmail.com'),
+                              ('abdeallahhallou33', 'gmail.com.mail.test'),
+                              ('abdeallahhallou33+private', 'gmail.com')]:
+            address = local + '@' + domain
+            with self.subTest(address=address):
+                findings = privacy.inspect('package/METADATA', address.encode())
+                self.assertEqual(len(findings), 1)
+                self.assertNotIn(address, str(findings))
+
+    def test_github_service_exception_does_not_allow_personal_or_lookalike_addresses(self):
+        for local, domain in [('private.person', 'github.com'), ('noreply', 'github.com.mail.test'), ('noreply', 'mail.test')]:
+            address = local + '@' + domain
+            with self.subTest(domain=domain):
+                findings = privacy.inspect('commit-metadata', address.encode())
+                self.assertEqual(len(findings), 1)
+                self.assertNotIn(address, str(findings))
