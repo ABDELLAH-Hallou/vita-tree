@@ -1,5 +1,5 @@
 ﻿const $ = selector => document.querySelector(selector);
-const state = {branches: [], session: null, snapshot: null, view: 'structure', generation: 0, pdfs: {}, pdfGeneration: 0, dirty: false, jobDirty: false, polling: null, leaf: null};
+const state = {branches: [], session: null, snapshot: null, view: 'structure', generation: 0, pdfs: {}, pdfGeneration: 0, dirty: false, jobDirty: false, polling: null, leaf: null, publishing: false, commitReview: null};
 import {createLatexEditor} from './vendor/editor.mjs';
 const editors = Object.fromEntries(['original', 'current'].map(side => [side, createLatexEditor($(`#${side}-source`), {
   label: side === 'original' ? 'Original LaTeX' : 'New version LaTeX', readOnly: true,
@@ -52,7 +52,7 @@ $('#reasoning').onchange=rememberAI;
 async function api(path, data) {
   const response = await fetch(path, data === undefined ? {cache: 'no-store'} : {method:'POST', headers:{'Content-Type':'application/json','X-Vita-Token':state.session.token}, body:JSON.stringify(data)});
   const result = await response.json();
-  if (!response.ok) throw new Error(result.error || `Request failed (${response.status})`);
+  if (!response.ok) throw Object.assign(new Error(result.error || `Request failed (${response.status})`), result);
   return result;
 }
 function notice(text = '', error = false) { $('#notice').textContent = text; $('#notice').hidden = !text; $('#notice').classList.toggle('error', error); }
@@ -87,7 +87,7 @@ async function openBranch(name, force=false) {
   const generation=++state.generation;
   state.snapshot=null;
   for(const id of ['provider','model','reasoning']) $('#'+id).disabled=true;
-  for(const id of ['save-source','save-job','run-adapt','branch-from','compile']) $('#'+id).disabled=true;
+  for(const id of ['save-source','save-job','run-adapt','branch-from','compile','commit-push']) $('#'+id).disabled=true;
   editors.current.setReadOnly(true);$('#job-description').readOnly=true;
   $('#board').hidden=true;$('#workspace').hidden=false;document.body.classList.add('in-workspace');
   $('#branch-title').textContent=name; notice('Loading the branch…');
@@ -134,11 +134,12 @@ function renderDocument(side, data) {
 function updateSaveState(){
   $('#save-state').textContent=state.dirty?'Unsaved edits':state.snapshot?.dirty?'Saved locally · uncommitted':'Saved';
   $('#save-source').disabled=!state.dirty || !state.snapshot?.editable || !!state.snapshot?.running;
+  $('#commit-push').disabled=!state.snapshot?.editable || !!state.snapshot?.running || state.publishing;
 }
 function setView(view){
   state.view=view;
   document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.view===view)));
-  $('#comparison').hidden=!['structure','source','pdf'].includes(view);$('#structure-hint').hidden=view!=='structure';$('#pdf-toolbar').hidden=view!=='pdf';$('#changes-panel').hidden=view!=='changes';$('#ai-panel').hidden=view!=='ai';$('#document-actions').hidden=['ai','pdf'].includes(view);
+  $('#comparison').hidden=!['structure','source','pdf'].includes(view);$('#structure-hint').hidden=view!=='structure';$('#pdf-toolbar').hidden=view!=='pdf';$('#changes-panel').hidden=view!=='changes';$('#ai-panel').hidden=view!=='ai';$('#document-actions').hidden=false;$('#save-source').hidden=['ai','pdf'].includes(view);
   for(const side of ['original','current']) {$(`#${side}-document`).hidden=view!=='structure';$(`#${side}-source`).hidden=view!=='source';$(`#${side}-pdf`).hidden=view!=='pdf';}
   if(view==='source') for(const editor of Object.values(editors)) editor.refresh();
   if(!state.snapshot)return;
@@ -163,6 +164,68 @@ async function saveJob(){
   try{const result=await api('/api/save',{branch:s.branch,path:'job.md',revision:s.jobRevision,content:$('#job-description').value});s.job=result.content;s.jobRevision=result.revision;state.jobDirty=false;$('#job-state').textContent='Saved as job.md';toast('Job description saved');}
   catch(error){notice(error.message,true);}finally{$('#save-job').disabled=!s.editable;}
 }
+function commitPayload(){
+  const s=state.snapshot;
+  const data={branch:s.branch,sourceRevision:s.revision,jobRevision:s.jobRevision};
+  if(state.dirty)data.sourceContent=editors.current.value;
+  if(state.jobDirty)data.jobContent=$('#job-description').value;
+  return data;
+}
+function renderCommitReview(review,{retry=false}={}){
+  state.commitReview=review;
+  $('#commit-branch').textContent=review.branch;
+  $('#commit-destination').textContent=review.destination||'No remote configured';
+  $('#commit-files').replaceChildren(...review.files.map(file=>{
+    const item=document.createElement('li');
+    item.innerHTML=`<span>${esc(file.path)}</span><span class="commit-file-status">${esc(file.status)}</span>`;
+    return item;
+  }));
+  $('#commit-files').hidden=!review.files.length;$('#commit-empty').hidden=!!review.files.length;
+  $('#commit-empty').textContent=review.ahead>0?`${review.ahead} existing local ${review.ahead===1?'commit':'commits'} will be pushed.`:
+    review.ahead===0?'No file changes or unpushed commits were found. Push will verify the selected branch.':
+    'No new file changes. The selected branch will be published and its upstream configured.';
+  $('#commit-excluded').hidden=!review.excludedChanges;
+  $('#commit-excluded').textContent=review.excludedChanges?`${review.excludedChanges} unrelated ${review.excludedChanges===1?'change is':'changes are'} excluded from this commit.`:'';
+  $('#commit-message').disabled=!review.files.length;$('#commit-message').required=!!review.files.length;
+  if(review.files.length&&!$('#commit-message').value)$('#commit-message').value=`Update CV for ${review.branch}`;
+  $('#confirm-commit').textContent=retry?'Retry push':review.files.length?'Commit & push':'Push branch';
+  $('#confirm-commit').disabled=!review.remote;
+  if(!review.remote)$('#commit-error').textContent='No Git remote is configured. Add a remote, then review again.';
+}
+async function refreshCommitReview(options={}){
+  const review=await api('/api/commit-preview',commitPayload());renderCommitReview(review,options);return review;
+}
+async function showCommit(){
+  if(!state.snapshot||state.snapshot.running)return;
+  $('#commit-push').disabled=true;$('#commit-error').textContent='';$('#commit-progress').textContent='Reviewing the branch…';$('#commit-message').value='';
+  try{
+    await refreshCommitReview();$('#commit-progress').textContent='Review these files before publishing.';$('#commit-dialog').showModal();
+    if(state.commitReview.files.length)$('#commit-message').focus();
+  }catch(error){notice(error.message,true);}finally{updateSaveState();}
+}
+$('#commit-form').onsubmit=async event=>{
+  event.preventDefault();if(state.publishing)return;
+  state.publishing=true;const button=event.submitter||$('#confirm-commit');button.disabled=true;$('#commit-error').textContent='';
+  $('#commit-progress').textContent=state.commitReview.files.length?'Saving, committing, and pushing…':'Pushing existing commits…';
+  document.querySelectorAll('#commit-dialog .close-dialog').forEach(item=>item.disabled=true);updateSaveState();
+  try{
+    const result=await api('/api/commit-push',{...commitPayload(),message:$('#commit-message').value,review:state.commitReview.review});
+    $('#commit-dialog').close();state.dirty=false;state.jobDirty=false;await openBranch(result.branch,true);await loadBranches();
+    toast(`${result.commitCreated?'Committed and pushed':'Pushed'} to ${result.destination}`);
+  }catch(error){
+    $('#commit-error').textContent=(error.commitCreated&&error.commit?`Commit ${String(error.commit).slice(0,7)} was created locally. `:'')+error.message;
+    if(error.canRetry){
+      try{
+        await openBranch(state.snapshot.branch,true);await refreshCommitReview({retry:true});
+        $('#commit-progress').textContent='The local commit is safe. Fix the push problem, then retry.';
+      }catch(refreshError){$('#commit-error').textContent+='\n'+refreshError.message;}
+    }else $('#commit-progress').textContent='Nothing was pushed.';
+  }finally{
+    state.publishing=false;document.querySelectorAll('#commit-dialog .close-dialog').forEach(item=>item.disabled=false);
+    button.disabled=!state.commitReview?.remote;updateSaveState();
+  }
+};
+$('#commit-dialog').addEventListener('cancel',event=>{if(state.publishing)event.preventDefault();});
 async function showCreate(){
   if(!canLeave())return;
   $('#base-branch').innerHTML=state.branches.map(b=>`<option value="${esc(b.name)}">${esc(b.name)}</option>`).join('');
@@ -239,7 +302,7 @@ $('#reload').onclick=()=>openBranch(state.snapshot?.branch||$('#branch-title').t
 document.querySelectorAll('[data-view]').forEach(button=>button.onclick=()=>setView(button.dataset.view));
 document.querySelectorAll('.close-dialog').forEach(button=>button.onclick=()=>button.closest('dialog').close());
 $('#job-description').oninput=()=>{state.jobDirty=$('#job-description').value!==state.snapshot.job;$('#job-state').textContent=state.jobDirty?'Unsaved changes':'Saved as job.md';};
-$('#save-source').onclick=saveSource;$('#save-job').onclick=saveJob;$('#run-adapt').onclick=runAdapt;$('#compile').onclick=compilePDFs;
+$('#save-source').onclick=saveSource;$('#save-job').onclick=saveJob;$('#commit-push').onclick=showCommit;$('#run-adapt').onclick=runAdapt;$('#compile').onclick=compilePDFs;
 window.addEventListener('beforeunload',event=>{if(state.dirty||state.jobDirty){event.preventDefault();event.returnValue='';}});
 document.addEventListener('keydown',event=>{if(event.key==='/'&&!event.target.closest('input,textarea,select,[contenteditable]')&&!$('#board').hidden){event.preventDefault();$('#search').focus();}if((event.ctrlKey||event.metaKey)&&event.key==='s'&&state.snapshot){event.preventDefault();state.view==='ai'?saveJob():saveSource();}});
 try{state.session=await api('/api/session');await loadBranches();const branch=new URLSearchParams(location.search).get('branch');if(branch)await openBranch(branch);}catch(error){$('#branch-list').innerHTML=`<p class="empty">${esc(error.message)}</p>`;}

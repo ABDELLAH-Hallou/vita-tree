@@ -282,6 +282,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         path = urlparse(self.path).path
         actions = {
             "/api/save": lambda: workspace.save(data["branch"], data["path"], data["revision"], data.get("content"), data.get("leaf"), data.get("text")),
+            "/api/commit-preview": lambda: workspace.commit_preview(data["branch"], data.get("sourceRevision"), data.get("sourceContent"), data.get("jobRevision"), data.get("jobContent")),
+            "/api/commit-push": lambda: workspace.commit_and_push(data["branch"], data.get("message"), data.get("review"), data.get("sourceRevision"), data.get("sourceContent"), data.get("jobRevision"), data.get("jobContent")),
             "/api/create": lambda: workspace.create(data["base"], data["name"], data["job"], data["revision"]),
             "/api/adapt": lambda: workspace.start_ai(data["branch"], data["revision"], data["jobRevision"], data.get("provider", ""), data.get("language", "en"), data.get("model"), data.get("reasoning", "")),
             "/api/parse": lambda: self.parse_source(data),
@@ -301,9 +303,12 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         return {"diagnostics": lint_source(content)} if lint_only else parse_document(content)
 
     def api_call(self, action):
-        from .workspace import ConflictError
+        from .workspace import ConflictError, PushError
         try:
             result = action()
+        except PushError as error:
+            self.send_json({"error": str(error), "commitCreated": error.commit_created,
+                            "commit": error.commit, "canRetry": True}, status=502)
         except ConflictError as error:
             self.send_json({"error": str(error)}, status=409)
         except FileNotFoundError as error:

@@ -9,7 +9,7 @@ from urllib.error import HTTPError
 from unittest.mock import patch
 
 from vita_tree.server import VitaTreeServer
-from vita_tree.workspace import Workspace, ConflictError, digest, safe_path
+from vita_tree.workspace import Workspace, ConflictError, PushError, digest, safe_path
 from support import SOURCE, cleanup_repo, git, init_repo
 
 
@@ -68,6 +68,74 @@ class WorkspaceTests(unittest.TestCase):
         results=self.root/'.vita/results';results.mkdir(parents=True)
         (results/'analyze.md').write_text('# Analysis\nGood match')
         self.assertIn('Good match',self.workspace.snapshot('master')['artifacts']['analyze']['content'])
+
+    def bare_remote(self):
+        remote=self.root/'.git/test-remote.git'
+        git(self.root,'init','--bare',str(remote))
+        git(self.root,'remote','add','origin',str(remote))
+        return remote
+
+    def test_commit_and_push_includes_only_reviewed_files_and_selected_branch(self):
+        remote=self.bare_remote();branch=self.create();location=Path(branch['worktree'])
+        self.workspace.save(branch['branch'],'main.tex',branch['revision'],SOURCE.replace('reliable','published'))
+        reports=location/'.vita/results';reports.mkdir(parents=True)
+        (reports/'analyze.md').write_text('# Analysis\nStrong match')
+        (location/'unrelated.txt').write_text('keep this out')
+        git(location,'add','unrelated.txt')
+        preview=self.workspace.commit_preview(branch['branch'])
+        self.assertEqual(preview['destination'],'origin/etp-acme-swe')
+        self.assertEqual({item['path'] for item in preview['files']},{'main.tex','job.md','.vita/results/analyze.md'})
+        self.assertEqual(preview['excludedChanges'],1)
+        result=self.workspace.commit_and_push(branch['branch'],'Tailor CV for Acme',preview['review'])
+        self.assertTrue(result['commitCreated'])
+        self.assertEqual(git(self.root,'--git-dir',str(remote),'for-each-ref','--format=%(refname:short)','refs/heads'),'etp-acme-swe')
+        committed=git(location,'show','--format=','--name-only','HEAD').splitlines()
+        self.assertEqual(set(committed),{'main.tex','job.md','.vita/results/analyze.md'})
+        self.assertEqual(git(location,'status','--short','--','unrelated.txt'),'A  unrelated.txt')
+        self.assertEqual(git(location,'config','--get','branch.etp-acme-swe.remote'),'origin')
+
+    def test_failed_push_keeps_commit_and_retry_does_not_duplicate_it(self):
+        branch=self.create();location=Path(branch['worktree'])
+        missing=self.root/'.git/missing-remote.git'
+        git(self.root,'remote','add','origin',str(missing))
+        self.workspace.save(branch['branch'],'main.tex',branch['revision'],SOURCE.replace('reliable','retryable'))
+        preview=self.workspace.commit_preview(branch['branch'])
+        with self.assertRaises(PushError) as failure:
+            self.workspace.commit_and_push(branch['branch'],'Retryable update',preview['review'])
+        self.assertTrue(failure.exception.commit_created)
+        local_commit=git(location,'rev-parse','HEAD')
+        remote=self.root/'.git/test-remote.git';git(self.root,'init','--bare',str(remote))
+        git(self.root,'remote','set-url','origin',str(remote))
+        retry=self.workspace.commit_preview(branch['branch'])
+        self.assertFalse(retry['files'])
+        result=self.workspace.commit_and_push(branch['branch'],'',retry['review'])
+        self.assertFalse(result['commitCreated'])
+        self.assertEqual(git(location,'rev-parse','HEAD'),local_commit)
+        self.assertEqual(git(self.root,'--git-dir',str(remote),'rev-parse','refs/heads/etp-acme-swe'),local_commit)
+
+    def test_publish_review_rejects_stale_files_and_missing_identity(self):
+        self.bare_remote();branch=self.create();location=Path(branch['worktree'])
+        preview=self.workspace.commit_preview(branch['branch'])
+        (location/'job.md').write_text('Changed after review')
+        with self.assertRaises(ConflictError):
+            self.workspace.commit_and_push(branch['branch'],'Stale review',preview['review'])
+        preview=self.workspace.commit_preview(branch['branch'])
+        git(location,'config','user.name','')
+        with self.assertRaisesRegex(ValueError,'name and email'):
+            self.workspace.commit_and_push(branch['branch'],'Missing identity',preview['review'])
+
+    def test_pending_save_conflict_stops_before_writing_or_committing(self):
+        self.bare_remote();branch=self.create();location=Path(branch['worktree'])
+        before_head=git(location,'rev-parse','HEAD')
+        (location/'job.md').write_text('External job change')
+        with self.assertRaisesRegex(ConflictError,'job.md changed'):
+            self.workspace.commit_preview(
+                branch['branch'], branch['revision'], SOURCE.replace('reliable','pending'),
+                branch['jobRevision'], 'Pending job change',
+            )
+        self.assertEqual((location/'main.tex').read_text(),SOURCE)
+        self.assertEqual((location/'job.md').read_text(),'External job change')
+        self.assertEqual(git(location,'rev-parse','HEAD'),before_head)
 
     def test_ai_failure_with_zero_exit_is_not_success(self):
         branch=self.create()
