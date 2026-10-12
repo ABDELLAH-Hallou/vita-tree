@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.1.0...v1.2.0) (2026-10-12)
+
+
+### Features
+
+* **commit:** add a button to commit and push ([90c68fe](https://github.com/ABDELLAH-Hallou/vita-tree/commit/90c68fec27d4bbbbac6bd53e2339f22167be2145))
+* **commit:** add a button to commit and push ([30fd515](https://github.com/ABDELLAH-Hallou/vita-tree/commit/30fd5159761ce26548b2f8d1a639532240fa7853))
+
 ## [1.1.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.0.0...v1.1.0) (2026-10-11)
 
 

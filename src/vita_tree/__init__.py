@@ -1,3 +1,3 @@
 """vita-tree: a fast visual browser for Git-based CV variants."""
 
-__version__ = "1.1.0"  # x-release-please-version
+__version__ = "1.2.0"  # x-release-please-version
