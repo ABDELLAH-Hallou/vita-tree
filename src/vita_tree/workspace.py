@@ -22,6 +22,13 @@ class ConflictError(ValueError):
     pass
 
 
+class PushError(RuntimeError):
+    def __init__(self, message, *, commit_created=False, commit=None):
+        super().__init__(message)
+        self.commit_created = commit_created
+        self.commit = commit
+
+
 def digest(content: str) -> str:
     return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
@@ -176,6 +183,184 @@ class Workspace:
                 raise ValueError("Invalid file content (maximum 2 MB)")
             atomic_write(target, content)
             return {"revision": digest(content), "content": content, "path": str(target)}
+
+    def publish_paths(self):
+        """Files Vita Tree owns and may include in a UI-created commit."""
+        return tuple(dict.fromkeys((
+            self.document_path,
+            "job.md",
+            ".vita/results/analyze.md",
+            ".vita/results/adapt.md",
+            ".vita/results/review.md",
+            "analyze.md",
+            "adapt.md",
+            "review.md",
+        )))
+
+    @staticmethod
+    def _git_process(location, *args):
+        return subprocess.run(
+            ["git", *args], cwd=location, check=False, capture_output=True,
+            text=True, encoding="utf-8", errors="replace",
+        )
+
+    def _publish_target(self, location, name):
+        remote = self._git_process(location, "config", "--get", f"branch.{name}.remote")
+        merge = self._git_process(location, "config", "--get", f"branch.{name}.merge")
+        remote_name = remote.stdout.strip() if remote.returncode == 0 else ""
+        destination = merge.stdout.strip() if merge.returncode == 0 else ""
+        if remote_name == ".":
+            remote_name = ""
+        remotes = self._git_process(location, "remote")
+        names = [item for item in remotes.stdout.splitlines() if item]
+        if not remote_name:
+            remote_name = "origin" if "origin" in names else names[0] if len(names) == 1 else ""
+        if remote_name not in names:
+            remote_name = ""
+        if not destination.startswith("refs/heads/"):
+            destination = f"refs/heads/{name}"
+        remote_branch = destination.removeprefix("refs/heads/")
+        upstream = f"{remote_name}/{remote_branch}" if remote_name and remote.returncode == 0 else None
+        ahead = None
+        if upstream:
+            count = self._git_process(location, "rev-list", "--count", f"{upstream}..refs/heads/{name}")
+            if count.returncode == 0:
+                ahead = int(count.stdout.strip() or 0)
+        return remote_name or None, remote_branch, upstream, ahead
+
+    def _pending_writes(self, location, source_revision, source_content, job_revision, job_content):
+        pending = {}
+        for filename, revision, content in (
+            (self.document_path, source_revision, source_content),
+            ("job.md", job_revision, job_content),
+        ):
+            if content is None:
+                continue
+            if not isinstance(revision, str):
+                raise ValueError(f"Missing revision for {filename}")
+            if not isinstance(content, str) or len(content.encode("utf-8")) > 2_000_000:
+                raise ValueError(f"Invalid {filename} content (maximum 2 MB)")
+            current = read_text(safe_path(location, filename))
+            if digest(current) != revision:
+                raise ConflictError(f"{filename} changed outside the editor. Reload before committing.")
+            if current != content:
+                pending[filename] = content
+        return pending
+
+    def _publish_changes(self, location, pending):
+        changes = []
+        visible_selected = 0
+        labels = {
+            "??": "Untracked", "A ": "Added", " A": "Added", "M ": "Modified",
+            " M": "Modified", "MM": "Modified", "D ": "Deleted", " D": "Deleted",
+        }
+        for filename in self.publish_paths():
+            status = self._git_process(
+                location, "status", "--porcelain=v1", "--untracked-files=all", "--", filename,
+            )
+            code = status.stdout[:2] if status.stdout else ""
+            if code:
+                visible_selected += 1
+            path = safe_path(location, filename)
+            tracked = self._git_process(location, "ls-files", "--error-unmatch", "--", filename)
+            if not code and path.is_file() and tracked.returncode:
+                code = "??"
+            if code or filename in pending:
+                changes.append({"path": filename, "status": labels.get(code, "Changed")})
+        full = self._git_process(location, "status", "--porcelain=v1", "--untracked-files=all")
+        total = len([line for line in full.stdout.splitlines() if line])
+        return changes, max(0, total - visible_selected)
+
+    def _publish_review(self, location, name, pending):
+        changes, excluded = self._publish_changes(location, pending)
+        remote, remote_branch, upstream, ahead = self._publish_target(location, name)
+        fingerprints = []
+        for filename in self.publish_paths():
+            path = safe_path(location, filename)
+            fingerprints.append((filename, hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None))
+        review = digest(json.dumps({
+            "head": self.head(name), "changes": changes, "files": fingerprints,
+            "pending": {key: digest(value) for key, value in pending.items()},
+            "remote": remote, "remoteBranch": remote_branch,
+        }, sort_keys=True))
+        return {
+            "branch": name, "remote": remote, "remoteBranch": remote_branch,
+            "destination": f"{remote}/{remote_branch}" if remote else None,
+            "upstream": upstream, "ahead": ahead, "files": changes,
+            "excludedChanges": excluded, "pendingWrites": len(pending), "review": review,
+        }
+
+    def commit_preview(self, name, source_revision=None, source_content=None,
+                       job_revision=None, job_content=None):
+        with self.lock:
+            self.busy(name)
+            if not self.branch(name)["local"]:
+                raise ValueError("Create a local branch before committing and pushing.")
+            location = self.location(name, create=True)
+            pending = self._pending_writes(
+                location, source_revision, source_content, job_revision, job_content,
+            )
+            return self._publish_review(location, name, pending)
+
+    def commit_and_push(self, name, message, review, source_revision=None, source_content=None,
+                        job_revision=None, job_content=None):
+        with self.lock:
+            self.busy(name)
+            if not self.branch(name)["local"]:
+                raise ValueError("Create a local branch before committing and pushing.")
+            location = self.location(name, create=True)
+            pending = self._pending_writes(
+                location, source_revision, source_content, job_revision, job_content,
+            )
+            preview = self._publish_review(location, name, pending)
+            if not isinstance(review, str) or review != preview["review"]:
+                raise ConflictError("The branch changed after review. Review the commit again before publishing.")
+            if not preview["remote"]:
+                raise ValueError("No Git remote is configured. Add a remote, then try again.")
+            files = [item["path"] for item in preview["files"]]
+            commit_created = False
+            commit = self.head(name)
+            if files:
+                if not isinstance(message, str) or not message.strip():
+                    raise ValueError("Enter a commit message.")
+                message = message.strip()
+                if len(message) > 200 or any(char in message for char in "\r\n\x00"):
+                    raise ValueError("Use a single-line commit message of 200 characters or fewer.")
+                identity = self._git_process(location, "var", "GIT_AUTHOR_IDENT")
+                if identity.returncode:
+                    raise ValueError("Git author name and email are missing. Configure user.name and user.email, then try again.")
+                for filename, content in pending.items():
+                    atomic_write(safe_path(location, filename), content)
+                # VITA commonly ignores .vita/, but explicitly reviewed reports
+                # are intentional publication inputs for this one commit.
+                add = self._git_process(location, "add", "-f", "-A", "--", *files)
+                if add.returncode:
+                    raise RuntimeError("Git could not stage the reviewed files. Your files were preserved.")
+                created = self._git_process(location, "commit", "--only", "-m", message, "--", *files)
+                if created.returncode:
+                    raise RuntimeError("Git could not create the commit. Your files were preserved; inspect the worktree and retry.")
+                commit_created = True
+                commit = self.head(name)
+            remote = preview["remote"]
+            destination = preview["remoteBranch"]
+            push_args = ["push"]
+            if not preview["upstream"]:
+                push_args.append("--set-upstream")
+            push_args.extend((remote, f"refs/heads/{name}:refs/heads/{destination}"))
+            pushed = self._git_process(location, *push_args)
+            if pushed.returncode:
+                output = (pushed.stderr + "\n" + pushed.stdout).lower()
+                if "non-fast-forward" in output or "fetch first" in output or "rejected" in output:
+                    reason = "The remote rejected the push. Fetch and reconcile the remote changes, then retry."
+                elif "authentication" in output or "permission denied" in output or "could not read username" in output:
+                    reason = "Git authentication failed. Sign in or update your remote credentials, then retry."
+                else:
+                    reason = "The push failed. Check the remote connection and access, then retry."
+                raise PushError(reason, commit_created=commit_created, commit=commit)
+            return {
+                "branch": name, "destination": f"{remote}/{destination}",
+                "commit": commit, "commitCreated": commit_created, "pushed": True,
+            }
 
     def create(self, base, name, job, revision):
         with self.lock:

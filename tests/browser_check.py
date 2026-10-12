@@ -4,6 +4,7 @@ import argparse
 import json
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 import threading
 import time
@@ -22,6 +23,7 @@ def main():
     args=parser.parse_args()
     artifacts=Path('.test-artifacts').resolve();artifacts.mkdir(exist_ok=True)
     root=artifacts/('ui-'+str(time.time_ns()));init_repo(root)
+    remote=root/'.git/browser-remote.git';git(root,'init','--bare',str(remote));git(root,'remote','add','origin',str(remote))
     config=root/'.vita/extensions.json';config.parent.mkdir(exist_ok=True)
     config.write_text(json.dumps({'llm_providers':{'codex':{'model':'test-codex'},'openai':{'model':'gpt-4-turbo'}}}))
     git(root,'add','-f','.vita/extensions.json');git(root,'commit','-m','Provider fixtures')
@@ -136,6 +138,7 @@ if step=='adapt':
             expect(editor).to_contain_text('careful automated tests')
             expect(page.locator('#current-label')).to_have_text('etp-acme-swe')
             assert 'careful automated tests' in (worktree/'main.tex').read_text()
+            assert git(worktree,'rev-parse','HEAD')==git(root,'rev-parse','master'),'Save changes created a commit'
             page.get_by_role('tab',name='Changes',exact=False).click();expect(page.locator('#diff')).to_contain_text('careful automated tests')
             page.get_by_role('tab',name='Job & AI',exact=False).click()
             expect(page.locator('#job-description')).to_have_value('Acme seeks a software engineer with Python and SQL experience.')
@@ -159,6 +162,31 @@ if step=='adapt':
             expect(page.locator('#reasoning')).to_have_value('high')
             assert json.loads(config.read_text())['llm_providers']['codex']['model']=='test-current'
             assert 'rigorous automated tests' in (worktree/'main.tex').read_text()
+            page.get_by_role('tab',name='LaTeX',exact=True).click()
+            editor.fill((worktree/'main.tex').read_text()+'\n% publish from UI')
+            page.get_by_role('tab',name='Job & AI',exact=False).click()
+            page.locator('#job-description').fill('Committed job context')
+            page.locator('#commit-push').click()
+            expect(page.locator('#commit-dialog')).to_be_visible()
+            expect(page.locator('#commit-branch')).to_have_text('etp-acme-swe')
+            expect(page.locator('#commit-destination')).to_have_text('origin/etp-acme-swe')
+            for expected_file in ('main.tex','job.md','.vita/results/analyze.md','.vita/results/adapt.md'):
+                expect(page.locator('#commit-files')).to_contain_text(expected_file)
+            page.locator('#commit-message').fill('Tailor CV for Acme')
+            page.screenshot(path=str(artifacts/'commit-review.png'),full_page=True)
+            missing_remote=root/'.git/missing-browser-remote.git';git(root,'remote','set-url','origin',str(missing_remote))
+            page.locator('#confirm-commit').click()
+            expect(page.locator('#commit-error')).to_contain_text('created locally',timeout=30000)
+            local_commit=git(worktree,'rev-parse','HEAD')
+            assert '% publish from UI' in (worktree/'main.tex').read_text()
+            assert (worktree/'job.md').read_text()=='Committed job context'
+            git(root,'remote','set-url','origin',str(remote))
+            page.get_by_role('button',name='Retry push',exact=True).click()
+            expect(page.locator('#commit-dialog')).to_be_hidden(timeout=30000)
+            assert git(root,'--git-dir',str(remote),'rev-parse','refs/heads/etp-acme-swe')==local_commit
+            absent=subprocess.run(['git','--git-dir',str(remote),'rev-parse','--verify','refs/heads/provider-history'],capture_output=True)
+            assert absent.returncode!=0,'Commit & push published an unrelated branch'
+            assert git(worktree,'rev-list','--count','master..HEAD')=='1','Retry created a duplicate commit'
             page.get_by_role('tab',name='Structure',exact=True).click();page.screenshot(path=str(artifacts/'comparison.png'),full_page=True)
             page.get_by_role('tab',name='PDF',exact=True).click();page.get_by_role('button',name='Compile both PDFs',exact=True).click()
             expect(page.locator('#compile')).to_be_enabled(timeout=180000)
@@ -219,7 +247,7 @@ if step=='adapt':
                 print('Sample CV PDF pages:',count)
             assert not errors, errors
             browser.close()
-        print('PASS: provider/model discovery, reasoning delivered to both CLI steps, light/dark/system themes, persistence, branch creation, edits, reports, conflicts, selectable white PDFs, zoom, mobile layout, zero browser errors.')
+        print('PASS: provider/model discovery, reasoning delivered to both CLI steps, themes, branch creation, edits, reviewed commit/push with safe retry, reports, conflicts, selectable PDFs, zoom, mobile layout, zero browser errors.')
         print('Artifacts:',artifacts)
     finally:
         model_patch.stop()
