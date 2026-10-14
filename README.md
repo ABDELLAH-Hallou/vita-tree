@@ -67,13 +67,21 @@ The editor is bundled locally and follows the selected light/dark theme.
 5. Review `.vita/results/analyze.md`, `.vita/results/adapt.md`, the source diff, and both PDFs. The PDF view uses the actual TeX output with PDF.js canvas rendering and its text layer. Choose a different engine if your template requires it.
 6. Use **Commit & push** to review the destination, commit message, and included files, then publish only the selected branch. A failed push leaves the commit safely in the worktree and offers a push-only retry.
 
-**Save changes** remains local and uncommitted. **Commit & push** includes only the displayed main document, `job.md`, and reviewed VITA Markdown reports; unrelated working-tree changes are reported and excluded. It never force-pushes or publishes other branches. Linked worktrees persist across server restarts; Git will refuse to check out their branch elsewhere until you remove the worktree with Git after preserving your edits.
+**Save changes** remains local and uncommitted. **Commit & push** includes only the displayed main document, `job.md`, and reviewed VITA Markdown reports; unrelated working-tree changes are reported and excluded. It never force-pushes or publishes other branches. Worktrees containing local changes persist across server restarts; leaving a clean worktree releases its branch for CLI checkout.
 
 For existing branches without a recorded baseline, Original means that branch's committed CV. New branches retain the viewed base CV; AI runs retain the pre-run CV. Reload imports changes made by a terminal/editor. Saving with a stale revision returns a conflict and preserves the user's editor text.
 
 VITA's local `config.json`, `extensions.json`, and `cv.yaml` are supplied to isolated AI runs. API-key/token values from `.vita/.env` are passed in child-process memory. Existing reports are branch-local. The UI does not expose credentials or raw provider logs.
 
 Provider/model dropdowns scan `.vita/extensions.json` on every local and remote branch ref and in linked working trees. Duplicate choices are combined; hovering over Model lists their sources. Reload rescans the repository. Choosing a model from another branch overrides only the isolated run, leaving your branch configuration intact. These are discovered configurations, not a guarantee that historical model names remain available to your account.
+
+**Background AI runs:** use one `vt run` server and port for all branches. Every Analyze & adapt action starts an independent background process immediately, with its own provider, model, reasoning, language, and isolated files. Codex runs use separate CLI invocations; API providers make independent requests through VITA. There is no Vita Tree queue or concurrency cap. Each run analyzes then adapts sequentially; different branches run at the same time. Only the running branch stays locked for edits and publication. Provider rate limits and machine resources still apply.
+
+Leaving a branch (back to the list, opening another branch, or closing the page) releases its clean, idle Vita Tree worktree so the branch can be checked out from the CLI. No force removal is used. Running operations, uncommitted changes, untracked files, and ignored files keep the worktree intact; the UI explains when local files prevent release. Commit or move those files, then open and leave the branch again. Worktrees created outside Vita Tree and the original repository are never removed.
+
+Open **AI runs** from any screen for progress, provider/model settings, timing, and completion or failure messages. Branch badges and persistent in-app notifications show results waiting for review. Selecting a result opens its branch's Job & AI view with that run's retained reports and source files, including its original CV. Reviewing a result clears only that run's notification. The opportunity label is the branch name; job description text and provider output are not included in the global status list.
+
+Run history and review state survive browser refreshes and server restarts. A server restart marks unfinished work as interrupted; it does not automatically resume or resend AI requests. Start a new run after reviewing the branch. Keep one Vita Tree server per CV repository. No desktop-notification permission is needed.
 
 With the `[ai]` extra or `--vita-source`, the child-process adapter makes environment credentials available to VITA and forwards Codex reasoning as an explicit `-c model_reasoning_effort` override for both steps. Available levels come from the selected model's entry in `$CODEX_HOME/models_cache.json` (default `~/.codex`). Models absent from that catalog and non-Codex providers offer **Provider default** only; unsupported settings are rejected by the server. No parent VITA source files or global Codex settings are changed.
 
@@ -100,7 +108,7 @@ For a pipx editable installation, source changes take effect when you restart `v
 
 Structure preserves unsupported source and explicitly reports unknown commands/environments. It is a reading/editing aid, not a TeX engine. Source edits can temporarily be invalid; the UI reports parse/compile failures instead of pretending a stale PDF is current. AI results are syntax-checked but still require PDF compilation and factual review.
 
-PDF previews and AI snapshots are stored under the repository Git common directory's `vita-tree/pdf/` and `vita-tree/runs/`. These can accumulate; keep the server stopped before manually cleaning old cache folders. Do not delete `worktrees/` directly; use Git's worktree commands.
+PDF previews and AI snapshots are stored under the repository Git common directory's `vita-tree/pdf/` and `vita-tree/runs/`. AI input text is retained in `vita-tree/run-inputs/`, and run status and review state in `vita-tree/job-history/`. These can accumulate; keep the server stopped before manually cleaning old cache folders. Do not delete `worktrees/` directly; use Git's worktree commands.
 
 ## Development and verification
 
@@ -109,6 +117,7 @@ python -m pip install -e ".[test]"
 python -m unittest discover -s tests -v
 python -m playwright install chromium
 python tests/browser_check.py --browser chromium
+python tests/browser_jobs.py --browser chromium
 ```
 
 Browser tests cover editing, branch creation, provider settings, themes, conflicts,

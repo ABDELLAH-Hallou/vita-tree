@@ -1,6 +1,9 @@
 ﻿const $ = selector => document.querySelector(selector);
-const state = {branches: [], session: null, snapshot: null, view: 'structure', generation: 0, pdfs: {}, pdfGeneration: 0, dirty: false, jobDirty: false, polling: null, leaf: null, publishing: false, commitReview: null};
+const state = {branches: [], session: null, snapshot: null, view: 'structure', generation: 0, pdfs: {}, pdfGeneration: 0, dirty: false, jobDirty: false, leaf: null, publishing: false, commitReview: null};
 import {createLatexEditor} from './vendor/editor.mjs';
+import {createRunMonitor, isActiveRun, runLabel} from './runs.js';
+state.runs = [];
+let runMonitor;
 const editors = Object.fromEntries(['original', 'current'].map(side => [side, createLatexEditor($(`#${side}-source`), {
   label: side === 'original' ? 'Original LaTeX' : 'New version LaTeX', readOnly: true,
   onChange: value => {if(side === 'current' && state.snapshot) {state.dirty = value !== state.snapshot.content; updateSaveState();}},
@@ -70,6 +73,12 @@ function renderBranches() {
     const row = document.createElement('button'); row.className='branch-row'; row.setAttribute('aria-label', `Open ${b.name}`);
     row.innerHTML=`<span class="branch-cell"><span class="branch-icon" aria-hidden="true">⑂</span><span class="branch-info"><span class="branch-name">${esc(b.name)}</span><span class="branch-detail">${b.current?'Current branch':b.local?'Local branch':`Remote · ${esc(b.remote)}`}</span></span></span><span class="commit-cell"><span class="commit-subject">${esc(b.subject)}</span><span class="commit-meta">${esc(b.commit)} · ${esc(b.author)}</span></span><time class="branch-date" datetime="${esc(b.modifiedAt)}" title="${esc(new Date(b.modifiedAt).toLocaleString())}">${relative(b.timestamp)}</time>`;
     row.onclick=() => openBranch(b.name); $('#branch-list').append(row);
+    const branchRuns=state.runs.filter(run=>run.branch===b.name);
+    const run=branchRuns.find(isActiveRun)||branchRuns.find(item=>!item.reviewed)||branchRuns[0];
+    if(run&&(isActiveRun(run)||!run.reviewed||['failed','interrupted'].includes(run.status))){
+      const badge=document.createElement('span');badge.className='branch-run';badge.dataset.status=run.status;
+      badge.textContent=runLabel(run)+(!isActiveRun(run)&&!run.reviewed?' · To review':'');row.querySelector('.branch-info').append(badge);
+    }
   }
   if(!branches.length) $('#branch-list').innerHTML='<p class="empty">No matching branches.</p>';
   $('#result-count').textContent=`${branches.length} ${branches.length===1?'branch':'branches'}`;
@@ -82,16 +91,26 @@ async function loadBranches() {
   finally {$('#refresh').disabled=false;}
 }
 function canLeave() {return !(state.dirty || state.jobDirty) || window.confirm('Discard your unsaved editor changes?');}
+async function releaseBranch(name){
+  try{
+    const result=await api('/api/release-worktree',{branch:name});
+    if(result.released||['dirty','locked'].includes(result.reason))toast(`${name}: ${result.message}`);
+  }catch(error){toast(`Could not release ${name}: ${error.message}`);}
+}
 async function openBranch(name, force=false) {
   if(!force && !canLeave()) return;
+  const previous=state.snapshot?.branch;
   const generation=++state.generation;
   state.snapshot=null;
+  $('#selected-run').hidden=true;
   for(const id of ['provider','model','reasoning']) $('#'+id).disabled=true;
   for(const id of ['save-source','save-job','run-adapt','branch-from','compile','commit-push']) $('#'+id).disabled=true;
   editors.current.setReadOnly(true);$('#job-description').readOnly=true;
   $('#board').hidden=true;$('#workspace').hidden=false;document.body.classList.add('in-workspace');
   $('#branch-title').textContent=name; notice('Loading the branch…');
   try {
+    if(previous&&previous!==name)await releaseBranch(previous);
+    if(generation!==state.generation)return;
     const [data,catalog]=await Promise.all([api('/api/workspace?branch='+encodeURIComponent(name)),api('/api/providers?branch='+encodeURIComponent(name))]);
     if(generation!==state.generation) return;
     state.snapshot=data; state.catalog=catalog; state.dirty=false; state.jobDirty=false; state.pdfs={};state.pdfGeneration++;
@@ -99,7 +118,7 @@ async function openBranch(name, force=false) {
     history.replaceState(null,'','?branch='+encodeURIComponent(name));
     updateSnapshot(); setView(state.view);
     if(state.view!=='structure')notice();
-    if(data.running) pollJob(data.running.id, name);
+    return data;
   } catch(error) { if(generation===state.generation) notice(error.message,true); }
 }
 function updateSnapshot() {
@@ -253,15 +272,49 @@ async function runAdapt(){
   if(state.dirty||state.jobDirty){notice('Save your CV and job description before starting AI.',true);return;}
   $('#run-adapt').disabled=true;editors.current.setReadOnly(true);$('#job-description').readOnly=true;$('#save-job').disabled=true;$('#branch-from').disabled=true;const s=state.snapshot;
   rememberAI();
-  try{const job=await api('/api/adapt',{branch:s.branch,revision:s.revision,jobRevision:s.jobRevision,provider:$('#provider').value,model:$('#model').value,reasoning:$('#reasoning').value,language:$('#language').value});s.running=job;renderProviders();updateSaveState();pollJob(job.id,s.branch);}
-  catch(error){notice(error.message,true);$('#run-adapt').disabled=false;editors.current.setReadOnly(!s.editable);$('#job-description').readOnly=!s.editable;$('#save-job').disabled=!s.editable;$('#branch-from').disabled=false;}
+  try{const job=await api('/api/adapt',{branch:s.branch,revision:s.revision,jobRevision:s.jobRevision,provider:$('#provider').value,model:$('#model').value,reasoning:$('#reasoning').value,language:$('#language').value});s.running=job;if(state.snapshot===s){renderProviders();updateSaveState();$('#ai-status').textContent=job.message;}await runMonitor.refresh();}
+  catch(error){if(state.snapshot===s){notice(error.message,true);$('#run-adapt').disabled=false;editors.current.setReadOnly(!s.editable);$('#job-description').readOnly=!s.editable;$('#save-job').disabled=!s.editable;$('#branch-from').disabled=false;}}
 }
-async function pollJob(id, branch){
-  clearTimeout(state.polling);
-  try{const job=await api('/api/job?id='+encodeURIComponent(id));if(state.snapshot?.branch!==branch)return;$('#ai-status').textContent=job.message;
-    if(job.status==='running'){state.snapshot.running=job;state.polling=setTimeout(()=>pollJob(id,branch),1800);return;}
-    state.snapshot.running=null;await openBranch(branch,true);$('#ai-status').textContent=job.message;notice(job.message+(job.status==='failed'&&job.runPath?'\nRun files: '+job.runPath:''),job.status==='failed');toast(job.status==='succeeded'?'AI results are ready to review':'AI run needs attention');
-  }catch(error){notice(error.message,true);state.polling=setTimeout(()=>pollJob(id,branch),4000);}
+async function runsChanged(runs){
+  state.runs=runs;renderBranches();
+  const s=state.snapshot;if(!s)return;
+  const active=runs.find(run=>run.branch===s.branch&&isActiveRun(run));
+  if(active){
+    s.running=active;$('#ai-status').textContent=active.message;editors.current.setReadOnly(true);$('#job-description').readOnly=true;
+    for(const id of ['save-job','run-adapt','branch-from'])$('#'+id).disabled=true;
+    renderProviders();updateSaveState();
+  }else if(s.running){
+    const finished=runs.find(run=>run.id===s.running.id);s.running=null;
+    if(!state.dirty&&!state.jobDirty&&!state.publishing){
+      const loaded=await openBranch(s.branch,true);
+      if(loaded&&finished){$('#ai-status').textContent=finished.message;notice(finished.message,finished.status!=='succeeded');}
+    }else{
+      editors.current.setReadOnly(!s.editable);$('#job-description').readOnly=!s.editable;
+      $('#save-job').disabled=!s.editable;$('#branch-from').disabled=false;
+      renderProviders();updateSaveState();
+      $('#run-adapt').disabled=!state.session.vita||!s.editable||!selectedModel()?.supported;
+      notice('The AI run finished. Your unsaved edits are preserved; reload to review the result.',true);
+    }
+  }
+}
+async function openRun(run){
+  if(!canLeave())return;
+  const loaded=await openBranch(run.branch,true);if(!loaded)return;
+  setView('ai');$('#ai-status').textContent=run.message;
+  if(!isActiveRun(run)){
+    const detail=await api('/api/job-result?id='+encodeURIComponent(run.id));
+    if(state.snapshot!==loaded)return;
+    $('#selected-run').hidden=false;$('#selected-run-info').textContent=`${runLabel(run)} · ${new Date(run.createdAt*1000).toLocaleString()} · Retained files for this run. The branch above may contain newer edits.`;
+    $('#selected-run-files').replaceChildren();
+    for(const [path,content] of Object.entries(detail.files)){
+      const item=document.createElement('details');item.open=path.endsWith('analyze.md');
+      const summary=document.createElement('summary');summary.textContent=path;
+      const pre=document.createElement('pre');pre.textContent=content;item.append(summary,pre);$('#selected-run-files').append(item);
+    }
+    if(!Object.keys(detail.files).length)$('#selected-run-files').textContent='No result files were produced by this run.';
+    await api('/api/job-reviewed',{id:run.id});
+  }
+  $('#ai-panel').scrollIntoView({block:'start'});
 }
 let pdfjs;
 async function pdfLibrary(){if(!pdfjs){pdfjs=await import('./vendor/pdf.mjs');pdfjs.GlobalWorkerOptions.workerSrc='/vendor/pdf.worker.mjs';}return pdfjs;}
@@ -297,12 +350,17 @@ async function compilePDFs(){
 }
 $('#zoom').onchange=async()=>{const generation=++state.pdfGeneration;try{for(const side of ['original','current'])if(state.pdfs[side])await renderPDF(side,state.pdfs[side],generation);}catch(error){notice(error.message,true);}};
 $('#search').oninput=renderBranches;$('#refresh').onclick=loadBranches;$('#new-branch').onclick=showCreate;$('#branch-from').onclick=showCreate;
-$('#back').onclick=()=>{if(!canLeave())return;state.generation++;state.pdfGeneration++;clearTimeout(state.polling);state.snapshot=null;state.dirty=false;state.jobDirty=false;$('#workspace').hidden=true;$('#board').hidden=false;document.body.classList.remove('in-workspace');history.replaceState(null,'','/');loadBranches();};
+$('#back').onclick=()=>{if(!canLeave())return;const previous=state.snapshot?.branch;state.generation++;state.pdfGeneration++;state.snapshot=null;state.dirty=false;state.jobDirty=false;$('#workspace').hidden=true;$('#board').hidden=false;document.body.classList.remove('in-workspace');history.replaceState(null,'','/');if(previous)releaseBranch(previous);loadBranches();};
 $('#reload').onclick=()=>openBranch(state.snapshot?.branch||$('#branch-title').textContent);
 document.querySelectorAll('[data-view]').forEach(button=>button.onclick=()=>setView(button.dataset.view));
 document.querySelectorAll('.close-dialog').forEach(button=>button.onclick=()=>button.closest('dialog').close());
 $('#job-description').oninput=()=>{state.jobDirty=$('#job-description').value!==state.snapshot.job;$('#job-state').textContent=state.jobDirty?'Unsaved changes':'Saved as job.md';};
 $('#save-source').onclick=saveSource;$('#save-job').onclick=saveJob;$('#commit-push').onclick=showCommit;$('#run-adapt').onclick=runAdapt;$('#compile').onclick=compilePDFs;
 window.addEventListener('beforeunload',event=>{if(state.dirty||state.jobDirty){event.preventDefault();event.returnValue='';}});
+window.addEventListener('pagehide',()=>{
+  if(state.snapshot&&state.session)fetch('/api/release-worktree',{method:'POST',keepalive:true,
+    headers:{'Content-Type':'application/json','X-Vita-Token':state.session.token},
+    body:JSON.stringify({branch:state.snapshot.branch})}).catch(()=>{});
+});
 document.addEventListener('keydown',event=>{if(event.key==='/'&&!event.target.closest('input,textarea,select,[contenteditable]')&&!$('#board').hidden){event.preventDefault();$('#search').focus();}if((event.ctrlKey||event.metaKey)&&event.key==='s'&&state.snapshot){event.preventDefault();state.view==='ai'?saveJob():saveSource();}});
-try{state.session=await api('/api/session');await loadBranches();const branch=new URLSearchParams(location.search).get('branch');if(branch)await openBranch(branch);}catch(error){$('#branch-list').innerHTML=`<p class="empty">${esc(error.message)}</p>`;}
+try{state.session=await api('/api/session');await loadBranches();const branch=new URLSearchParams(location.search).get('branch');if(branch)await openBranch(branch);runMonitor=createRunMonitor({api,openRun,changed:runsChanged});runMonitor.start();}catch(error){$('#branch-list').innerHTML=`<p class="empty">${esc(error.message)}</p>`;}

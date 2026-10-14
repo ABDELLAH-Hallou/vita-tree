@@ -7,6 +7,8 @@ dist/
 build/
 node_modules/
 .test-artifacts/
+# Local video projects, recordings, previews, and machine-specific helper scripts.
+/demo-video/
 .vita-tree-test-*/
 .env
 .env.*
