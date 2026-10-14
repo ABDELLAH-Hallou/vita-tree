@@ -44,11 +44,12 @@ def main():
         with urlopen(base + path) as response:
             return json.load(response)
     try:
-        for name in ('index.html', 'app.js', 'styles.css', 'theme.js', 'vendor/pdf.mjs', 'vendor/pdf.worker.mjs', 'vendor/PDFJS-LICENSE', 'vendor/editor.mjs', 'vendor/EDITOR-LICENSE'):
+        for name in ('index.html', 'app.js', 'runs.js', 'styles.css', 'theme.js', 'vendor/pdf.mjs', 'vendor/pdf.worker.mjs', 'vendor/PDFJS-LICENSE', 'vendor/editor.mjs', 'vendor/EDITOR-LICENSE'):
             with urlopen(base + '/' + name) as response:
                 assert response.read() == (STATIC_ROOT / name).read_bytes(), name
         assert len(list((STATIC_ROOT / 'vendor').rglob('*.*'))) > 150
         assert get('/api/branches')['branches'][0]['name'] == 'master'
+        assert get('/api/jobs') == {'runs': []}
         assert get('/api/providers?branch=master')['default']['provider'] == 'openai'
         snapshot = get('/api/workspace?branch=master')
         assert 'Installed CV' in snapshot['document']['html']

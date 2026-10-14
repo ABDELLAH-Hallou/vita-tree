@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import time
 import uuid
 
 from .latex import parse_document, replace_leaf
@@ -27,6 +28,10 @@ class PushError(RuntimeError):
         super().__init__(message)
         self.commit_created = commit_created
         self.commit = commit
+
+
+class AIRunError(ValueError):
+    """A fixed, user-facing message safe to expose in the global runs list."""
 
 
 def digest(content: str) -> str:
@@ -75,6 +80,13 @@ class Workspace:
         self.root = (repository / common).resolve() / "vita-tree"
         self.lock = threading.RLock()
         self.jobs: dict[str, dict] = {}
+        self._ai_threads = set()
+        self._closed = False
+        self._publishing = set()
+        self._previewing = {}
+        self._release_requested = set()
+        self._publish_locks = {}
+        self._load_jobs()
         self.vita_source = vita_source
         if self.vita_source is None:
             try:
@@ -123,6 +135,28 @@ class Workspace:
     def metadata_path(self, name):
         return self.root / "branches" / (digest(name) + ".json")
 
+    def release_worktree(self, name):
+        """Release only an idle, clean worktree owned by this application."""
+        with self.lock:
+            if self.active_job(name) or name in self._publishing or self._previewing.get(name):
+                self._release_requested.add(name)
+                return {"released": False, "reason": "active", "message": "The branch is still running an operation."}
+            self._release_requested.discard(name)
+            location = self.location(name)
+            expected = self.root / "worktrees" / digest(name)[:20]
+            if location is None:
+                return {"released": False, "reason": "absent", "message": "The branch is already available in Git."}
+            if location == self.repository.resolve() or location != expected.resolve() or expected.is_symlink():
+                return {"released": False, "reason": "external", "message": "This worktree is managed outside Vita Tree."}
+            # Ignored files may contain credentials or local reports: never discard them.
+            if run_git(location, "status", "--porcelain", "--untracked-files=all", "--ignored"):
+                return {"released": False, "reason": "dirty", "message": "Worktree kept: it contains uncommitted, untracked, or ignored files. Commit or move those files before leaving to release the branch."}
+            try:
+                run_git(self.repository, "worktree", "remove", str(location))
+            except RuntimeError:
+                return {"released": False, "reason": "locked", "message": "Git could not release this worktree. Close programs using it and try again."}
+            return {"released": True, "reason": "clean", "message": "Clean worktree released. You can now check out this branch in Git."}
+
     def metadata(self, name):
         path = self.metadata_path(name)
         return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
@@ -132,6 +166,10 @@ class Workspace:
         return read_text(safe_path(location, filename)) if location else self.committed(self.head(name), filename)
 
     def snapshot(self, name):
+        with self.lock:
+            return self._snapshot(name)
+
+    def _snapshot(self, name):
         branch = self.branch(name)
         commit = run_git(self.repository, "rev-parse", branch["ref"])
         meta = self.metadata(name)
@@ -159,11 +197,97 @@ class Workspace:
                 "diff": "".join(difflib.unified_diff(original.splitlines(True), source.splitlines(True), fromfile="original/"+self.document_path, tofile=name+"/"+self.document_path)),
                 "worktree": str(location) if location else None, "editable": bool(branch["local"]),
                 "dirty": source != self.committed(commit, self.document_path),
-                "running": next((j for j in self.jobs.values() if j["branch"] == name and j["status"] == "running"), None)}
+                "running": self.active_job(name)}
+
+    JOB_FIELDS = ("id", "branch", "opportunity", "status", "step", "message", "provider", "model",
+                  "reasoning", "language", "createdAt", "startedAt", "finishedAt", "reviewed")
+    ACTIVE_STATUSES = {"queued", "running"}
+
+    def _public_job(self, record):
+        result = {key: record.get(key) for key in self.JOB_FIELDS}
+        start = record.get("startedAt")
+        result["elapsedSeconds"] = max(0, (record.get("finishedAt") or time.time()) - start) if start else 0
+        return result
+
+    def _persist_job(self, record):
+        atomic_write(self.root / "job-history" / (record["id"] + ".json"),
+                     json.dumps({key: record.get(key) for key in self.JOB_FIELDS}))
+
+    def _load_jobs(self):
+        for path in (self.root / "job-history").glob("*.json"):
+            try:
+                record = json.loads(path.read_text(encoding="utf-8"))
+                if (not re.fullmatch(r"[a-f0-9]{32}", path.stem) or record.get("id") != path.stem
+                        or not isinstance(record.get("branch"), str)
+                        or record.get("status") not in self.ACTIVE_STATUSES | {"succeeded", "failed", "interrupted"}):
+                    continue
+                record = {key: record.get(key) for key in self.JOB_FIELDS}
+                if any(value is not None and (type(value) not in (int, float) or not 0 <= value < 1e12)
+                       for value in (record.get(key) for key in ("createdAt", "startedAt", "finishedAt"))):
+                    continue
+                if record["status"] in self.ACTIVE_STATUSES:
+                    record.update(status="interrupted", step="interrupted", finishedAt=time.time(), reviewed=False,
+                                  message="The server stopped before this run finished. Review the branch and start a new run.")
+                    self._persist_job(record)
+                self.jobs[record["id"]] = record
+            except (OSError, ValueError, TypeError, AttributeError):
+                continue  # A damaged history entry must not prevent opening the CV.
+
+    def list_jobs(self):
+        with self.lock:
+            return {"runs": [self._public_job(j) for j in sorted(self.jobs.values(),
+                    key=lambda j: j.get("createdAt") or 0, reverse=True)]}
+
+    def get_job(self, ident):
+        with self.lock:
+            if ident not in self.jobs:
+                raise FileNotFoundError("Unknown AI run")
+            return self._public_job(self.jobs[ident])
+
+    def review_job(self, ident):
+        with self.lock:
+            self.get_job(ident)
+            record = self.jobs[ident]
+            if record["status"] in self.ACTIVE_STATUSES:
+                raise ConflictError("This AI run is still active. Review it when it finishes.")
+            record["reviewed"] = True
+            self._persist_job(record)
+            return self._public_job(record)
+
+    def job_result(self, ident):
+        record = self.get_job(ident)
+        if record["status"] in self.ACTIVE_STATUSES:
+            raise ConflictError("This AI run has not finished yet.")
+        files = {}
+        stage = self.root / "runs" / record["id"]
+        for filename in (".vita/results/analyze.md", ".vita/results/adapt.md", "main.tex", "job.md"):
+            path = safe_path(stage, filename)
+            if path.is_file():
+                files[filename] = read_text(path)
+        original = safe_path(self.root / "run-inputs" / record["id"], "main.tex")
+        if original.is_file():
+            files["original/main.tex"] = read_text(original)
+        return {"run": record, "files": files}
+
+    def active_job(self, name):
+        with self.lock:
+            return next((self._public_job(j) for j in self.jobs.values()
+                         if j["branch"] == name and j["status"] in self.ACTIVE_STATUSES), None)
+
+    def close(self):
+        with self.lock:
+            self._closed = True
+            for record in self.jobs.values():
+                if record["status"] in self.ACTIVE_STATUSES:
+                    record.update(status="interrupted", step="interrupted", finishedAt=time.time(), reviewed=False,
+                                  message="The server stopped before this run finished. Review the branch and start a new run.")
+                    self._persist_job(record)
 
     def busy(self, name):
-        if any(j["branch"] == name and j["status"] == "running" for j in self.jobs.values()):
-            raise ConflictError("An AI run is in progress on this branch. Wait before saving.")
+        if self.active_job(name):
+            raise ConflictError("An AI run is in progress on this branch. Wait before changing it.")
+        if name in self._publishing:
+            raise ConflictError("This branch is being committed and pushed. Wait before changing it.")
 
     def save(self, name, filename, revision, content=None, leaf=None, text=None):
         if filename not in {self.document_path, "job.md"}:
@@ -306,6 +430,19 @@ class Workspace:
                         job_revision=None, job_content=None):
         with self.lock:
             self.busy(name)
+            self._publishing.add(name)
+            self._publish_locks.setdefault(name, threading.Lock())
+        try:
+            return self._commit_and_push(name, message, review, source_revision, source_content, job_revision, job_content)
+        finally:
+            with self.lock:
+                self._publishing.discard(name)
+                if name in self._release_requested:
+                    self.release_worktree(name)
+
+    def _commit_and_push(self, name, message, review, source_revision, source_content, job_revision, job_content):
+        # A slow network push must not hold the workspace's global lock.
+        with self._publish_locks[name]:
             if not self.branch(name)["local"]:
                 raise ValueError("Create a local branch before committing and pushing.")
             location = self.location(name, create=True)
@@ -406,6 +543,8 @@ class Workspace:
 
     def start_ai(self, name, revision, job_revision, provider="", language="en", model=None, reasoning=""):
         with self.lock:
+            if self._closed:
+                raise ConflictError("The server is stopping. Restart it before launching AI.")
             self.busy(name)
             command = self.vita_command()
             if not command:
@@ -424,65 +563,104 @@ class Workspace:
             if not job.strip():
                 raise ValueError("Save a job description first")
             ident = uuid.uuid4().hex
-            record = {"id": ident, "branch": name, "status": "running", "step": "analyze", "message": "Analyzing the job description…"}
+            record = {"id": ident, "branch": name, "opportunity": name, "status": "running", "step": "preparing",
+                      "message": "Preparing this branch's AI workspace.", "createdAt": time.time(), "startedAt": time.time(),
+                      "finishedAt": None, "reviewed": False, "provider": provider, "model": model,
+                      "reasoning": reasoning, "language": language}
+            context = self._ai_context(location, source, job, command, provider, model, reasoning)
+            context["baseCommit"] = self.head(name)
+            context["reports"] = {p: digest(read_text(safe_path(location, p))) for p in
+                                  (".vita/results/analyze.md", ".vita/results/adapt.md")}
+            # Preserve each run's inputs before its independent process starts.
+            inputs = self.root / "run-inputs" / ident
+            atomic_write(inputs / "main.tex", source)
+            atomic_write(inputs / "job.md", job)
+            self._persist_job(record)
             self.jobs[ident] = record
-            record.update(provider=provider, model=model, reasoning=reasoning)
-            threading.Thread(target=self._run_ai, args=(record, location, source, job, command, provider, language, model, reasoning), daemon=True).start()
-            return dict(record)
+            thread = threading.Thread(target=self._run_ai, args=(record, context), daemon=True)
+            self._ai_threads.add(thread)
+            try:
+                thread.start()
+            except RuntimeError:
+                self._ai_threads.discard(thread)
+                self._job_update(record, status="failed", step="failed", finishedAt=time.time(),
+                                 message="Unable to start an AI worker. Free system resources and retry.")
+            return self._public_job(record)
 
-    def _run_ai(self, record, location, source, job, command, provider, language, model, reasoning):
-        # Run in a separate snapshot: a failed/partial AI result never overwrites the CV.
+    def _ai_context(self, location, source, job, command, provider, model, reasoning):
+        # Capture each independent run's settings at submission.
+        # Credentials stay in memory and never enter the public run record.
+        env = os.environ.copy()
+        env.update(PYTHONIOENCODING="utf-8", VITA_TREE_REASONING=reasoning)
+        if self.vita_source:
+            env["PYTHONPATH"] = str(self.vita_source) + os.pathsep + env.get("PYTHONPATH", "")
+        config = {}
+        for origin in (self.repository, location):
+            for filename in ("config.json", "extensions.json", "cv.yaml"):
+                path = safe_path(origin, ".vita/" + filename)
+                if path.is_file():
+                    config[filename] = read_text(path)
+            secret = safe_path(origin, ".vita/.env")
+            if secret.is_file():
+                for line in read_text(secret).splitlines():
+                    if "=" in line and not line.lstrip().startswith("#"):
+                        key, value = line.split("=", 1)
+                        if re.fullmatch(r"[A-Z][A-Z0-9_]*(?:KEY|TOKEN)", key.strip()):
+                            env[key.strip()] = value.strip().strip("\"'")
+        try:
+            extensions = json.loads(config.get("extensions.json", "{}"))
+            extensions.setdefault("llm_providers", {})[provider] = {"model": model}
+            config["extensions.json"] = json.dumps(extensions)
+        except (ValueError, TypeError, AttributeError):
+            raise ValueError("VITA provider configuration is invalid. Check extensions.json.") from None
+        return {"location": location, "source": source, "job": job, "command": command, "env": env, "config": config}
+
+    def _job_update(self, record, **values):
+        with self.lock:
+            if self._closed:
+                return False
+            record.update(values)
+            self._persist_job(record)
+            return True
+
+    def _run_ai(self, record, context):
         from .pdf import export_snapshot
         stage = self.root / "runs" / record["id"]
+        location, source, job = (context[key] for key in ("location", "source", "job"))
         try:
-            export_snapshot(self.repository, self.head(record["branch"]), stage, location)
+            export_snapshot(self.repository, context["baseCommit"], stage, location)
             atomic_write(stage / "main.tex", source)
             atomic_write(stage / "job.md", job)
-            env = os.environ.copy()
-            env["PYTHONIOENCODING"] = "utf-8"
-            env['VITA_TREE_REASONING'] = reasoning
-            if self.vita_source:
-                env["PYTHONPATH"] = str(self.vita_source) + os.pathsep + env.get("PYTHONPATH", "")
-            # VITA's configuration is local/ignored. Copy only configuration/context,
-            # and supply keys in child-process memory, never through the API or log.
-            for origin in (self.repository, location):
-                for filename in ("config.json", "extensions.json", "cv.yaml"):
-                    path = safe_path(origin, ".vita/" + filename)
-                    if path.is_file():
-                        atomic_write(stage / ".vita" / filename, read_text(path))
-                secret = safe_path(origin, ".vita/.env")
-                if secret.is_file():
-                    for line in read_text(secret).splitlines():
-                        if "=" in line and not line.lstrip().startswith("#"):
-                            key, value = line.split("=", 1)
-                            if re.fullmatch(r"[A-Z][A-Z0-9_]*(?:KEY|TOKEN)", key.strip()):
-                                env[key.strip()] = value.strip().strip("\"'")
-            # Override only this run's configuration. Cross-branch choices must
-            # work even when absent from the selected branch's provider mapping.
-            extensions_path = stage / '.vita/extensions.json'
-            extensions = json.loads(read_text(extensions_path) or '{}')
-            extensions.setdefault('llm_providers', {})[provider] = {'model': model}
-            atomic_write(extensions_path, json.dumps(extensions))
+            for filename, content in context["config"].items():
+                atomic_write(stage / ".vita" / filename, content)
             for step in ("analyze", "adapt"):
-                with self.lock:
-                    record.update(step=step, message="Analyzing the job description…" if step == "analyze" else "Adapting the CV…")
+                if not self._job_update(record, step=step, message="Analyzing the job description…" if step == "analyze" else "Adapting the CV…"):
+                    return
                 artifact = stage / ".vita/results" / f"{step}.md"
                 artifact.unlink(missing_ok=True)
-                args = command + [step, "--auto"]
-                if provider:
-                    args += ["--provider", provider]
+                args = context["command"] + [step, "--auto"]
+                if record["provider"]:
+                    args += ["--provider", record["provider"]]
                 if step == "adapt":
-                    args += ["--language", language]
-                process = subprocess.run(args, cwd=stage, env=env, stdin=subprocess.DEVNULL, capture_output=True, timeout=600)
+                    args += ["--language", record["language"]]
+                process = subprocess.run(args, cwd=stage, env=context["env"], stdin=subprocess.DEVNULL, capture_output=True, timeout=600)
                 if process.returncode or not artifact.is_file() or not read_text(artifact).strip():
-                    raise ValueError(f"VITA {step} did not produce a report. Check provider configuration and authentication. Your CV is unchanged.")
+                    raise AIRunError(f"VITA {step} did not produce a report. Check provider configuration and authentication. Your CV is unchanged.")
+            if not self._job_update(record, step="validating", message="Validating the adapted CV and checking for file conflicts."):
+                return
             result = read_text(stage / "main.tex")
             parsed = parse_document(result)
             if result == source or parsed["error"] or "\\begin{document}" not in result:
-                raise ValueError("VITA did not produce a changed, parseable main.tex. Your CV is unchanged; inspect the run files.")
+                raise AIRunError("VITA did not produce a changed, parseable main.tex. Your CV is unchanged; inspect the run files.")
             with self.lock:
-                if self.read(record["branch"], self.document_path) != source or self.read(record["branch"], "job.md") != job:
-                    raise ConflictError("Files changed during AI execution. Result retained in the run folder; your edits were preserved.")
+                if self._closed:
+                    return
+                if (self.head(record["branch"]) != context["baseCommit"]
+                        or self.location(record["branch"]) != location
+                        or self.read(record["branch"], self.document_path) != source
+                        or self.read(record["branch"], "job.md") != job
+                        or any(digest(read_text(safe_path(location, p))) != value for p, value in context["reports"].items())):
+                    raise AIRunError("Files changed during AI execution. Result retained in the run folder; your edits were preserved.")
                 # Store the exact before-AI version for comparison, including prior manual edits.
                 meta = self.metadata(record["branch"])
                 meta.update(baseCommit=self.head(record["branch"]), baseBranch=record["branch"] + " · before AI", original=source)
@@ -490,7 +668,17 @@ class Workspace:
                 for step in ("analyze", "adapt"):
                     atomic_write(safe_path(location, f".vita/results/{step}.md"), read_text(stage / f".vita/results/{step}.md"))
                 atomic_write(safe_path(location, self.document_path), result)
-                record.update(status="succeeded", message="Analysis and adapted CV are ready to review.", runPath=str(stage))
+                self._job_update(record, status="succeeded", step="completed", finishedAt=time.time(),
+                                 message="Analysis and adapted CV are ready to review.")
         except Exception as error:
+            # Never persist exception text or provider stdout: either can contain
+            # credentials, prompts, source text, or private local paths.
+            message = str(error) if isinstance(error, AIRunError) else (
+                "The AI step timed out. Check the provider and start a new run." if isinstance(error, subprocess.TimeoutExpired)
+                else "The AI run could not finish. Check local files and provider setup, then start a new run.")
+            self._job_update(record, status="failed", step="failed", finishedAt=time.time(), message=message)
+        finally:
             with self.lock:
-                record.update(status="failed", message=str(error), runPath=str(stage))
+                self._ai_threads.discard(threading.current_thread())
+                if record["branch"] in self._release_requested:
+                    self.release_worktree(record["branch"])

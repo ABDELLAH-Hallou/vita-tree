@@ -175,6 +175,10 @@ class VitaTreeServer(ThreadingHTTPServer):
         self.token = secrets.token_urlsafe(32)
         super().__init__(address, DashboardHandler)
 
+    def server_close(self):
+        self.workspace.close()
+        super().server_close()
+
 
 class DashboardHandler(SimpleHTTPRequestHandler):
     server: VitaTreeServer
@@ -208,8 +212,13 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             return
         if path == "/api/job":
             ident = query.get("id", [""])[0]
-            record = self.server.workspace.jobs.get(ident)
-            self.send_json(record or {"error": "Unknown run"}, status=200 if record else 404)
+            self.api_call(lambda: self.server.workspace.get_job(ident))
+            return
+        if path == "/api/jobs":
+            self.api_call(self.server.workspace.list_jobs)
+            return
+        if path == "/api/job-result":
+            self.api_call(lambda: self.server.workspace.job_result(query.get("id", [""])[0]))
             return
         if path == "/api/pdf-file":
             pdf = self.server.compiler.results.get(query.get("id", [""])[0])
@@ -281,6 +290,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         workspace = self.server.workspace
         path = urlparse(self.path).path
         actions = {
+            "/api/release-worktree": lambda: workspace.release_worktree(data["branch"]),
+            "/api/job-reviewed": lambda: workspace.review_job(data["id"]),
             "/api/save": lambda: workspace.save(data["branch"], data["path"], data["revision"], data.get("content"), data.get("leaf"), data.get("text")),
             "/api/commit-preview": lambda: workspace.commit_preview(data["branch"], data.get("sourceRevision"), data.get("sourceContent"), data.get("jobRevision"), data.get("jobContent")),
             "/api/commit-push": lambda: workspace.commit_and_push(data["branch"], data.get("message"), data.get("review"), data.get("sourceRevision"), data.get("sourceContent"), data.get("jobRevision"), data.get("jobContent")),

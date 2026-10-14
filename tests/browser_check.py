@@ -12,6 +12,7 @@ from unittest.mock import patch
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
 from playwright.sync_api import sync_playwright, expect
+expect.set_options(timeout=30000)  # Git/provider refreshes can exceed 5s on Windows CI.
 from pypdf import PdfReader
 from vita_tree.server import VitaTreeServer
 from support import init_repo, git
@@ -146,7 +147,7 @@ if step=='adapt':
             results=worktree/'.vita/results';results.mkdir(parents=True,exist_ok=True)
             (results/'analyze.md').write_text('# Match analysis\nStrong Python and SQL experience.')
             (results/'adapt.md').write_text('# Changes\nRefined the summary.')
-            page.get_by_role('button',name='↻ Reload',exact=True).click();expect(page.locator('#artifacts')).to_contain_text('Strong Python and SQL experience.')
+            page.get_by_role('button',name='↻ Reload',exact=True).click();expect(page.locator('#artifacts')).to_contain_text('Strong Python and SQL experience.',timeout=30000)
             expect(page.locator('#provider')).to_have_value('codex')
             page.locator('#provider').select_option('openai');expect(page.locator('#reasoning')).to_be_disabled()
             page.locator('#provider').select_option('codex');page.locator('#model').select_option('test-codex')

@@ -56,6 +56,22 @@ class PDFCompiler:
         self.results: dict[str, Path] = {}
 
     def compile(self, name: str, side: str, engine: str):
+        # Keep its worktree available if the user navigates away during export.
+        with self.workspace.lock:
+            self.workspace._previewing[name] = self.workspace._previewing.get(name, 0) + 1
+        try:
+            return self._compile(name, side, engine)
+        finally:
+            with self.workspace.lock:
+                count = self.workspace._previewing[name] - 1
+                if count:
+                    self.workspace._previewing[name] = count
+                else:
+                    self.workspace._previewing.pop(name)
+                    if name in self.workspace._release_requested:
+                        self.workspace.release_worktree(name)
+
+    def _compile(self, name: str, side: str, engine: str):
         if side not in {"original", "current"}:
             raise ValueError("Invalid preview side")
         if engine not in {"auto", "pdflatex", "xelatex", "lualatex"}:
