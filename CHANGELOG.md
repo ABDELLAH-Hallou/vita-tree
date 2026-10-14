@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.2.0...v1.3.0) (2026-10-14)
+
+
+### Features
+
+* run independent AI sessions and release clean worktrees ([8e506ab](https://github.com/ABDELLAH-Hallou/vita-tree/commit/8e506aba41de429ac031a23d4a1db99381f3d7f4))
+* run independent AI sessions and release clean worktrees ([179221b](https://github.com/ABDELLAH-Hallou/vita-tree/commit/179221bcf2950fea0457090355c884a1fe656b48))
+
 ## [1.2.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.1.0...v1.2.0) (2026-10-12)
 
 
