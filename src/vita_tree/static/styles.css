@@ -222,16 +222,7 @@ h1,h2 {
   overflow:hidden;
   text-overflow:ellipsis
 }
-.local-label {
-  margin-left:auto;
-  color:var(--muted);
-  display:flex;
-  align-items:center;
-  gap:8px;
-  font-size:12px;
-  white-space:nowrap
-}
-.local-label i,.status-dot {
+.status-dot {
   display:inline-block;
   width:7px;
   height:7px;
@@ -239,13 +230,31 @@ h1,h2 {
   background:var(--positive);
   flex:none
 }
-.theme-control {
-  flex:none
+.theme-toggle {
+  margin:0 0 0 auto;
+  width:40px;
+  height:40px;
+  padding:0;
+  flex:none;
+  display:grid;
+  place-items:center;
+  background:transparent;
+  color:var(--muted)
 }
-.theme-control select {
-  background:var(--bg);
-  font-size:12px;
-  padding:6px 8px
+.theme-toggle svg {
+  width:20px;
+  height:20px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.7;
+  stroke-linecap:round;
+  stroke-linejoin:round
+}
+.theme-toggle .theme-moon, :root[data-theme=dark] .theme-toggle .theme-sun {
+  display:none
+}
+:root[data-theme=dark] .theme-toggle .theme-moon {
+  display:block
 }
 .shell {
   width:min(1320px,calc(100% - 64px));
@@ -1033,114 +1042,6 @@ body.in-workspace .shell {
   color:var(--negative);
   background:var(--negative-bg)
 }
-.runs-toolbar {
-  display:flex;
-  justify-content:flex-end;
-  align-items:center;
-  gap:12px;
-  padding-top:18px
-}
-.runs-toolbar button {
-  font-size:12px
-}
-.runs-toolbar .count:empty {
-  display:none
-}
-.runs-panel {
-  margin:16px 0 24px;
-  background:var(--panel);
-  border:1px solid var(--line);
-  border-radius:6px;
-  padding:20px
-}
-.runs-heading,.run-heading,.run-footer {
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:16px
-}
-.runs-heading {
-  margin-bottom:16px
-}
-#runs-summary {
-  margin:4px 0 0
-}
-#runs-list {
-  display:grid;
-  gap:0;
-  max-height:560px;
-  overflow:auto
-}
-.run-card {
-  border-top:1px solid var(--line);
-  padding:16px 4px;
-  min-width:0;
-  font-size:13px
-}
-.run-heading strong {
-  overflow-wrap:anywhere
-}
-.run-status {
-  font-size:12px;
-  color:var(--accent);
-  white-space:nowrap
-}
-.run-card[data-status=failed] .run-status,.run-card[data-status=interrupted] .run-status {
-  color:var(--negative)
-}
-.run-card[data-status=succeeded] .run-status {
-  color:var(--positive)
-}
-.run-config,.run-times,.run-elapsed {
-  font-size:11px;
-  color:var(--muted);
-  line-height:1.7;
-  overflow-wrap:anywhere
-}
-.run-config {
-  margin:6px 0
-}
-.run-message {
-  margin:8px 0
-}
-.run-times {
-  margin:6px 0
-}
-.run-footer {
-  margin-top:10px
-}
-.run-footer button {
-  font-size:12px
-}
-.run-elapsed {
-  font-variant-numeric:tabular-nums
-}
-.mini-pipeline {
-  display:flex;
-  gap:5px;
-  margin:12px 0;
-  flex-wrap:wrap
-}
-.mini-pipeline span {
-  font-size:11px;
-  padding:3px 8px;
-  border:1px solid var(--line);
-  border-radius:4px;
-  color:var(--muted)
-}
-.mini-pipeline [data-status=running] {
-  background:var(--accent-light);
-  color:var(--accent);
-  border-color:var(--accent)
-}
-.mini-pipeline [data-status=succeeded] {
-  color:var(--positive);
-  background:var(--positive-bg)
-}
-.mini-pipeline [data-status=failed],.mini-pipeline [data-status=interrupted] {
-  color:var(--negative);
-  background:var(--negative-bg)
-}
 .run-notifications {
   display:flex;
   gap:8px;
@@ -1331,17 +1232,11 @@ dialog textarea {
   .brand-mark {
     width:25px
   }
-  .local-label,.divider {
+  .divider {
     display:none
-  }
-  .theme-control {
-    margin-left:auto
   }
   #repository {
     font-size:11px
-  }
-  .theme-control select {
-    max-width:80px
   }
   .page-heading {
     margin:24px 0;
@@ -1528,19 +1423,6 @@ dialog textarea {
   .workspace-footer {
     flex-direction:column;
     gap:8px
-  }
-  .run-heading {
-    align-items:flex-start;
-    flex-wrap:wrap
-  }
-  .runs-panel {
-    padding:14px
-  }
-  .run-status {
-    white-space:normal
-  }
-  .runs-toolbar {
-    flex-wrap:wrap
   }
 
 }
@@ -1756,4 +1638,4 @@ dialog textarea {
 }
 
 #runs-error:empty { display:none; }
-@media(max-width:520px) { #repository { display:none; } .topbar-inner { gap:10px; } .runs-toolbar { margin-left:auto; flex:none; } .theme-control { margin-left:0; } }
+@media(max-width:520px) { #repository { display:none; } .topbar-inner { gap:10px; } }
