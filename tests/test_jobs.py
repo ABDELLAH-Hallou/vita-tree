@@ -208,3 +208,197 @@ class JobTests(unittest.TestCase):
         git(self.root, 'worktree', 'add', '-b', 'external', str(external))
         self.assertEqual(self.workspace.release_worktree('external')['reason'], 'external')
         self.assertTrue(external.exists())
+
+    def pipeline_source(self):
+        source = self.root / '.git/fake-vita'
+        prompts = source / 'vita/assets/prompts'
+        prompts.mkdir(parents=True, exist_ok=True)
+        for step in ('extract', 'review', 'cover'):
+            (prompts / (step + '.md')).write_text('Fixture task')
+        self.workspace.vita_source = source
+
+    def pipeline_branch(self, label, **options):
+        branch = self.branch(label)
+        self.workspace.save(label, 'job.md', branch['jobRevision'], json.dumps({'label': label, 'pipeline': True, **options}))
+        return self.workspace.snapshot(label)
+
+    def test_full_pipeline_retains_reports_states_and_selected_routing(self):
+        self.pipeline_source()
+        branch = self.pipeline_branch('pipeline', extraction=True)
+        shared = self.root / '.vita/skills/adapt/style.md'
+        shared.parent.mkdir(parents=True); shared.write_text('Shared writing instructions')
+        local = Path(branch['worktree']) / '.vita/skills/adapt/style.md'
+        local.parent.mkdir(parents=True); local.write_text('Branch-specific writing instructions')
+        record = self.start(branch, workflow={'extract': True, 'review': True, 'cover': True})
+        local.write_text('Changed after launch')
+        self.release('pipeline')
+        result = self.finished(record['id'])
+        self.assertEqual(result['status'], 'succeeded', result)
+        self.assertEqual([stage['id'] for stage in result['stages']], ['extract', 'analyze', 'adapt', 'review', 'cover', 'validating'])
+        for stage in result['stages']:
+            self.assertEqual(stage['status'], 'succeeded')
+            self.assertLessEqual(stage['startedAt'], stage['finishedAt'])
+        for left, right in zip(result['stages'], result['stages'][1:]):
+            self.assertLessEqual(left['finishedAt'], right['startedAt'])
+        retained_skill = self.workspace.root / 'runs' / record['id'] / '.vita/skills/adapt/style.md'
+        self.assertEqual(retained_skill.read_text(), 'Branch-specific writing instructions')
+        self.assertNotIn('writing instructions', json.dumps(self.workspace.list_jobs()))
+        snapshot = self.workspace.snapshot('pipeline')
+        self.assertEqual(set(snapshot['artifacts']), {'extract', 'analyze', 'adapt', 'review', 'delta', 'cover'})
+        self.assertIn('Initial analysis', snapshot['artifacts']['analyze']['content'])
+        retained = self.workspace.job_result(record['id'])['files']
+        for filename in ('job.json', 'job.toon', 'analysis.json', 'review.json', 'delta.json', 'delta.md'):
+            self.assertIn('.vita/results/' + filename, retained)
+            self.assertEqual(self.workspace.read('pipeline', '.vita/results/' + filename), retained['.vita/results/' + filename])
+        self.assertIn('Dear hiring team', self.workspace.read('pipeline', 'cover-letter.tex'))
+        review = self.workspace.commit_preview('pipeline')
+        self.assertIn('cover-letter.tex', [file['path'] for file in review['files']])
+        reopened = Workspace(self.root)
+        self.assertEqual(reopened.get_job(record['id'])['stages'], result['stages'])
+        reopened.close()
+
+    def test_pipeline_failure_blocks_downstream_and_preserves_branch(self):
+        self.pipeline_source()
+        for failure in ('extract', 'review', 'cover'):
+            branch = self.pipeline_branch('fail-' + failure, fail=failure, extraction=True)
+            record = self.start(branch, workflow={'extract': True, 'review': True, 'cover': True})
+            self.release(branch['branch'])
+            result = self.finished(record['id'])
+            self.assertEqual(result['status'], 'failed', result)
+            stages = {item['id']: item for item in result['stages']}
+            self.assertEqual(stages[failure]['status'], 'failed')
+            self.assertEqual(stages['validating']['status'], 'blocked')
+            self.assertEqual(self.workspace.read(branch['branch'], 'main.tex'), SOURCE)
+            self.assertEqual(self.workspace.snapshot(branch['branch'])['artifacts'], {})
+
+    def test_invalid_cover_and_report_conflict_preserve_local_work(self):
+        self.pipeline_source()
+        branch = self.pipeline_branch('invalid-cover', invalid_cover=True)
+        record = self.start(branch, workflow={'cover': True})
+        self.release('invalid-cover')
+        result = self.finished(record['id'])
+        self.assertEqual(result['status'], 'failed', result)
+        self.assertEqual(result['stages'][-1]['status'], 'failed')
+        self.assertEqual(self.workspace.read('invalid-cover', 'main.tex'), SOURCE)
+        branch = self.pipeline_branch('report-conflict')
+        record = self.start(branch, workflow={'review': True})
+        self.wait(lambda: (self.control / 'report-conflict.started').exists())
+        report = Path(branch['worktree']) / '.vita/results/review.md'
+        report.parent.mkdir(parents=True, exist_ok=True)
+        report.write_text('Manual review: preserve this')
+        self.release('report-conflict')
+        self.assertEqual(self.finished(record['id'])['status'], 'failed')
+        self.assertEqual(report.read_text(), 'Manual review: preserve this')
+        self.assertEqual(self.workspace.read('report-conflict', 'main.tex'), SOURCE)
+
+    def test_optional_steps_require_capability_and_boolean_choices(self):
+        self.workspace.vita_source = None
+        branch = self.branch('legacy')
+        for options in ({'extract': True}, {'cover': 'yes'}, {'unknown': True}, []):
+            with self.assertRaises(ValueError):
+                self.start(branch, workflow=options)
+        record = self.start(branch)
+        self.release('legacy')
+        result = self.finished(record['id'])
+        self.assertEqual(result['status'], 'succeeded')
+        states = {stage['id']: stage['status'] for stage in result['stages']}
+        self.assertEqual(states['extract'], 'skipped')
+        self.assertEqual(states['review'], 'skipped')
+        self.assertEqual(states['cover'], 'skipped')
+
+    def test_each_step_runs_alone_and_only_updates_its_outputs(self):
+        self.pipeline_source()
+        for step in ('extract', 'analyze', 'adapt', 'review', 'cover', 'validating'):
+            with self.subTest(step=step):
+                branch = self.pipeline_branch('only-' + step)
+                location = Path(branch['worktree'])
+                previous = location / '.vita/results/cover.md'
+                previous.parent.mkdir(parents=True, exist_ok=True)
+                previous.write_text('Previous letter report')
+                meta = self.workspace.metadata(branch['branch'])
+                record = self.start(branch, workflow={'steps': [step]})
+                self.release(branch['branch'])
+                result = self.finished(record['id'])
+                self.assertEqual(result['status'], 'succeeded', result)
+                self.assertEqual({t['id'] for t in result['stages'] if t['status'] == 'succeeded'}, {step, 'validating'})
+                calls = {p.name.split('.')[-2] for p in self.control.glob(branch['branch'] + '.*.started')}
+                self.assertEqual(calls, set() if step == 'validating' else {step})
+                if step != 'adapt':
+                    self.assertEqual(self.workspace.read(branch['branch'], 'main.tex'), SOURCE)
+                    self.assertEqual(self.workspace.metadata(branch['branch']), meta)
+                if step != 'cover':
+                    self.assertEqual(previous.read_text(), 'Previous letter report')
+
+    def test_separate_runs_reuse_matching_analysis_and_preserve_comparison(self):
+        self.pipeline_source()
+        branch = self.pipeline_branch('separate', extraction=True, require_analysis=True)
+        self.release('separate')
+        for step in ('extract', 'analyze', 'adapt', 'review', 'cover', 'adapt'):
+            # The second adaptation is a legitimate no-op, not a failed run.
+            record = self.start(branch, workflow={'steps': [step]})
+            self.assertEqual(self.finished(record['id'])['status'], 'succeeded', self.workspace.get_job(record['id']))
+            branch = self.workspace.snapshot('separate')
+            if step == 'adapt':
+                original = branch['original']
+            elif step in ('review', 'cover'):
+                self.assertEqual(branch['original'], original)
+        self.assertIn('delta', branch['artifacts'])
+        self.assertIn('analyze', branch['artifacts'])
+        # Analyze invalidates the old score comparison, without erasing the review.
+        record = self.start(branch, workflow={'steps': ['analyze']})
+        self.assertEqual(self.finished(record['id'])['status'], 'succeeded')
+        snapshot = self.workspace.snapshot('separate')
+        self.assertNotIn('delta', snapshot['artifacts'])
+        self.assertIn('review', snapshot['artifacts'])
+
+    def test_stale_analysis_is_not_reused_and_stale_delta_is_removed(self):
+        self.pipeline_source()
+        branch = self.pipeline_branch('stale-analysis', forbid_analysis=True)
+        results = Path(branch['worktree']) / '.vita/results'
+        results.mkdir(parents=True, exist_ok=True)
+        (results / 'analysis.json').write_text(json.dumps({'metadata': {'job_sha256': 'old-job'}}))
+        (results / 'analyze.md').write_text('Advice for another job')
+        (results / 'delta.md').write_text('Old comparison')
+        record = self.start(branch, workflow={'steps': ['review']})
+        self.assertEqual(self.finished(record['id'])['status'], 'succeeded')
+        self.assertFalse((results / 'delta.md').exists())
+        self.assertEqual((results / 'analyze.md').read_text(), 'Advice for another job')
+        record = self.start(self.workspace.snapshot(branch['branch']), workflow={'steps': ['adapt']})
+        self.assertEqual(self.finished(record['id'])['status'], 'succeeded')
+
+    def test_report_only_mutation_and_conflict_do_not_overwrite_branch(self):
+        self.pipeline_source()
+        branch = self.pipeline_branch('unexpected', modify_cv='review')
+        record = self.start(branch, workflow={'steps': ['review']})
+        self.assertEqual(self.finished(record['id'])['status'], 'failed')
+        self.assertEqual(self.workspace.read('unexpected', 'main.tex'), SOURCE)
+        branch = self.pipeline_branch('single-conflict', hold='review')
+        record = self.start(branch, workflow={'steps': ['review']})
+        self.wait(lambda: (self.control / 'single-conflict.review.started').exists())
+        (Path(branch['worktree']) / 'main.tex').write_text(SOURCE + '\n% external edit')
+        (self.control / 'single-conflict.review.release').touch()
+        self.assertEqual(self.finished(record['id'])['status'], 'failed')
+        self.assertTrue(self.workspace.read('single-conflict', 'main.tex').endswith('% external edit'))
+
+    def test_validate_requires_neither_cli_nor_job_and_ai_requires_saved_inputs(self):
+        branch = self.workspace.snapshot('master')
+        with patch.object(self.workspace, 'vita_command', return_value=None):
+            record = self.start(branch, workflow={'steps': ['validating']})
+            self.assertEqual(self.finished(record['id'])['status'], 'succeeded')
+        with self.assertRaisesRegex(ValueError, 'job description'):
+            self.start(branch, workflow={'steps': ['analyze']})
+        with self.assertRaises(ConflictError):
+            self.start({**branch, 'revision': 'stale'}, workflow={'steps': ['analyze']})
+
+    def test_extraction_is_independent_of_cv_syntax_but_validation_reports_it(self):
+        self.pipeline_source()
+        branch = self.pipeline_branch('extract-with-incomplete-cv')
+        self.workspace.save(branch['branch'], 'main.tex', branch['revision'], 'Incomplete LaTeX source')
+        branch = self.workspace.snapshot(branch['branch'])
+        record = self.start(branch, workflow={'steps': ['extract']})
+        self.assertEqual(self.finished(record['id'])['status'], 'succeeded')
+        self.assertEqual(self.workspace.read(branch['branch'], 'main.tex'), 'Incomplete LaTeX source')
+        record = self.start(branch, workflow={'steps': ['validating']})
+        result = self.finished(record['id'])
+        self.assertEqual(result['status'], 'failed')
+        self.assertIn('not parseable', result['message'])

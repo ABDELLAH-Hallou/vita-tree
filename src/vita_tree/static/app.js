@@ -1,7 +1,13 @@
 ﻿const $ = selector => document.querySelector(selector);
 const state = {branches: [], session: null, snapshot: null, view: 'structure', generation: 0, pdfs: {}, pdfGeneration: 0, dirty: false, jobDirty: false, leaf: null, publishing: false, commitReview: null};
 import {createLatexEditor} from './vendor/editor.mjs';
-import {createRunMonitor, isActiveRun, runLabel} from './runs.js';
+import {createRunMonitor, isActiveRun, runLabel, runSteps} from './runs.js';
+import {renderGraph, graphStages, statusNames} from './workflow.js';
+import {reportDetails} from './reports.js';
+state.filter='all';
+state.workflowChoices=new Map();
+const aiSteps=['extract','analyze','adapt','review','cover'];
+const stepAvailable=id=>!['extract','review','cover'].includes(id)||!!state.session?.workflow?.[id];
 state.runs = [];
 let runMonitor;
 const editors = Object.fromEntries(['original', 'current'].map(side => [side, createLatexEditor($(`#${side}-source`), {
@@ -27,10 +33,10 @@ function renderReasoning(preferred='') {
   $('#reasoning').replaceChildren(new Option('Provider default',''),...efforts.map(e=>new Option(effortNames[e]||e,e)));
   $('#reasoning').value=efforts.includes(preferred)?preferred:'';
   $('#reasoning').disabled=!efforts.length || !!state.snapshot?.running;
-  $('#reasoning-hint').textContent=efforts.length?'Reasoning applies to both analysis and adaptation. Higher levels can take longer.':
+  $('#reasoning-hint').textContent=efforts.length?'Reasoning applies to all AI steps. Higher levels can take longer.':
     option?.provider==='codex'?(state.catalog.reasoningBridge?'Select a model with reasoning levels in your local Codex catalog.':'Reasoning requires the AI integration. Install vita-tree[ai] or use --vita-source.'):
     'This provider/model uses its default reasoning; the current VITA integration has no effort control for it.';
-  $('#provider-hint').textContent=`Providers and models found across ${state.catalog.refCount} branch refs and local settings. Model access depends on your provider account.`;
+  $('#provider-hint').textContent=`Models from your repository and local settings. Your provider account determines access.`;
   $('#model').title=option?`Found in:\n${option.sources.join('\n')}`:'';
 }
 function renderModels(preferred,reasoning='') {
@@ -49,8 +55,8 @@ function renderProviders() {
   $('#provider').disabled=!!state.snapshot.running;
   renderModels(choice.model,choice.reasoning);
 }
-$('#provider').onchange=()=>{renderModels();rememberAI();};
-$('#model').onchange=()=>{renderReasoning();rememberAI();};
+$('#provider').onchange=()=>{renderModels();rememberAI();configureWorkflow();renderWorkflow();};
+$('#model').onchange=()=>{renderReasoning();rememberAI();configureWorkflow();renderWorkflow();};
 $('#reasoning').onchange=rememberAI;
 async function api(path, data) {
   const response = await fetch(path, data === undefined ? {cache: 'no-store'} : {method:'POST', headers:{'Content-Type':'application/json','X-Vita-Token':state.session.token}, body:JSON.stringify(data)});
@@ -67,7 +73,14 @@ function relative(timestamp) {
 }
 function renderBranches() {
   const query = $('#search').value.toLowerCase();
-  const branches = state.branches.filter(b => `${b.name} ${b.subject} ${b.author}`.toLowerCase().includes(query));
+  const matchesFilter = (b, filter) => {
+    const runs=state.runs.filter(run=>run.branch===b.name), latest=runs[0];
+    return filter==='all' || (filter==='running' && runs.some(isActiveRun)) ||
+      (filter==='review' && runs.some(run=>run.status==='succeeded'&&!run.reviewed)) ||
+      (filter==='failed' && latest && ['failed','interrupted'].includes(latest.status));
+  };
+  for(const filter of ['all','running','review','failed']) $('#filter-'+filter).textContent=state.branches.filter(b=>matchesFilter(b,filter)).length;
+  const branches = state.branches.filter(b => matchesFilter(b,state.filter) && `${b.name} ${b.subject} ${b.author}`.toLowerCase().includes(query));
   $('#branch-list').replaceChildren();
   for (const b of branches) {
     const row = document.createElement('button'); row.className='branch-row'; row.setAttribute('aria-label', `Open ${b.name}`);
@@ -80,7 +93,7 @@ function renderBranches() {
       badge.textContent=runLabel(run)+(!isActiveRun(run)&&!run.reviewed?' · To review':'');row.querySelector('.branch-info').append(badge);
     }
   }
-  if(!branches.length) $('#branch-list').innerHTML='<p class="empty">No matching branches.</p>';
+  if(!branches.length) $('#branch-list').innerHTML='<p class="empty">No branches here. Try another filter or create a branch for your next application.</p>';
   $('#result-count').textContent=`${branches.length} ${branches.length===1?'branch':'branches'}`;
   $('#total-count').textContent=state.branches.length;
 }
@@ -101,10 +114,11 @@ async function openBranch(name, force=false) {
   if(!force && !canLeave()) return;
   const previous=state.snapshot?.branch;
   const generation=++state.generation;
-  state.snapshot=null;
+  state.snapshot=null;state.graphRunId=null;state.selectedTask=null;$('#task-inspector').hidden=true;
   $('#selected-run').hidden=true;
-  for(const id of ['provider','model','reasoning']) $('#'+id).disabled=true;
-  for(const id of ['save-source','save-job','run-adapt','branch-from','compile','commit-push']) $('#'+id).disabled=true;
+  for(const id of ['provider','model','reasoning',...aiSteps.map(id=>'step-'+id)]) $('#'+id).disabled=true;
+  for(const id of aiSteps.map(id=>'step-'+id))$('#'+id).checked=false;
+  for(const id of ['save-source','save-job','run-adapt','run-all','task-run','branch-from','compile','commit-push']) $('#'+id).disabled=true;
   editors.current.setReadOnly(true);$('#job-description').readOnly=true;
   $('#board').hidden=true;$('#workspace').hidden=false;document.body.classList.add('in-workspace');
   $('#branch-title').textContent=name; notice('Loading the branch…');
@@ -123,16 +137,16 @@ async function openBranch(name, force=false) {
 }
 function updateSnapshot() {
   const s=state.snapshot;
-  $('#branch-title').textContent=s.branch;$('#workspace-caption').textContent='Read, compare, and shape your next application.';
+  $('#branch-title').textContent=s.branch;$('#workspace-caption').textContent=s.editable?'Changes stay on this branch. Compare the result, then commit when you’re ready.':'Remote branch. Create a local branch to edit or run AI.';
   $('#original-label').textContent=s.baseBranch;$('#current-label').textContent=s.branch;
   $('#version-label').textContent=s.editable?'Editable':'Remote';
   editors.original.setDocument(s.original,s.branch);editors.current.setDocument(s.content,s.branch);editors.current.setReadOnly(!s.editable||!!s.running);
   renderDocument('original',s.originalDocument);renderDocument('current',s.document);
   $('#job-description').value=s.job;$('#job-description').readOnly=!s.editable||!!s.running;$('#job-state').textContent=s.job?'Saved as job.md':'No job description yet';
   $('#save-job').disabled=!s.editable||!!s.running;$('#branch-from').disabled=!!s.running;$('#compile').disabled=false;$('#ai-dot').textContent=Object.keys(s.artifacts).length?'•':'';
-  $('#ai-capability').textContent=state.session.vita?'Runs vita analyze --auto, then vita adapt --auto.': 'VITA CLI is unavailable. Install vita-tree[ai] or restart with --vita-source pointing to vita-cv.';
+  $('#ai-capability').textContent=state.session.vita?'Run only what you select, or Run all available steps. Validation always checks results before applying them. Save editor changes first.': 'VITA CLI is unavailable. Install vita-tree[ai] or restart with --vita-source pointing to vita-cv.';
   $('#run-adapt').disabled=!state.session.vita || !s.editable || !!s.running || !selectedModel()?.supported;
-  $('#ai-status').textContent=s.running?.message || 'Ready when you are';
+  $('#ai-status').textContent=s.running?.message || (s.job?'Ready to run on this branch.':'Add and save a job description first.');
   $('#worktree-path').textContent=s.worktree || 'A separate worktree will be created on first save.';
   $('#diff').replaceChildren();
   if(!s.diff) $('#diff').textContent='No changes from the original.';
@@ -141,8 +155,9 @@ function updateSnapshot() {
   const removed=s.diff.split('\n').filter(x=>x.startsWith('-')&&!x.startsWith('---')).length;
   $('#change-count').textContent=added||removed?`+${added} −${removed}`:'';
   $('#artifacts').replaceChildren();
-  if(!Object.keys(s.artifacts).length) $('#artifacts').innerHTML='<p class="helper">No reports yet. Run Analyze & adapt, or reload after running VITA in this branch’s worktree.</p>';
-  for(const [key,artifact] of Object.entries(s.artifacts)) {const detail=document.createElement('details');detail.open=key==='analyze';detail.innerHTML=`<summary>${esc(artifact.path)}</summary><pre>${esc(artifact.content)}</pre>`;$('#artifacts').append(detail);}
+  if(!Object.keys(s.artifacts).length) $('#artifacts').innerHTML='<p class="helper">No reports yet. Run the workflow to see the job analysis and proposed changes here.</p>';
+  for(const [key,artifact] of Object.entries(s.artifacts)) $('#artifacts').append(reportDetails(artifact.path,artifact.content,{open:key==='analyze'}));
+  configureWorkflow();renderWorkflow();
   updateSaveState();
 }
 function renderDocument(side, data) {
@@ -157,7 +172,8 @@ function updateSaveState(){
 }
 function setView(view){
   state.view=view;
-  document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.view===view)));
+  document.querySelectorAll('[data-view]').forEach(b=>{b.setAttribute('aria-selected',String(b.dataset.view===view));b.tabIndex=b.dataset.view===view?0:-1;});
+  if(state.snapshot)history.replaceState(null,'','?'+new URLSearchParams({branch:state.snapshot.branch,view}));
   $('#comparison').hidden=!['structure','source','pdf'].includes(view);$('#structure-hint').hidden=view!=='structure';$('#pdf-toolbar').hidden=view!=='pdf';$('#changes-panel').hidden=view!=='changes';$('#ai-panel').hidden=view!=='ai';$('#document-actions').hidden=false;$('#save-source').hidden=['ai','pdf'].includes(view);
   for(const side of ['original','current']) {$(`#${side}-document`).hidden=view!=='structure';$(`#${side}-source`).hidden=view!=='source';$(`#${side}-pdf`).hidden=view!=='pdf';}
   if(view==='source') for(const editor of Object.values(editors)) editor.refresh();
@@ -267,22 +283,26 @@ $('#edit-form').onsubmit=async event=>{
   try{await api('/api/save',{branch:s.branch,path:s.path,revision:s.revision,leaf:state.leaf,text:$('#edit-text').value});$('#edit-dialog').close();await openBranch(s.branch,true);toast('Text updated in '+s.path);}
   catch(error){$('#edit-error').textContent=error.message;}finally{event.submitter.disabled=false;}
 };
-async function runAdapt(){
-  if(!state.snapshot)return;
+async function runAdapt(steps=workflowOptions().steps){
+  if(!state.snapshot||state.snapshot.running||state.launching)return;
+  if(!steps.length){notice('Select at least one step.',true);return;}
   if(state.dirty||state.jobDirty){notice('Save your CV and job description before starting AI.',true);return;}
-  $('#run-adapt').disabled=true;editors.current.setReadOnly(true);$('#job-description').readOnly=true;$('#save-job').disabled=true;$('#branch-from').disabled=true;const s=state.snapshot;
+  state.launching=true;$('#run-adapt').disabled=true;$('#run-all').disabled=true;$('#task-run').disabled=true;editors.current.setReadOnly(true);$('#job-description').readOnly=true;$('#save-job').disabled=true;$('#branch-from').disabled=true;const s=state.snapshot;
   rememberAI();
-  try{const job=await api('/api/adapt',{branch:s.branch,revision:s.revision,jobRevision:s.jobRevision,provider:$('#provider').value,model:$('#model').value,reasoning:$('#reasoning').value,language:$('#language').value});s.running=job;if(state.snapshot===s){renderProviders();updateSaveState();$('#ai-status').textContent=job.message;}await runMonitor.refresh();}
-  catch(error){if(state.snapshot===s){notice(error.message,true);$('#run-adapt').disabled=false;editors.current.setReadOnly(!s.editable);$('#job-description').readOnly=!s.editable;$('#save-job').disabled=!s.editable;$('#branch-from').disabled=false;}}
+  for(const id of aiSteps.map(id=>'step-'+id))$('#'+id).disabled=true;
+  try{const job=await api('/api/adapt',{branch:s.branch,revision:s.revision,jobRevision:s.jobRevision,provider:$('#provider').value,model:$('#model').value,reasoning:$('#reasoning').value,language:$('#language').value,workflow:{steps}});s.running=job;if(state.snapshot===s){state.graphRunId=job.id;renderProviders();configureWorkflow();renderWorkflow();updateSaveState();$('#ai-status').textContent=job.message;}await runMonitor.refresh();}
+  catch(error){if(state.snapshot===s){notice(error.message,true);configureWorkflow();$('#run-adapt').disabled=false;editors.current.setReadOnly(!s.editable);$('#job-description').readOnly=!s.editable;$('#save-job').disabled=!s.editable;$('#branch-from').disabled=false;}}
+  finally{state.launching=false;if(state.snapshot){configureWorkflow();renderWorkflow();}}
 }
 async function runsChanged(runs){
   state.runs=runs;renderBranches();
   const s=state.snapshot;if(!s)return;
+  renderWorkflow();
   const active=runs.find(run=>run.branch===s.branch&&isActiveRun(run));
   if(active){
     s.running=active;$('#ai-status').textContent=active.message;editors.current.setReadOnly(true);$('#job-description').readOnly=true;
-    for(const id of ['save-job','run-adapt','branch-from'])$('#'+id).disabled=true;
-    renderProviders();updateSaveState();
+    for(const id of ['save-job','run-adapt','run-all','task-run','branch-from'])$('#'+id).disabled=true;
+    renderProviders();configureWorkflow();renderWorkflow();updateSaveState();
   }else if(s.running){
     const finished=runs.find(run=>run.id===s.running.id);s.running=null;
     if(!state.dirty&&!state.jobDirty&&!state.publishing){
@@ -300,6 +320,7 @@ async function runsChanged(runs){
 async function openRun(run){
   if(!canLeave())return;
   const loaded=await openBranch(run.branch,true);if(!loaded)return;
+  state.graphRunId=run.id;renderWorkflow();
   setView('ai');$('#ai-status').textContent=run.message;
   if(!isActiveRun(run)){
     const detail=await api('/api/job-result?id='+encodeURIComponent(run.id));
@@ -307,15 +328,75 @@ async function openRun(run){
     $('#selected-run').hidden=false;$('#selected-run-info').textContent=`${runLabel(run)} · ${new Date(run.createdAt*1000).toLocaleString()} · Retained files for this run. The branch above may contain newer edits.`;
     $('#selected-run-files').replaceChildren();
     for(const [path,content] of Object.entries(detail.files)){
-      const item=document.createElement('details');item.open=path.endsWith('analyze.md');
-      const summary=document.createElement('summary');summary.textContent=path;
-      const pre=document.createElement('pre');pre.textContent=content;item.append(summary,pre);$('#selected-run-files').append(item);
+      $('#selected-run-files').append(reportDetails(path,content,{open:/analy(sis|ze)\.md$/.test(path),label:detail.inputs?.includes(path)?`Input · ${path}`:path}));
     }
     if(!Object.keys(detail.files).length)$('#selected-run-files').textContent='No result files were produced by this run.';
     await api('/api/job-reviewed',{id:run.id});
   }
   $('#ai-panel').scrollIntoView({block:'start'});
 }
+function workflowOptions(){return {steps:aiSteps.filter(id=>$('#step-'+id).checked)};}
+function configureWorkflow(){
+  const s=state.snapshot, available=state.session.workflow || {};
+  const selected=s.running?.stages?.length ? s.running.stages.filter(stage=>stage.status!=='skipped').map(stage=>stage.id) : state.workflowChoices.get(s.branch)?.steps || ['analyze','adapt',...(available.review?['review']:[])];
+  for(const id of aiSteps){
+    const input=$('#step-'+id);input.checked=selected.includes(id)&&stepAvailable(id);input.disabled=!stepAvailable(id)||!!s.running||!!state.launching||!s.editable;
+    if(!stepAvailable(id)) $('#hint-'+id).textContent='Unavailable in the connected Vita CV. Upgrade to enable.';
+  }
+  const blocked=!state.session.vita||!s.editable||!!s.running||!!state.launching||!selectedModel()?.supported;
+  $('#run-adapt').textContent='Run selected';
+  $('#run-adapt').disabled=blocked||!workflowOptions().steps.length;
+  $('#run-all').disabled=blocked;
+}
+function renderWorkflow(){
+  if(!state.snapshot)return;
+  const runs=state.runs.filter(run=>run.branch===state.snapshot.branch);
+  const selected=state.graphRunId || state.snapshot.running?.id || runs[0]?.id || 'draft';
+  const select=$('#workflow-run');
+  select.replaceChildren(new Option('Next run','draft'),...runs.map(run=>new Option(`${new Date(run.createdAt*1000).toLocaleString()} — ${runSteps(run)} · ${runLabel(run)}`,run.id)));
+  const run=runs.find(run=>run.id===selected) || (state.snapshot.running?.id===selected?state.snapshot.running:null);
+  if(run&&!runs.some(item=>item.id===run.id))select.add(new Option('Current run',run.id));
+  select.value=run?run.id:'draft';state.displayedRun=run;
+  $('#workflow-summary').textContent=run ? run.message : 'Plan your next run. Skipped steps make no AI calls.';
+  renderGraph($('#workflow-graph'),{run,options:workflowOptions(),available:state.session.workflow,selected:state.selectedTask,select:selectTask});
+  if(state.selectedTask)updateInspector();
+}
+function updateInspector(){
+  const task=graphStages(state.displayedRun,workflowOptions(),state.session.workflow).find(t=>t.id===state.selectedTask);
+  if(!task)return;
+  $('#task-inspector').hidden=false;$('#task-title').textContent=task.title;
+  $('#task-description').textContent=task.detail+' Run actions use the current saved branch files and settings in Job & AI.';
+  $('#task-status').textContent=`${statusNames[task.status] || task.status} · ${task.output}`;
+  $('#task-output').textContent=task.id==='validating'?'Compare current CVs':task.id==='adapt'?'Open run source':'Open report';
+  $('#task-run').textContent=task.id==='validating'?'Validate current CV':`Run ${task.title} only`;
+  $('#task-run').disabled=!state.snapshot.editable||!!state.snapshot.running||!!state.launching||!stepAvailable(task.id)||(task.id!=='validating'&&(!state.session.vita||!selectedModel()?.supported));
+  $('#task-output').disabled=isActiveRun(state.displayedRun)||!['succeeded','unknown'].includes(task.status);
+  if(isActiveRun(state.displayedRun))$('#task-status').textContent+=' · Outputs open after the run finishes.';
+}
+function selectTask(task){state.selectedTask=task.id;renderWorkflow();}
+$('#workflow-run').onchange=()=>{state.graphRunId=$('#workflow-run').value;renderWorkflow();};
+for(const id of aiSteps)$('#step-'+id).onchange=()=>{
+  state.workflowChoices.set(state.snapshot.branch,workflowOptions());state.graphRunId='draft';configureWorkflow();renderWorkflow();
+};
+$('#task-run').onclick=()=>runAdapt([state.selectedTask]);
+$('#run-all').onclick=()=>runAdapt(aiSteps.filter(stepAvailable));
+$('#toggle-workflow').onclick=()=>{
+  const body=$('#workflow-body');body.hidden=!body.hidden;
+  $('#toggle-workflow').textContent=body.hidden?'Show graph':'Collapse graph';
+  $('#toggle-workflow').setAttribute('aria-expanded',String(!body.hidden));
+};
+$('#task-output').onclick=async()=>{
+  const task=state.selectedTask, run=state.displayedRun;
+  if(task==='validating'){setView('structure');$('#comparison').scrollIntoView({block:'start'});return;}
+  try{
+    if(run&&!isActiveRun(run))await openRun(run);else setView('ai');
+    const match={extract:'job.json',analyze:'analy',review:'review.',cover:'cover',adapt:'main.tex'}[task];
+    const area=run&&!isActiveRun(run)?$('#selected-run-files'):$('#artifacts');
+    const item=[...area.querySelectorAll('details')].find(el=>el.dataset.path.includes(match));
+    if(item){item.open=true;item.scrollIntoView({block:'center'});item.querySelector('summary').focus();}
+    else notice('This run has no saved output for that task. Check the run status.');
+  }catch(error){notice(error.message,true);}
+};
 let pdfjs;
 async function pdfLibrary(){if(!pdfjs){pdfjs=await import('./vendor/pdf.mjs');pdfjs.GlobalWorkerOptions.workerSrc='/vendor/pdf.worker.mjs';}return pdfjs;}
 async function renderPDF(side, info, generation){
@@ -349,13 +430,20 @@ async function compilePDFs(){
   }finally{$('#compile').disabled=false;}
 }
 $('#zoom').onchange=async()=>{const generation=++state.pdfGeneration;try{for(const side of ['original','current'])if(state.pdfs[side])await renderPDF(side,state.pdfs[side],generation);}catch(error){notice(error.message,true);}};
+document.querySelectorAll('[data-filter]').forEach(button=>button.onclick=()=>{state.filter=button.dataset.filter;document.querySelectorAll('[data-filter]').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));renderBranches();});
 $('#search').oninput=renderBranches;$('#refresh').onclick=loadBranches;$('#new-branch').onclick=showCreate;$('#branch-from').onclick=showCreate;
 $('#back').onclick=()=>{if(!canLeave())return;const previous=state.snapshot?.branch;state.generation++;state.pdfGeneration++;state.snapshot=null;state.dirty=false;state.jobDirty=false;$('#workspace').hidden=true;$('#board').hidden=false;document.body.classList.remove('in-workspace');history.replaceState(null,'','/');if(previous)releaseBranch(previous);loadBranches();};
 $('#reload').onclick=()=>openBranch(state.snapshot?.branch||$('#branch-title').textContent);
 document.querySelectorAll('[data-view]').forEach(button=>button.onclick=()=>setView(button.dataset.view));
+$('.tabs').onkeydown=event=>{
+  if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+  const tabs=[...document.querySelectorAll('[data-view]')], index=tabs.indexOf(event.target);if(index<0)return;
+  const next=event.key==='Home'?0:event.key==='End'?tabs.length-1:(index+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;
+  event.preventDefault();setView(tabs[next].dataset.view);tabs[next].focus();
+};
 document.querySelectorAll('.close-dialog').forEach(button=>button.onclick=()=>button.closest('dialog').close());
 $('#job-description').oninput=()=>{state.jobDirty=$('#job-description').value!==state.snapshot.job;$('#job-state').textContent=state.jobDirty?'Unsaved changes':'Saved as job.md';};
-$('#save-source').onclick=saveSource;$('#save-job').onclick=saveJob;$('#commit-push').onclick=showCommit;$('#run-adapt').onclick=runAdapt;$('#compile').onclick=compilePDFs;
+$('#save-source').onclick=saveSource;$('#save-job').onclick=saveJob;$('#commit-push').onclick=showCommit;$('#run-adapt').onclick=()=>runAdapt();$('#compile').onclick=compilePDFs;
 window.addEventListener('beforeunload',event=>{if(state.dirty||state.jobDirty){event.preventDefault();event.returnValue='';}});
 window.addEventListener('pagehide',()=>{
   if(state.snapshot&&state.session)fetch('/api/release-worktree',{method:'POST',keepalive:true,
@@ -363,4 +451,6 @@ window.addEventListener('pagehide',()=>{
     body:JSON.stringify({branch:state.snapshot.branch})}).catch(()=>{});
 });
 document.addEventListener('keydown',event=>{if(event.key==='/'&&!event.target.closest('input,textarea,select,[contenteditable]')&&!$('#board').hidden){event.preventDefault();$('#search').focus();}if((event.ctrlKey||event.metaKey)&&event.key==='s'&&state.snapshot){event.preventDefault();state.view==='ai'?saveJob():saveSource();}});
-try{state.session=await api('/api/session');await loadBranches();const branch=new URLSearchParams(location.search).get('branch');if(branch)await openBranch(branch);runMonitor=createRunMonitor({api,openRun,changed:runsChanged});runMonitor.start();}catch(error){$('#branch-list').innerHTML=`<p class="empty">${esc(error.message)}</p>`;}
+try{state.session=await api('/api/session');await loadBranches();const params=new URLSearchParams(location.search), branch=params.get('branch');if(['structure','source','pdf','changes','ai'].includes(params.get('view')))state.view=params.get('view');if(branch)await openBranch(branch);runMonitor=createRunMonitor({api,openRun,changed:runsChanged});runMonitor.start();}catch(error){$('#branch-list').innerHTML=`<p class="empty">${esc(error.message)}</p>`;}
+
+setInterval(()=>{document.querySelectorAll(".dag-time[data-started-at]").forEach(el=>{el.textContent=`${Math.max(0,Math.floor(Date.now()/1000-Number(el.dataset.startedAt)))}s`;});},1000);
