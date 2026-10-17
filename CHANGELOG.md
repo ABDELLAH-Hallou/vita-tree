@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.1](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.4.0...v1.4.1) (2026-10-17)
+
+
+### Bug Fixes
+
+* simplify header and use an icon theme toggle ([bc5417f](https://github.com/ABDELLAH-Hallou/vita-tree/commit/bc5417febd17e39d1f0163474beb4965cc07b4fb))
+* simplify header and use an icon theme toggle ([7817058](https://github.com/ABDELLAH-Hallou/vita-tree/commit/78170589550033c46d048ac1aa8172899e3e8444))
+
 ## [1.4.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.3.0...v1.4.0) (2026-10-17)
 
 
