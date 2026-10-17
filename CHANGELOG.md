@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.2](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.4.1...v1.4.2) (2026-10-17)
+
+
+### Bug Fixes
+
+* require verified approval before publishing to PyPI ([5be26df](https://github.com/ABDELLAH-Hallou/vita-tree/commit/5be26df591e7c4f8dfd6183fcdd354ea8f64f9bd))
+* require verified approval before publishing to PyPI ([28667cd](https://github.com/ABDELLAH-Hallou/vita-tree/commit/28667cd4d7d1a74c25a898f766b49a1fd35e5491))
+
 ## [1.4.1](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.4.0...v1.4.1) (2026-10-17)
 
 
