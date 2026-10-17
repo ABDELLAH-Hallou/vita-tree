@@ -1,5 +1,6 @@
 """Controlled local AI CLI fixture; never calls a provider or the network."""
 import json
+import hashlib
 import os
 from pathlib import Path
 import sys
@@ -9,6 +10,28 @@ step = sys.argv[1]
 job = json.loads(Path('job.md').read_text())
 control = Path(os.environ['VITA_TEST_CONTROL'])
 label = job['label']
+if job.get('pipeline'):
+    (control / (label + '.' + step + '.started')).write_text(str(time.time()))
+    if job.get('hold') == step:
+        deadline = time.monotonic() + 120
+        while not (control / (label + '.' + step + '.release')).exists():
+            if time.monotonic() > deadline:
+                raise SystemExit(2)
+            time.sleep(.04)
+    if job.get('fail') == step:
+        raise SystemExit(1)
+    assert os.environ['ENABLE_JD_EXTRACTION'] == 'false'
+    if step in ('analyze', 'review') and job.get('extraction'):
+        assert Path('.vita/results/job.json').is_file()
+    if step == 'review' and job.get('require_adapted'):
+        assert label + ' systems' in Path('main.tex').read_text()
+    if step in ('adapt', 'review') and job.get('require_analysis'):
+        assert Path('.vita/results/analysis.json').is_file()
+    if step in ('adapt', 'review') and job.get('forbid_analysis'):
+        assert not Path('.vita/results/analysis.json').exists()
+        assert not Path('.vita/results/analyze.md').exists()
+    if job.get('modify_cv') == step:
+        Path('main.tex').write_text(Path('main.tex').read_text() + '\n% unexpected change')
 if step == 'analyze':
     (control / (label + '.started')).write_text(str(time.time()))
     deadline = time.monotonic() + 120
@@ -22,6 +45,20 @@ if step == 'analyze':
 results = Path('.vita/results')
 results.mkdir(parents=True, exist_ok=True)
 (results / (step + '.md')).write_text('# ' + label + ' ' + step)
+if job.get('pipeline'):
+    if step == 'extract':
+        (results / 'job.json').write_text(json.dumps({'source_sha256': hashlib.sha256(Path('job.md').read_bytes()).hexdigest(), 'jobs': [{'id': 'job-1', 'title': 'Platform engineer'}]}))
+        (results / 'job.toon').write_text('jobs[1]: Platform engineer')
+    if step == 'analyze':
+        (results / 'analysis.md').write_text('# Initial analysis\n\n## Evidence\n- **Python** services and automated tests.\n- Add more detail about delivery.\n\n| Category | Score |\n|---|---:|\n| Experience | 72 |\n| Skills | 80 |\n')
+        (results / 'analysis.json').write_text(json.dumps({'overall_score': 76, 'metadata': {'job_sha256': hashlib.sha256(Path('job.md').read_bytes()).hexdigest()}}))
+    if step == 'review':
+        (results / 'review.json').write_text('{"overall_score":84}')
+        if (results / 'analysis.json').is_file():
+            (results / 'delta.json').write_text('{"delta":8}')
+            (results / 'delta.md').write_text('# Evaluation changes\n\n| Score | Before | After | Delta |\n|---|---:|---:|---:|\n| Overall | 76 | 84 | +8 |\n')
+    if step == 'cover':
+        Path('cover-letter.tex').write_text('invalid' if job.get('invalid_cover') else r'\documentclass{article}\begin{document}Dear hiring team, I build reliable services.\end{document}')
 if step == 'adapt':
     source = Path('main.tex').read_text()
     Path('main.tex').write_text('invalid source' if job.get('mode') == 'invalid' else source.replace('reliable', label))

@@ -1,7 +1,12 @@
+import {tasks, statusNames} from './workflow.js';
 // Global background run monitor. Polling is independent of branch navigation.
 export const isActiveRun = run => run && ['queued', 'running'].includes(run.status);
-export const runLabel = run => ({queued:'Queued', preparing:'Preparing', analyze:'Analyzing', adapt:'Adapting',
+export const runLabel = run => ({queued:'Queued', preparing:'Preparing', extract:'Extracting', review:'Reviewing', cover:'Writing cover letter', analyze:'Analyzing', adapt:'Adapting',
   validating:'Validating', completed:'Completed', failed:'Failed', interrupted:'Interrupted'}[run.step] || run.status);
+export const runSteps = run => {
+  const selected=(run.stages || []).filter(stage=>stage.status!=='skipped'&&stage.id!=='validating');
+  return selected.map(stage=>tasks.find(task=>task.id===stage.id)?.title).join(' → ') || (run.stages?.length?'Validation':'Workflow');
+};
 
 export function createRunMonitor({api, openRun, changed}) {
   const $ = selector => document.querySelector(selector);
@@ -17,7 +22,7 @@ export function createRunMonitor({api, openRun, changed}) {
     document.querySelectorAll('[data-run-time]').forEach(element => {
       const run = runs.find(item => item.id === element.dataset.runTime);
       const seconds = run?.startedAt ? Math.max(0, (run.finishedAt || Date.now()/1000) - run.startedAt) : 0;
-      element.textContent = run?.startedAt ? `Elapsed ${duration(seconds)}` : 'Waiting for a slot';
+      element.textContent = run?.startedAt ? `Elapsed ${duration(seconds)}` : 'Preparing';
     });
   }
   async function select(run, button) {
@@ -31,19 +36,24 @@ export function createRunMonitor({api, openRun, changed}) {
     $('#runs-count').textContent = active.length || unread.length || '';
     $('#runs-summary').textContent = `${active.length} running · ${unread.length} to review · Independent sessions`;
     $('#runs-list').replaceChildren();
-    if(!runs.length) $('#runs-list').append(text('p', 'No AI runs yet. Start Analyze & adapt from a branch.', 'helper'));
+    if(!runs.length) $('#runs-list').append(text('p', 'No runs yet. Open a branch, add the job description, and start its workflow.', 'helper'));
     for(const run of runs) {
       const card = document.createElement('article'); card.className = 'run-card'; card.dataset.runId = run.id;
       card.dataset.status = run.status;
       const heading = document.createElement('div'); heading.className = 'run-heading';
       heading.append(text('strong', run.opportunity || run.branch), text('span', runLabel(run) + (!isActiveRun(run) && !run.reviewed ? ' · New' : ''), 'run-status'));
-      const config = [run.provider || 'Provider default', run.model || 'Default model', run.reasoning || 'Default reasoning', run.language].filter(Boolean).join(' · ');
+      const config = runSteps(run)+' · '+(runSteps(run)==='Validation'?'Local checks · No AI calls':[run.provider || 'Provider default', run.model || 'Default model', run.reasoning || 'Default reasoning', run.language].filter(Boolean).join(' · '));
       const times = text('p', `Submitted ${timestamp(run.createdAt)} · Started ${timestamp(run.startedAt)} · Finished ${timestamp(run.finishedAt)}`, 'run-times');
       const clock = text('span', '', 'run-elapsed'); clock.dataset.runTime = run.id;
       const button = text('button', isActiveRun(run) ? 'Open branch' : 'Review result');
       button.type = 'button'; button.onclick = () => select(run, button);
       const footer = document.createElement('div'); footer.className = 'run-footer'; footer.append(clock, button);
-      card.append(heading, text('p', config, 'run-config'), text('p', run.message, 'run-message'), times, footer);
+      const pipeline=document.createElement('div');pipeline.className='mini-pipeline';pipeline.setAttribute('aria-label','Task progress');
+      for(const stage of run.stages || []){
+        const name=tasks.find(task=>task.id===stage.id)?.title || stage.id;
+        const item=text('span',`${name}: ${statusNames[stage.status] || stage.status}`);item.dataset.status=stage.status;pipeline.append(item);
+      }
+      card.append(heading, text('p', config, 'run-config'), pipeline, text('p', run.message, 'run-message'), times, footer);
       $('#runs-list').append(card);
     }
     $('#run-notifications').replaceChildren();

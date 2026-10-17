@@ -16,6 +16,7 @@ import time
 import uuid
 
 from .latex import parse_document, replace_leaf
+from .workflow import REPORTS, MESSAGES, capabilities as workflow_capabilities, plan, transition, clean_stages, reusable_reports
 from .server import branch_payload, run_git
 
 
@@ -183,8 +184,10 @@ class Workspace:
             raise FileNotFoundError(f"{self.document_path} is missing or empty on {name}")
         job = read("job.md")
         artifacts = {}
-        for label in ("analyze", "adapt", "review"):
-            for path in (f".vita/results/{label}.md", f"{label}.md"):
+        for label in ("analyze", "adapt", "review", "delta", "cover", "extract"):
+            for path in ((".vita/results/analysis.md", ".vita/results/analyze.md", "analyze.md") if label == "analyze" else
+                         (".vita/results/job.json",) if label == "extract" else
+                         (f".vita/results/{label}.md", f"{label}.md")):
                 value = read(path)
                 if value:
                     artifacts[label] = {"path": path, "content": value}
@@ -200,7 +203,7 @@ class Workspace:
                 "running": self.active_job(name)}
 
     JOB_FIELDS = ("id", "branch", "opportunity", "status", "step", "message", "provider", "model",
-                  "reasoning", "language", "createdAt", "startedAt", "finishedAt", "reviewed")
+                  "reasoning", "language", "createdAt", "startedAt", "finishedAt", "reviewed", "stages")
     ACTIVE_STATUSES = {"queued", "running"}
 
     def _public_job(self, record):
@@ -222,10 +225,12 @@ class Workspace:
                         or record.get("status") not in self.ACTIVE_STATUSES | {"succeeded", "failed", "interrupted"}):
                     continue
                 record = {key: record.get(key) for key in self.JOB_FIELDS}
+                record["stages"] = clean_stages(record.get("stages"))
                 if any(value is not None and (type(value) not in (int, float) or not 0 <= value < 1e12)
                        for value in (record.get(key) for key in ("createdAt", "startedAt", "finishedAt"))):
                     continue
                 if record["status"] in self.ACTIVE_STATUSES:
+                    record["stages"] = transition(record.get("stages"), terminal="interrupted")
                     record.update(status="interrupted", step="interrupted", finishedAt=time.time(), reviewed=False,
                                   message="The server stopped before this run finished. Review the branch and start a new run.")
                     self._persist_job(record)
@@ -260,14 +265,19 @@ class Workspace:
             raise ConflictError("This AI run has not finished yet.")
         files = {}
         stage = self.root / "runs" / record["id"]
-        for filename in (".vita/results/analyze.md", ".vita/results/adapt.md", "main.tex", "job.md"):
+        for filename in (*self.report_paths(), "main.tex", "job.md", "cover-letter.tex"):
             path = safe_path(stage, filename)
             if path.is_file():
                 files[filename] = read_text(path)
         original = safe_path(self.root / "run-inputs" / record["id"], "main.tex")
         if original.is_file():
             files["original/main.tex"] = read_text(original)
-        return {"run": record, "files": files}
+        skipped = {task['id'] for task in record.get('stages') or [] if task['status'] == 'skipped'}
+        inputs = {'job.md', 'original/main.tex'}
+        if 'adapt' in skipped:
+            inputs.add('main.tex')
+        inputs.update('.vita/results/' + filename for step in skipped if step in REPORTS for filename in REPORTS[step])
+        return {"run": record, "files": files, "inputs": sorted(inputs & files.keys())}
 
     def active_job(self, name):
         with self.lock:
@@ -279,6 +289,7 @@ class Workspace:
             self._closed = True
             for record in self.jobs.values():
                 if record["status"] in self.ACTIVE_STATUSES:
+                    record["stages"] = transition(record.get("stages"), terminal="interrupted")
                     record.update(status="interrupted", step="interrupted", finishedAt=time.time(), reviewed=False,
                                   message="The server stopped before this run finished. Review the branch and start a new run.")
                     self._persist_job(record)
@@ -308,11 +319,17 @@ class Workspace:
             atomic_write(target, content)
             return {"revision": digest(content), "content": content, "path": str(target)}
 
+    @staticmethod
+    def report_paths():
+        return tuple(".vita/results/" + file for files in REPORTS.values() for file in files)
+
     def publish_paths(self):
         """Files Vita Tree owns and may include in a UI-created commit."""
         return tuple(dict.fromkeys((
             self.document_path,
             "job.md",
+            "cover-letter.tex",
+            *self.report_paths(),
             ".vita/results/analyze.md",
             ".vita/results/adapt.md",
             ".vita/results/review.md",
@@ -539,15 +556,19 @@ class Workspace:
 
     def capabilities(self):
         return {"vita": bool(self.vita_command()), "documentPath": self.document_path,
+                "workflow": workflow_capabilities(self.vita_source),
                 "engines": [x for x in ("pdflatex", "xelatex", "lualatex") if shutil.which(x)]}
 
-    def start_ai(self, name, revision, job_revision, provider="", language="en", model=None, reasoning=""):
+    def start_ai(self, name, revision, job_revision, provider="", language="en", model=None, reasoning="", workflow=None):
         with self.lock:
             if self._closed:
                 raise ConflictError("The server is stopping. Restart it before launching AI.")
             self.busy(name)
-            command = self.vita_command()
-            if not command:
+            stages = plan(workflow, workflow_capabilities(self.vita_source))
+            selected = {task['id'] for task in stages if task['status'] != 'skipped'}
+            uses_ai = bool(selected - {'validating'})
+            command = self.vita_command() if uses_ai else []
+            if uses_ai and not command:
                 raise ValueError("VITA CLI not found. Start vt with --vita-source PATH or install vita-cv.")
             if self.document_path != "main.tex":
                 raise ValueError("VITA adapt currently requires main.tex at the repository root.")
@@ -555,22 +576,40 @@ class Workspace:
                 if not isinstance(value, str) or (value and not re.fullmatch(r"[a-zA-Z0-9_.-]{1,64}", value)):
                     raise ValueError("Invalid provider or language")
             from .providers import resolve
-            provider, model, reasoning = resolve(self, name, provider, model, reasoning)
+            if uses_ai:
+                provider, model, reasoning = resolve(self, name, provider, model, reasoning)
+            else:
+                provider, model, reasoning = '', None, ''
             location = self.location(name, create=True)
             source, job = self.read(name, self.document_path), self.read(name, "job.md")
             if digest(source) != revision or digest(job) != job_revision:
                 raise ConflictError("CV or job description changed. Reload before starting AI.")
-            if not job.strip():
+            if uses_ai and not job.strip():
                 raise ValueError("Save a job description first")
             ident = uuid.uuid4().hex
             record = {"id": ident, "branch": name, "opportunity": name, "status": "running", "step": "preparing",
                       "message": "Preparing this branch's AI workspace.", "createdAt": time.time(), "startedAt": time.time(),
                       "finishedAt": None, "reviewed": False, "provider": provider, "model": model,
-                      "reasoning": reasoning, "language": language}
+                      "reasoning": reasoning, "language": language, "stages": stages}
             context = self._ai_context(location, source, job, command, provider, model, reasoning)
+            config = json.loads(context["config"].get("config.json", "{}"))
+            if not isinstance(config, dict):
+                raise ValueError("VITA config.json must contain an object.")
+            if config.get("tex_entry", "main.tex") != "main.tex":
+                raise ValueError("This workflow requires tex_entry=main.tex in VITA config.")
+            if 'cover' in selected and config.get("cover_tex_entry", "cover-letter.tex") != "cover-letter.tex":
+                raise ValueError("The UI cover-letter workflow currently requires cover_tex_entry=cover-letter.tex.")
+            # The UI's explicit choice wins over auto-extraction and stage routing
+            # inherited from an exported .env. No credentials are written here.
+            context["env"]["ENABLE_JD_EXTRACTION"] = "false"
+            for prefix in ("EXTRACTION", "ANALYSIS", "ADAPT", "REVIEW", "COVER"):
+                context["env"][prefix + "_PROVIDER"] = provider
+                context["env"][prefix + "_MODEL"] = model or ""
             context["baseCommit"] = self.head(name)
-            context["reports"] = {p: digest(read_text(safe_path(location, p))) for p in
-                                  (".vita/results/analyze.md", ".vita/results/adapt.md")}
+            captured = {p: read_text(safe_path(location, p)) for p in (*self.report_paths(), "cover-letter.tex")}
+            context["reports"] = {p: digest(content) for p, content in captured.items()}
+            context["dependencies"] = reusable_reports(captured, digest(job))
+            context["selected"] = selected
             # Preserve each run's inputs before its independent process starts.
             inputs = self.root / "run-inputs" / ident
             atomic_write(inputs / "main.tex", source)
@@ -584,7 +623,8 @@ class Workspace:
             except RuntimeError:
                 self._ai_threads.discard(thread)
                 self._job_update(record, status="failed", step="failed", finishedAt=time.time(),
-                                 message="Unable to start an AI worker. Free system resources and retry.")
+                                 message="Unable to start an AI worker. Free system resources and retry.",
+                                 stages=transition(record["stages"], terminal="failed"))
             return self._public_job(record)
 
     def _ai_context(self, location, source, job, command, provider, model, reasoning):
@@ -594,12 +634,19 @@ class Workspace:
         env.update(PYTHONIOENCODING="utf-8", VITA_TREE_REASONING=reasoning)
         if self.vita_source:
             env["PYTHONPATH"] = str(self.vita_source) + os.pathsep + env.get("PYTHONPATH", "")
-        config = {}
+        config, skills = {}, {}
         for origin in (self.repository, location):
             for filename in ("config.json", "extensions.json", "cv.yaml"):
                 path = safe_path(origin, ".vita/" + filename)
                 if path.is_file():
                     config[filename] = read_text(path)
+            for step in REPORTS:
+                folder = safe_path(origin, f".vita/skills/{step}")
+                for path in folder.glob("*.md"):
+                    relative = path.relative_to(origin).as_posix()
+                    skills[relative] = read_text(safe_path(origin, relative))
+                    if sum(len(value.encode("utf-8")) for value in skills.values()) > 2_000_000:
+                        raise ValueError("Project AI skills exceed the 2 MB limit")
             secret = safe_path(origin, ".vita/.env")
             if secret.is_file():
                 for line in read_text(secret).splitlines():
@@ -613,7 +660,7 @@ class Workspace:
             config["extensions.json"] = json.dumps(extensions)
         except (ValueError, TypeError, AttributeError):
             raise ValueError("VITA provider configuration is invalid. Check extensions.json.") from None
-        return {"location": location, "source": source, "job": job, "command": command, "env": env, "config": config}
+        return {"location": location, "source": source, "job": job, "command": command, "env": env, "config": config, "skills": skills}
 
     def _job_update(self, record, **values):
         with self.lock:
@@ -631,27 +678,62 @@ class Workspace:
             export_snapshot(self.repository, context["baseCommit"], stage, location)
             atomic_write(stage / "main.tex", source)
             atomic_write(stage / "job.md", job)
+            for filename, content in context["skills"].items():
+                atomic_write(safe_path(stage, filename), content)
             for filename, content in context["config"].items():
                 atomic_write(stage / ".vita" / filename, content)
-            for step in ("analyze", "adapt"):
-                if not self._job_update(record, step=step, message="Analyzing the job description…" if step == "analyze" else "Adapting the CV…"):
+            # Never mistake reports copied from a previous run for this run's outputs.
+            for path in self.report_paths():
+                safe_path(stage, path).unlink(missing_ok=True)
+            safe_path(stage, "cover-letter.tex").unlink(missing_ok=True)
+            for path, content in context['dependencies'].items():
+                atomic_write(safe_path(stage, path), content)
+            for task in record["stages"]:
+                step = task["id"]
+                if task["status"] == "skipped" or step == "validating":
+                    continue
+                if not self._job_update(record, step=step, message=MESSAGES[step],
+                                        stages=transition(record["stages"], step=step)):
                     return
-                artifact = stage / ".vita/results" / f"{step}.md"
-                artifact.unlink(missing_ok=True)
                 args = context["command"] + [step, "--auto"]
                 if record["provider"]:
                     args += ["--provider", record["provider"]]
-                if step == "adapt":
+                if step in ("adapt", "cover"):
                     args += ["--language", record["language"]]
+                if step == "cover":
+                    safe_path(stage, "cover-letter.tex").unlink(missing_ok=True)
+                # Retained inputs are context, never evidence that this task ran.
+                for filename in REPORTS[step]:
+                    safe_path(stage, '.vita/results/' + filename).unlink(missing_ok=True)
+                if step == 'analyze':
+                    for filename in ('delta.md', 'delta.json'):
+                        safe_path(stage, '.vita/results/' + filename).unlink(missing_ok=True)
                 process = subprocess.run(args, cwd=stage, env=context["env"], stdin=subprocess.DEVNULL, capture_output=True, timeout=600)
-                if process.returncode or not artifact.is_file() or not read_text(artifact).strip():
+                reports = [read_text(safe_path(stage, ".vita/results/" + name)).strip() for name in REPORTS[step]]
+                if process.returncode or not any(reports):
                     raise AIRunError(f"VITA {step} did not produce a report. Check provider configuration and authentication. Your CV is unchanged.")
-            if not self._job_update(record, step="validating", message="Validating the adapted CV and checking for file conflicts."):
+                if step == "extract":
+                    try:
+                        extracted = json.loads(reports[0])
+                        if extracted.get("source_sha256") != digest(job) or not reports[1]:
+                            raise ValueError("Job mismatch")
+                    except (ValueError, AttributeError):
+                        raise AIRunError("Extraction did not produce matching job metadata. Your CV is unchanged.") from None
+            if not self._job_update(record, step="validating", message=MESSAGES["validating"],
+                                    stages=transition(record["stages"], step="validating")):
                 return
+            cover = None
+            if any(t["id"] == "cover" and t["status"] != "skipped" for t in record["stages"]):
+                cover = read_text(safe_path(stage, "cover-letter.tex"))
+                if parse_document(cover)["error"] or not all(marker in cover for marker in ("\\documentclass", "\\begin{document}", "\\end{document}")):
+                    raise AIRunError("VITA did not produce a valid cover letter. Your branch is unchanged; inspect the run files.")
             result = read_text(stage / "main.tex")
-            parsed = parse_document(result)
-            if result == source or parsed["error"] or "\\begin{document}" not in result:
-                raise AIRunError("VITA did not produce a changed, parseable main.tex. Your CV is unchanged; inspect the run files.")
+            adapting = 'adapt' in context['selected']
+            if adapting or context['selected'] == {'validating'}:
+                if parse_document(result)["error"] or "\\begin{document}" not in result:
+                    raise AIRunError("main.tex is not parseable. Your branch is unchanged; inspect the source in the LaTeX editor.")
+            if not adapting and result != source:
+                raise AIRunError("A report-only step unexpectedly modified main.tex. Your branch is unchanged; inspect the run files.")
             with self.lock:
                 if self._closed:
                     return
@@ -662,21 +744,34 @@ class Workspace:
                         or any(digest(read_text(safe_path(location, p))) != value for p, value in context["reports"].items())):
                     raise AIRunError("Files changed during AI execution. Result retained in the run folder; your edits were preserved.")
                 # Store the exact before-AI version for comparison, including prior manual edits.
-                meta = self.metadata(record["branch"])
-                meta.update(baseCommit=self.head(record["branch"]), baseBranch=record["branch"] + " · before AI", original=source)
-                atomic_write(self.metadata_path(record["branch"]), json.dumps(meta))
-                for step in ("analyze", "adapt"):
-                    atomic_write(safe_path(location, f".vita/results/{step}.md"), read_text(stage / f".vita/results/{step}.md"))
-                atomic_write(safe_path(location, self.document_path), result)
+                if adapting and result != source:
+                    meta = self.metadata(record["branch"])
+                    meta.update(baseCommit=self.head(record["branch"]), baseBranch=record["branch"] + " · before AI", original=source)
+                    atomic_write(self.metadata_path(record["branch"]), json.dumps(meta))
+                outputs = {'.vita/results/' + filename for step in context['selected'] if step in REPORTS for filename in REPORTS[step]}
+                if 'analyze' in context['selected']:
+                    outputs.update(('.vita/results/delta.md', '.vita/results/delta.json'))
+                for path in outputs:
+                    if safe_path(stage, path).is_file():
+                        atomic_write(safe_path(location, path), read_text(safe_path(stage, path)))
+                    else:
+                        safe_path(location, path).unlink(missing_ok=True)
+                if cover is not None:
+                    atomic_write(safe_path(location, "cover-letter.tex"), cover)
+                if adapting and result != source:
+                    atomic_write(safe_path(location, self.document_path), result)
                 self._job_update(record, status="succeeded", step="completed", finishedAt=time.time(),
-                                 message="Analysis and adapted CV are ready to review.")
+                                 message=("Source structure and branch conflicts checked. PDF compilation is separate."
+                                          if context['selected'] == {'validating'} else "Selected steps finished. Open the run to review the results."),
+                                 stages=transition(record["stages"], terminal="succeeded"))
         except Exception as error:
             # Never persist exception text or provider stdout: either can contain
             # credentials, prompts, source text, or private local paths.
             message = str(error) if isinstance(error, AIRunError) else (
                 "The AI step timed out. Check the provider and start a new run." if isinstance(error, subprocess.TimeoutExpired)
                 else "The AI run could not finish. Check local files and provider setup, then start a new run.")
-            self._job_update(record, status="failed", step="failed", finishedAt=time.time(), message=message)
+            self._job_update(record, status="failed", step="failed", finishedAt=time.time(), message=message,
+                             stages=transition(record.get("stages"), terminal="failed"))
         finally:
             with self.lock:
                 self._ai_threads.discard(threading.current_thread())

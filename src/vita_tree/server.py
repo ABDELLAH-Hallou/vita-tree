@@ -296,7 +296,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             "/api/commit-preview": lambda: workspace.commit_preview(data["branch"], data.get("sourceRevision"), data.get("sourceContent"), data.get("jobRevision"), data.get("jobContent")),
             "/api/commit-push": lambda: workspace.commit_and_push(data["branch"], data.get("message"), data.get("review"), data.get("sourceRevision"), data.get("sourceContent"), data.get("jobRevision"), data.get("jobContent")),
             "/api/create": lambda: workspace.create(data["base"], data["name"], data["job"], data["revision"]),
-            "/api/adapt": lambda: workspace.start_ai(data["branch"], data["revision"], data["jobRevision"], data.get("provider", ""), data.get("language", "en"), data.get("model"), data.get("reasoning", "")),
+            "/api/adapt": lambda: workspace.start_ai(data["branch"], data["revision"], data["jobRevision"], data.get("provider", ""), data.get("language", "en"), data.get("model"), data.get("reasoning", ""), data.get("workflow")),
             "/api/parse": lambda: self.parse_source(data),
             "/api/lint": lambda: self.parse_source(data, lint_only=True),
             "/api/pdf": lambda: self.server.compiler.compile(data["branch"], data.get("side", "current"), data.get("engine", "auto")),
