@@ -63,3 +63,11 @@ def init_repo(root):
     git(root, "add", ".")
     git(root, "commit", "-m", "Base CV")
     return root
+
+
+def set_theme(page, theme):
+    """Choose an explicit theme through the visible icon button."""
+    from playwright.sync_api import expect
+    if page.locator('html').get_attribute('data-theme') != theme:
+        page.get_by_role('button', name=f'Switch to {theme} mode', exact=True).click()
+    expect(page.locator('html')).to_have_attribute('data-theme', theme)

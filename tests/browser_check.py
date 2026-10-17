@@ -15,7 +15,7 @@ from playwright.sync_api import sync_playwright, expect
 expect.set_options(timeout=30000)  # Git/provider refreshes can exceed 5s on Windows CI.
 from pypdf import PdfReader
 from vita_tree.server import VitaTreeServer
-from support import init_repo, git
+from support import init_repo, git, set_theme
 
 
 def main():
@@ -68,15 +68,25 @@ if step=='adapt':
             page=browser.new_page(viewport={'width':1440,'height':1000},device_scale_factor=1)
             page.on('pageerror',lambda error:errors.append(str(error)))
             page.goto('http://127.0.0.1:'+str(server.server_port));expect(page.get_by_role('button',name='Open master',exact=True)).to_be_visible(timeout=30000)
-            page.locator('#theme').select_option('dark')
+            set_theme(page, 'light')
+            expect(page.locator('.local-label, #show-runs, #ai-runs, select#theme')).to_have_count(0)
+            expect(page.locator('#theme .theme-sun')).to_be_visible()
+            page.locator('#theme').focus();page.keyboard.press('Enter')
+            expect(page.locator('#theme .theme-moon')).to_be_visible()
+            alignment=page.locator('.topbar-inner').evaluate('''el => {
+              const a=el.querySelector('.brand').getBoundingClientRect(), b=el.querySelector('#theme').getBoundingClientRect();
+              return {delta:Math.abs(a.y+a.height/2-b.y-b.height/2), width:b.width, height:b.height};
+            }''')
+            assert alignment['delta'] < 1 and alignment['width'] == alignment['height'] == 40, alignment
+            set_theme(page, 'dark')
             expect(page.locator('html')).to_have_attribute('data-theme','dark')
-            page.reload();expect(page.locator('#theme')).to_have_value('dark')
+            page.reload();expect(page.locator('#theme')).to_have_accessible_name('Switch to light mode')
             expect(page.locator('html')).to_have_attribute('data-theme','dark')
             page.screenshot(path=str(artifacts/'branches-dark.png'),full_page=True)
-            page.locator('#theme').select_option('system');page.emulate_media(color_scheme='light')
+            page.evaluate("localStorage.removeItem('vita-tree-theme')");page.emulate_media(color_scheme='light');page.reload()
             expect(page.locator('html')).to_have_attribute('data-theme','light')
             page.emulate_media(color_scheme='dark');expect(page.locator('html')).to_have_attribute('data-theme','dark')
-            page.locator('#theme').select_option('light')
+            set_theme(page, 'light')
             page.screenshot(path=str(artifacts/'branches.png'),full_page=True)
             page.get_by_role('button',name='Open master',exact=True).click()
             expect(page.locator('#current-document')).to_contain_text('reliable systems')
@@ -115,13 +125,13 @@ if step=='adapt':
             expect(page.locator('#current-source .cm-lintRange-error')).to_have_count(1)
             page.locator('#current-source .lint-status').click()
             expect(page.locator('#current-source .cm-panel-lint')).to_contain_text('Unexpected')
-            page.locator('#theme').select_option('light')
+            set_theme(page, 'light')
             page.screenshot(path=str(artifacts/'latex-editor-light.png'),full_page=True)
             command_light=page.locator('#current-source .tex-command').first.evaluate('el => getComputedStyle(el).color')
-            page.locator('#theme').select_option('dark')
+            set_theme(page, 'dark')
             assert page.locator('#current-source .tex-command').first.evaluate('el => getComputedStyle(el).color')!=command_light
             page.screenshot(path=str(artifacts/'latex-editor-dark.png'),full_page=True)
-            page.locator('#theme').select_option('light')
+            set_theme(page, 'light')
             editor.fill(valid)
             expect(page.locator('#current-source .lint-status')).to_have_text('No syntax issues',timeout=15000)
             expect(page.locator('#current-source .cm-lintRange-error')).to_have_count(0)
@@ -153,7 +163,7 @@ if step=='adapt':
             page.locator('#provider').select_option('codex');page.locator('#model').select_option('test-codex')
             page.locator('#reasoning').select_option('high')
             page.screenshot(path=str(artifacts/'ai-light.png'),full_page=True)
-            page.locator('#theme').select_option('dark')
+            set_theme(page, 'dark')
             page.screenshot(path=str(artifacts/'ai-dark.png'),full_page=True)
             page.get_by_role('button',name='Run selected',exact=True).click()
             expect(page.locator('#job-description')).to_have_attribute('readonly','')
@@ -208,7 +218,7 @@ if step=='adapt':
             assert 'Jordan' in page.evaluate('window.getSelection().toString()'), 'Mouse selection failed'
             page.evaluate('window.getSelection().removeAllRanges()')
             page.screenshot(path=str(artifacts/'pdf-comparison.png'),full_page=True)
-            page.locator('#theme').select_option('light')
+            set_theme(page, 'light')
             page.screenshot(path=str(artifacts/'pdf-comparison-light.png'),full_page=True)
             page.locator('#zoom').select_option('1.25');expect(page.locator('#current-pdf .pdf-page')).to_have_css('width','765px',timeout=30000)
             expect(page.locator('#current-pdf .textLayer')).to_have_count(1,timeout=30000)
