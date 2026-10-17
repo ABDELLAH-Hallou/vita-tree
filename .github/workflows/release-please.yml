@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   release-please:
-    name: Update or create release
+    name: Update or create TestPyPI release PR
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10

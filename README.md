@@ -140,11 +140,27 @@ Use Node 22.13+ or 24+ when updating PDF.js. The application itself runs on Pyth
 
 ## Releases
 
-Use `feat:` and `fix:` commit messages. Release Please opens a PR updating the
-version and changelog; merging it creates the release tag. Code, browser/PDF,
-package installation, and privacy checks run before TestPyPI and PyPI uploads.
+Use `feat:` and `fix:` commit messages. Releases have two separate PRs:
+
+1. **Release to TestPyPI:** Release Please updates the version and changelog.
+   Merging this PR creates the tag/GitHub release and runs code, browser/PDF,
+   installation, and privacy checks before uploading to TestPyPI only.
+2. **Publish to PyPI:** after verifying the TestPyPI downloads, automation opens
+   a separate promotion PR with installation commands, the source commit, workflow
+   run, and SHA-256 hashes. Test that candidate, then merge this PR to publish it
+   to PyPI. Leaving it open keeps the candidate off PyPI.
+
+Promotion downloads the exact wheel and source archive from TestPyPI and verifies
+their hashes again; it does not rebuild from a potentially newer main branch.
+If a candidate needs fixes, close its promotion PR and release a new version.
+Published candidate files and version numbers cannot be replaced. If production
+publishing fails, rerun the failed workflow or run **Promote approved release to
+PyPI** on `main` with the already-merged promotion PR number.
+
 Publishing uses `PYPI_API_TOKEN` in the `pypi` environment,
 `TEST_PYPI_API_TOKEN` in `testpypi`, and the repository's `RELEASE_PLEASE_TOKEN`.
+The release automation token needs permission to create branches and PRs. No new
+secrets or environments are required for the two-stage process.
 
 ## Author
 
