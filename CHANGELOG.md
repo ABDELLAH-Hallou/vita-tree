@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.3.0...v1.4.0) (2026-10-17)
+
+
+### Features
+
+* add workflow graph and independent AI step controls ([5a0f307](https://github.com/ABDELLAH-Hallou/vita-tree/commit/5a0f307aa54db7965bd30713224ef41ae755ee5d))
+* add workflow graph and independent AI step controls ([d566dca](https://github.com/ABDELLAH-Hallou/vita-tree/commit/d566dca0ffcde5f5965945d157e03b43b0e7d1e6))
+
 ## [1.3.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.2.0...v1.3.0) (2026-10-14)
 
 
