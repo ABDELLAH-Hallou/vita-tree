@@ -11,7 +11,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
 from playwright.sync_api import sync_playwright, expect
 from vita_tree.server import VitaTreeServer
-from support import init_repo, git
+from support import init_repo, git, set_theme
 
 
 def main():
@@ -49,17 +49,18 @@ def main():
                 expect(page.locator('#job-description')).to_have_attribute('readonly', '')
                 page.locator('#back').click()
                 expect(page.get_by_role('button', name='Open '+label, exact=True).locator('.branch-run')).to_contain_text('Analyzing', timeout=30000)
-            page.locator('#show-runs').click()
-            expect(page.locator('#runs-list .run-card')).to_have_count(3)
-            expect(page.locator('#runs-summary')).to_contain_text('3 running')
+            page.locator('[data-filter=running]').click()
+            expect(page.locator('#branch-list .branch-row')).to_have_count(3)
+            expect(page.locator('#filter-running')).to_have_text('3')
             assert (control/'alpha.started').exists() and (control/'beta.started').exists()
             assert (control/'gamma.started').exists()
-            page.locator('#theme').select_option('dark')
-            expect(page.locator('.run-footer button').first).to_have_css('background-color', 'rgb(28, 40, 53)')
+            set_theme(page, 'dark')
+            expect(page.locator('#theme .theme-moon')).to_be_visible()
             page.screenshot(path=str(artifacts/'ai-runs-dark.png'), full_page=True)
             page.reload()
-            page.locator('#show-runs').click()
-            expect(page.locator('#runs-summary')).to_contain_text('3 running', timeout=30000)
+            page.locator('[data-filter=running]').click()
+            expect(page.locator('#filter-running')).to_have_text('3', timeout=30000)
+            expect(page.locator('#branch-list .branch-row')).to_have_count(3)
             (control/'beta.release').touch()
             expect(page.locator('#run-notifications')).to_contain_text('Failed: beta', timeout=30000)
             public = page.request.get(f'http://127.0.0.1:{server.server_port}/api/jobs').text()
@@ -80,8 +81,7 @@ def main():
             page.reload()
             expect(page.locator('#run-notifications')).to_contain_text('Failed: beta', timeout=15000)
             expect(page.locator('#run-notifications')).not_to_contain_text('Completed: alpha')
-            page.locator('#show-runs').click()
-            page.locator('#theme').select_option('light')
+            set_theme(page, 'light')
             page.screenshot(path=str(artifacts/'ai-runs-light.png'), full_page=True)
             page.set_viewport_size({'width': 390, 'height': 844})
             assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), 'Runs view overflows mobile screen'

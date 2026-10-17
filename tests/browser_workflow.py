@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
 from playwright.sync_api import sync_playwright, expect
 from vita_tree.server import VitaTreeServer
 from vita_tree.workspace import digest
-from support import init_repo, SOURCE
+from support import init_repo, SOURCE, set_theme
 
 
 def main():
@@ -81,7 +81,7 @@ def main():
             page.locator('#run-adapt').click()
             expect(page.locator('.dag-node[data-step=extract]')).to_have_attribute('data-status', 'failed')
             expect(page.locator('.dag-node[data-step=adapt]')).to_have_attribute('data-status', 'blocked')
-            page.locator('#theme').select_option('dark')
+            set_theme(page, 'dark')
             page.screenshot(path=str(artifacts / 'workflow-failed-dark.png'), full_page=True)
             (control / 'platform-engineer.review.release').touch()
             expect(page.locator('#run-notifications')).to_contain_text('Completed: platform-engineer')
@@ -93,15 +93,15 @@ def main():
             completed_id = page.locator('#workflow-run').input_value()
             page.locator('.dag-node[data-step=review]').click();page.locator('#task-output').click()
             expect(page.locator('#selected-run-files details[data-path=".vita/results/review.md"]')).to_have_attribute('open', '')
-            page.locator('#theme').select_option('light')
+            set_theme(page, 'light')
             page.get_by_role('tab', name='Structure', exact=True).click()
             expect(page.locator('#toast')).to_be_hidden()
             page.evaluate('window.scrollTo(0,0)')
             page.screenshot(path=str(artifacts / 'workflow-complete-light.png'), full_page=True)
-            page.locator('#theme').select_option('dark')
+            set_theme(page, 'dark')
             page.screenshot(path=str(artifacts / 'workflow-complete-dark.png'), full_page=True)
             for theme in ('light','dark'):
-                page.locator('#theme').select_option(theme)
+                set_theme(page, theme)
                 contrasts=page.evaluate('''() => {
                   const style=getComputedStyle(document.documentElement);
                   const lum=name=>{
@@ -169,6 +169,12 @@ def main():
             expect(page.locator('#workflow-run')).to_have_value(record['id'])
             expect(page.locator('.dag-node[data-status=succeeded]')).to_have_count(3)
             assert {t['id'] for t in server.workspace.get_job(record['id'])['stages'] if t['status']=='succeeded'} == {'review','cover','validating'}
+            # All unread results remain reachable without a separate runs panel.
+            page.locator('#run-notifications .quiet').click()
+            expect(page.locator('#run-notifications .quiet')).to_have_text('Show fewer results')
+            assert page.locator('#run-notifications .run-notification').count() > 3
+            page.locator('#run-notifications .quiet').click()
+            expect(page.locator('#run-notifications .run-notification')).to_have_count(3)
             # Unsaved job edits stop individual launch without losing the edits.
             page.locator('#job-description').fill('Unsaved job text')
             page.locator('.dag-node[data-step=review]').click();page.locator('#task-run').click()

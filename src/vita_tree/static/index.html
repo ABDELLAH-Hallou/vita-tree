@@ -8,12 +8,11 @@
 </head>
 <body>
   <a class="skip-link" href="#main-content">Skip to workspace</a>
-  <header class="topbar"><div class="topbar-inner"><a class="brand" href="/" aria-label="Vita Tree home"><svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M8 7v13a5 5 0 0 0 5 5h11M8 13h11a5 5 0 0 0 5-5"/><circle cx="8" cy="7" r="3"/><circle cx="24" cy="7" r="3"/><circle cx="24" cy="25" r="3"/></svg>Vita Tree</a><span class="divider">/</span><span id="repository">Repository</span><span class="local-label"><i></i> Local workspace</span><div class="runs-toolbar"><button id="show-runs" aria-expanded="false" aria-controls="ai-runs">AI runs <span id="runs-count" class="count"></span></button></div><label class="theme-control"><span class="sr-only">Appearance</span><select id="theme" aria-label="Appearance"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label></div></header>
+  <header class="topbar"><div class="topbar-inner"><a class="brand" href="/" aria-label="Vita Tree home"><svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M8 7v13a5 5 0 0 0 5 5h11M8 13h11a5 5 0 0 0 5-5"/><circle cx="8" cy="7" r="3"/><circle cx="24" cy="7" r="3"/><circle cx="24" cy="25" r="3"/></svg>Vita Tree</a><span class="divider">/</span><span id="repository">Repository</span><button id="theme" class="theme-toggle" type="button" aria-label="Switch to dark mode" title="Switch to dark mode"><svg class="theme-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg><svg class="theme-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 13A9 9 0 0 1 11 3.2 9 9 0 1 0 20.8 13Z"/></svg></button></div></header>
   <main class="shell" id="main-content" tabindex="-1">
     <p id="runs-error" class="helper" role="status"></p>
 
     <aside id="run-notifications" class="run-notifications" aria-label="AI completion notifications" aria-live="polite" hidden></aside>
-    <section id="ai-runs" class="runs-panel" aria-labelledby="runs-title" hidden><header class="runs-heading"><div><h2 id="runs-title">AI runs</h2><p id="runs-summary" class="helper"></p></div><button id="hide-runs" class="quiet" aria-label="Hide AI runs">Close</button></header><div id="runs-list"></div></section>
     <section id="board">
       <div class="page-heading"><div><h1>Applications <span id="total-count" class="count">0</span></h1><p class="subtitle">Your CV branches, from the first job description to the final PDF.</p></div><button id="new-branch" class="primary">＋ New branch</button></div>
       <div class="board-layout"><aside class="board-nav" aria-label="Branch filters">

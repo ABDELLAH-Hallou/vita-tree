@@ -325,7 +325,8 @@ async function openRun(run){
   if(!isActiveRun(run)){
     const detail=await api('/api/job-result?id='+encodeURIComponent(run.id));
     if(state.snapshot!==loaded)return;
-    $('#selected-run').hidden=false;$('#selected-run-info').textContent=`${runLabel(run)} · ${new Date(run.createdAt*1000).toLocaleString()} · Retained files for this run. The branch above may contain newer edits.`;
+    const settings=[run.provider,run.model,run.reasoning,run.language].filter(Boolean).join(' · ');
+    $('#selected-run').hidden=false;$('#selected-run-info').textContent=`${runSteps(run)} · ${runLabel(run)} · ${new Date(run.createdAt*1000).toLocaleString()} · ${run.provider?settings:'Local checks; no AI calls'} · ${Math.round(run.elapsedSeconds || 0)}s. Retained files for this run. The branch above may contain newer edits.`;
     $('#selected-run-files').replaceChildren();
     for(const [path,content] of Object.entries(detail.files)){
       $('#selected-run-files').append(reportDetails(path,content,{open:/analy(sis|ze)\.md$/.test(path),label:detail.inputs?.includes(path)?`Input · ${path}`:path}));
