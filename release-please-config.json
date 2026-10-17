@@ -4,6 +4,8 @@
   "include-component-in-tag": false,
   "include-v-in-tag": true,
   "include-v-in-release-name": true,
+  "pull-request-title-pattern": "chore${scope}: release${component} ${version} to TestPyPI",
+  "pull-request-header": "Stage 1 of 2: merge this PR to publish to TestPyPI only. After verification, automation opens a separate PyPI promotion PR. Test the candidate before merging that second PR.",
   "packages": {
     ".": {
       "package-name": "vita-tree",

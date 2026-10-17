@@ -1,0 +1,80 @@
+name: Promote approved release to PyPI
+
+on:
+  pull_request:
+    branches: [main]
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Merged PyPI promotion PR number (retry only)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+concurrency:
+  group: pypi-promotion-${{ github.event.pull_request.number || inputs.pr_number }}
+  cancel-in-progress: false
+
+env:
+  PYTHONUTF8: "1"
+
+jobs:
+  verify:
+    name: Verify merged approval and exact TestPyPI artifacts
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event.pull_request.merged == true &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       startsWith(github.event.pull_request.head.ref, 'release/pypi-v'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Require an authentic merged promotion and successful TestPyPI run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PROMOTION_PR: ${{ github.event.pull_request.number || inputs.pr_number }}
+        run: python scripts/promote_release.py approve --pr "$PROMOTION_PR" --output promotion.json
+      - name: Download exact approved artifacts without rebuilding
+        run: python scripts/promote_release.py download --manifest promotion.json --dest approved-dist --check-pypi
+      - name: Verify installation before publishing
+        run: python tests/smoke/run_installed_package.py approved-dist/*.whl
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: approved-python-distributions
+          path: approved-dist/
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Publish approved artifacts to PyPI
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: pypi
+      url: https://pypi.org/p/vita-tree
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: approved-python-distributions
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          attestations: false
+          packages-dir: dist/
+          skip-existing: true
