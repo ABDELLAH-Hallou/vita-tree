@@ -52,8 +52,11 @@ def main():
             page.locator('[data-filter=running]').click()
             expect(page.locator('#branch-list .branch-row')).to_have_count(3)
             expect(page.locator('#filter-running')).to_have_text('3')
-            assert (control/'alpha.started').exists() and (control/'beta.started').exists()
-            assert (control/'gamma.started').exists()
+            # The UI enters Analyzing before the child writes its startup marker.
+            deadline=time.monotonic()+30
+            while not all((control/(label+'.started')).exists() for label in ('alpha','beta','gamma')) and time.monotonic()<deadline:
+                time.sleep(.04)
+            assert all((control/(label+'.started')).exists() for label in ('alpha','beta','gamma')), server.workspace.list_jobs()
             set_theme(page, 'dark')
             expect(page.locator('#theme .theme-moon')).to_be_visible()
             page.screenshot(path=str(artifacts/'ai-runs-dark.png'), full_page=True)
@@ -62,34 +65,60 @@ def main():
             expect(page.locator('#filter-running')).to_have_text('3', timeout=30000)
             expect(page.locator('#branch-list .branch-row')).to_have_count(3)
             (control/'beta.release').touch()
-            expect(page.locator('#run-notifications')).to_contain_text('Failed: beta', timeout=30000)
+            expect(page.locator('#filter-failed')).to_have_text('1', timeout=30000)
             public = page.request.get(f'http://127.0.0.1:{server.server_port}/api/jobs').text()
             for secret in ('private-ui-fixture-value', 'VITA_TEST_SECRET', 'provider-fail', 'main.tex', 'env', 'stdout'):
                 assert secret not in public, 'Private run details leaked into the global API'
             expect(page.get_by_role('button', name='Open gamma', exact=True).locator('.branch-run')).to_contain_text('Analyzing', timeout=30000)
             (control/'alpha.release').touch()
-            expect(page.locator('#run-notifications')).to_contain_text('Completed: alpha', timeout=30000)
-            page.locator('#run-notifications').get_by_role('button', name='Completed: alpha — Review', exact=True).click()
+            expect(page.locator('#filter-review')).to_have_text('1', timeout=30000)
+            page.locator('[data-filter=review]').click()
+            page.get_by_role('button', name='Open alpha', exact=True).click()
             expect(page.locator('#current-label')).to_have_text('alpha', timeout=30000)
             expect(page.locator('#ai-panel')).to_be_visible()
             expect(page.locator('#selected-run-files')).to_contain_text('alpha analyze')
-            expect(page.locator('#run-notifications')).not_to_contain_text('Completed: alpha', timeout=15000)
-            expect(page.locator('#run-notifications')).to_contain_text('Failed: beta')
-            assert 'alpha systems' in server.workspace.read('alpha', 'main.tex')
+            alpha = next(run for run in server.workspace.list_jobs()['runs'] if run['branch']=='alpha')
+            assert not alpha['reviewed'], 'Opening a result must not dismiss it'
+            before = server.workspace.read('alpha', 'main.tex')
+            page.locator('#view-run').click()
+            expect(page.locator('#mark-run-reviewed')).to_be_enabled()
+            assert not server.workspace.get_job(alpha['id'])['reviewed']
+            # An acknowledgement error keeps the run pending and allows retry.
+            page.route('**/api/job-reviewed', lambda route: route.fulfill(status=500, json={'error':'Could not mark this run reviewed. Retry.'}))
+            page.locator('#mark-run-reviewed').click()
+            expect(page.locator('#notice')).to_contain_text('Could not mark this run reviewed')
+            expect(page.locator('#filter-review')).to_have_text('1')
+            assert not server.workspace.get_job(alpha['id'])['reviewed']
+            page.unroute('**/api/job-reviewed')
+            page.locator('#mark-run-reviewed').click()
+            expect(page.locator('#mark-run-reviewed')).to_have_text('Reviewed')
+            expect(page.locator('#mark-run-reviewed')).to_be_disabled()
+            expect(page.locator('#filter-review')).to_have_text('0')
+            assert server.workspace.get_job(alpha['id'])['reviewed']
+            assert server.workspace.read('alpha', 'main.tex') == before
+            assert 'alpha systems' in before
             (control/'gamma.release').touch()
-            expect(page.locator('#run-notifications')).to_contain_text('Completed: gamma', timeout=30000)
+            expect(page.locator('#filter-review')).to_have_text('1', timeout=30000)
             page.reload()
-            expect(page.locator('#run-notifications')).to_contain_text('Failed: beta', timeout=15000)
-            expect(page.locator('#run-notifications')).not_to_contain_text('Completed: alpha')
+            expect(page.locator('#mark-run-reviewed')).to_have_text('Reviewed', timeout=15000)
+            expect(page.locator('#filter-review')).to_have_text('1')
+            page.locator('#back').click()
+            page.locator('[data-filter=review]').click()
+            expect(page.locator('#branch-list .branch-row')).to_have_count(1)
+            expect(page.get_by_role('button', name='Open gamma', exact=True)).to_be_visible()
+            expect(page.get_by_role('button', name='Open alpha', exact=True)).to_have_count(0)
+            expect(page.locator('#run-notifications')).to_have_count(0)
             set_theme(page, 'light')
-            page.screenshot(path=str(artifacts/'ai-runs-light.png'), full_page=True)
+            page.screenshot(path=str(artifacts/'review-inbox-light.png'), full_page=True)
             page.set_viewport_size({'width': 390, 'height': 844})
-            assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), 'Runs view overflows mobile screen'
-            page.screenshot(path=str(artifacts/'ai-runs-mobile.png'), full_page=True)
-            page.locator('#run-notifications').get_by_role('button', name='Failed: beta — Review', exact=True).click()
+            assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), 'Review inbox overflows mobile screen'
+            page.screenshot(path=str(artifacts/'review-inbox-mobile.png'), full_page=True)
+            page.locator('[data-filter=failed]').click()
+            page.get_by_role('button', name='Open beta', exact=True).click()
+            page.locator('#view-run').click()
             expect(page.locator('#current-label')).to_have_text('beta', timeout=30000)
             expect(page.locator('#selected-run-info')).to_contain_text('Failed')
-            expect(page.locator('#run-notifications')).to_contain_text('Completed: gamma')
+            expect(page.locator('#filter-review')).to_have_text('1')
             # Commit the fixture locally, then leaving releases only this clean worktree.
             location = server.workspace.location('beta')
             git(location, 'add', 'job.md', 'main.tex'); git(location, 'commit', '-m', 'Saved fixture')
@@ -102,7 +131,7 @@ def main():
             assert server.workspace.location('alpha').is_dir()
             assert not errors, errors
             browser.close()
-        print('PASS: independent concurrent processes without a queue, global status, navigation, notifications, review, refresh, clean worktree release, dark/light/mobile UI.')
+        print('PASS: independent concurrent processes without a queue, global status, sidebar review inbox, explicit acknowledgement and retry, persisted review state, navigation, refresh, clean worktree release, dark/light/mobile UI.')
     finally:
         for label in ('alpha', 'beta', 'gamma'):
             (control / (label + '.release')).touch()

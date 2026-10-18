@@ -63,6 +63,7 @@ def main():
             review.focus();page.keyboard.press('Enter')
             expect(page.locator('#task-inspector')).to_contain_text('Running')
             expect(page.locator('#task-output')).to_be_disabled()
+            expect(page.locator('#mark-run-reviewed')).to_be_hidden()
             expect(page.locator('#task-run')).to_be_disabled()
             expect(page.locator('#run-all')).to_be_disabled()
             expect(page.locator('#run-adapt')).to_be_disabled()
@@ -84,8 +85,10 @@ def main():
             set_theme(page, 'dark')
             page.screenshot(path=str(artifacts / 'workflow-failed-dark.png'), full_page=True)
             (control / 'platform-engineer.review.release').touch()
-            expect(page.locator('#run-notifications')).to_contain_text('Completed: platform-engineer')
-            page.locator('#run-notifications').get_by_role('button', name='Completed: platform-engineer — Review', exact=True).click()
+            expect(page.locator('#filter-review')).to_have_text('1')
+            page.locator('#back').click()
+            page.locator('[data-filter=review]').click()
+            page.get_by_role('button', name='Open platform-engineer', exact=True).click()
             expect(page.locator('.dag-node[data-status=succeeded]')).to_have_count(6)
             expect(page.locator('#selected-run-files .report-prose table').first).to_be_visible()
             expect(page.locator('#selected-run-files .report-prose h3').first).to_contain_text('Initial analysis')
@@ -93,6 +96,9 @@ def main():
             completed_id = page.locator('#workflow-run').input_value()
             page.locator('.dag-node[data-step=review]').click();page.locator('#task-output').click()
             expect(page.locator('#selected-run-files details[data-path=".vita/results/review.md"]')).to_have_attribute('open', '')
+            page.locator('#mark-run-reviewed').click()
+            expect(page.locator('#mark-run-reviewed')).to_have_text('Reviewed')
+            expect(page.locator('#filter-review')).to_have_text('0')
             set_theme(page, 'light')
             page.get_by_role('tab', name='Structure', exact=True).click()
             expect(page.locator('#toast')).to_be_hidden()
@@ -169,12 +175,31 @@ def main():
             expect(page.locator('#workflow-run')).to_have_value(record['id'])
             expect(page.locator('.dag-node[data-status=succeeded]')).to_have_count(3)
             assert {t['id'] for t in server.workspace.get_job(record['id'])['stages'] if t['status']=='succeeded'} == {'review','cover','validating'}
-            # All unread results remain reachable without a separate runs panel.
-            page.locator('#run-notifications .quiet').click()
-            expect(page.locator('#run-notifications .quiet')).to_have_text('Show fewer results')
-            assert page.locator('#run-notifications .run-notification').count() > 3
-            page.locator('#run-notifications .quiet').click()
-            expect(page.locator('#run-notifications .run-notification')).to_have_count(3)
+            # Acknowledge a historical run without clearing the other runs on this branch.
+            runs=[run for run in server.workspace.list_jobs()['runs'] if run['branch']=='independent-steps']
+            before=server.workspace.read('independent-steps', 'main.tex')
+            oldest=runs[-1]
+            page.locator('#workflow-run').select_option(oldest['id'])
+            page.locator('#mark-run-reviewed').click()
+            expect(page.locator('#mark-run-reviewed')).to_have_text('Reviewed')
+            expect(page.locator('#filter-review')).to_have_text('1')
+            assert sum(run['reviewed'] for run in server.workspace.list_jobs()['runs'] if run['branch']=='independent-steps')==1
+            for run in runs[:-1]:
+                page.locator('#workflow-run').select_option(run['id'])
+                page.locator('#mark-run-reviewed').click()
+                expect(page.locator('#mark-run-reviewed')).to_have_text('Reviewed')
+            expect(page.locator('#filter-review')).to_have_text('0')
+            assert server.workspace.read('independent-steps', 'main.tex')==before
+            page.locator('#back').click()
+            page.locator('[data-filter=review]').click()
+            expect(page.locator('#branch-list')).to_contain_text('No completed runs need review.')
+            page.locator('[data-filter=all]').click()
+            page.get_by_role('button', name='Open independent-steps', exact=True).click()
+            page.locator('#workflow-run').select_option(oldest['id'])
+            page.locator('#view-run').click()
+            expect(page.locator('#selected-run-files')).to_contain_text('job.json')
+            expect(page.locator('#mark-run-reviewed')).to_be_disabled()
+            expect(page.locator('#run-notifications')).to_have_count(0)
             # Unsaved job edits stop individual launch without losing the edits.
             page.locator('#job-description').fill('Unsaved job text')
             page.locator('.dag-node[data-step=review]').click();page.locator('#task-run').click()
@@ -194,7 +219,7 @@ def main():
             expect(page.locator('#toggle-workflow')).to_have_attribute('aria-expanded', 'false')
             assert not errors, errors
             browser.close()
-        print('PASS: full pipeline, independent tasks, arbitrary subsets, unsaved-edit guard, failures, task inspector, run history, branch filters, report Markdown, XSS protection, keyboard, mobile and themes.')
+        print('PASS: full pipeline, independent tasks, arbitrary subsets, unsaved-edit guard, failures, task inspector, run history, per-run acknowledgement, branch filters, report Markdown, XSS protection, keyboard, mobile and themes.')
     finally:
         (control / 'platform-engineer.review.release').touch()
         server.shutdown();server.server_close();worker.join()

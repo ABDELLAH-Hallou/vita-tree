@@ -532,7 +532,8 @@ body.in-workspace .shell {
   line-height:1.5
 }
 .workflow-heading .actions {
-  flex-shrink:0
+  flex-shrink:0;
+  flex-wrap:wrap
 }
 .workflow-heading button {
   font-size:12px
@@ -1041,20 +1042,6 @@ body.in-workspace .shell {
   display:block;
   color:var(--negative);
   background:var(--negative-bg)
-}
-.run-notifications {
-  display:flex;
-  gap:8px;
-  flex-wrap:wrap;
-  margin-top:12px
-}
-.run-notification {
-  font-size:12px;
-  color:var(--accent);
-  border-left:3px solid var(--accent);
-  white-space:normal;
-  text-align:left;
-  overflow-wrap:anywhere
 }
 .branch-run {
   display:block;

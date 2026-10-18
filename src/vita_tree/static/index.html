@@ -12,7 +12,6 @@
   <main class="shell" id="main-content" tabindex="-1">
     <p id="runs-error" class="helper" role="status"></p>
 
-    <aside id="run-notifications" class="run-notifications" aria-label="AI completion notifications" aria-live="polite" hidden></aside>
     <section id="board">
       <div class="page-heading"><div><h1>Applications <span id="total-count" class="count">0</span></h1><p class="subtitle">Your CV branches, from the first job description to the final PDF.</p></div><button id="new-branch" class="primary">＋ New branch</button></div>
       <div class="board-layout"><aside class="board-nav" aria-label="Branch filters">
@@ -31,7 +30,7 @@
     <section id="workspace" hidden>
       <div class="workspace-heading"><div><button id="back" class="back">← All branches</button><h1 id="branch-title"></h1><p id="workspace-caption" class="subtitle"></p></div><div class="actions"><button id="reload">↻ Reload</button><button id="branch-from" class="primary">＋ Branch from this</button></div></div>
       <section class="workflow-panel" aria-labelledby="workflow-title">
-        <header class="workflow-heading"><div><h2 id="workflow-title">Application workflow</h2><p id="workflow-summary" role="status">Choose the steps for this branch.</p></div><div class="actions"><label class="run-picker"><span class="sr-only">Workflow run</span><select id="workflow-run" aria-label="Workflow run"><option value="draft">Next run</option></select></label><button id="toggle-workflow" class="quiet" aria-expanded="true" aria-controls="workflow-body">Collapse graph</button></div></header>
+        <header class="workflow-heading"><div><h2 id="workflow-title">Application workflow</h2><p id="workflow-summary" role="status">Choose the steps for this branch.</p></div><div class="actions"><label class="run-picker"><span class="sr-only">Workflow run</span><select id="workflow-run" aria-label="Workflow run"><option value="draft">Next run</option></select></label><button id="view-run" class="quiet" hidden>View results</button><button id="mark-run-reviewed" hidden>Mark as reviewed</button><button id="toggle-workflow" class="quiet" aria-expanded="true" aria-controls="workflow-body">Collapse graph</button></div></header>
         <div id="workflow-body"><div id="workflow-graph" class="dag" role="group" aria-label="Workflow tasks in execution order"></div>
         <footer class="workflow-footer"><span>Run all steps, choose a subset, or select a task to run it alone. Selected steps run from left to right.</span><span><i class="status-dot running"></i>Running <i class="status-dot succeeded"></i>Done <i class="status-dot failed"></i>Failed</span></footer>
         <div id="task-inspector" class="task-inspector" hidden><div><strong id="task-title"></strong><p id="task-description"></p><span id="task-status" class="helper"></span></div><div class="actions"><button id="task-output">Open output</button><button id="task-run" class="primary">Run this step</button></div></div></div>
