@@ -8,11 +8,14 @@ from pathlib import Path, PurePosixPath
 import shutil
 import subprocess
 import threading
+import time
 import uuid
 import zipfile
 
 from .server import run_git
-from .workspace import safe_path, atomic_write
+from .workspace import safe_path, atomic_write, ConflictError, read_text
+from .fileio import atomic_write_bytes
+from .exports import cv_filename
 
 
 def export_snapshot(repository: Path, commit: str, target: Path, working: Path | None = None):
@@ -49,18 +52,31 @@ def export_snapshot(repository: Path, commit: str, target: Path, working: Path |
                 dest.unlink()
 
 
+class PDFExistsError(ConflictError):
+    def __init__(self, filename, revision):
+        super().__init__('A PDF with this name already exists in the worktree. Confirm replacement to continue.')
+        self.filename, self.revision = filename, revision
+
+
 class PDFCompiler:
     def __init__(self, workspace):
         self.workspace = workspace
         self.lock = threading.Lock()
         self.results: dict[str, Path] = {}
+        self.previews = {}
 
     def compile(self, name: str, side: str, engine: str):
         # Keep its worktree available if the user navigates away during export.
         with self.workspace.lock:
             self.workspace._previewing[name] = self.workspace._previewing.get(name, 0) + 1
+        started = time.monotonic()
         try:
-            return self._compile(name, side, engine)
+            result = self._compile(name, side, engine)
+            self.workspace.diagnostics.record('pdf_compiled', operation='compile_pdf', duration_ms=(time.monotonic()-started)*1000)
+            return result
+        except Exception as error:
+            self.workspace.diagnostics.error('pdf_failed', error, operation='compile_pdf')
+            raise
         finally:
             with self.workspace.lock:
                 count = self.workspace._previewing[name] - 1
@@ -115,6 +131,41 @@ class PDFCompiler:
             if not pdf.is_file() or not pdf.read_bytes().startswith(b"%PDF-"):
                 raise ValueError("The TeX engine did not produce a PDF")
             self.results[ident] = pdf
+            self.previews[ident] = {'branch': name, 'side': side, 'revision': hashlib.sha256(source.encode()).hexdigest(),
+                                    'filename': cv_filename(source, side), 'commit': snapshot['commit']}
             warnings = [line.strip() for line in log.splitlines() if any(x in line for x in ("Overfull", "Missing character", "LaTeX Warning"))]
-            return {"id": ident, "url": "/api/pdf-file?id=" + ident, "engine": engine,
+            return {"id": ident, "url": "/api/pdf-file?id=" + ident, "filename": self.previews[ident]['filename'], "engine": engine,
                     "warnings": warnings, "revision": hashlib.sha256(source.encode()).hexdigest()}
+
+    def save(self, ident, branch, existing_revision=None):
+        with self.lock, self.workspace.lock:
+            preview = self.previews.get(ident)
+            pdf = self.results.get(ident)
+            if not preview or not pdf or not pdf.is_file():
+                raise FileNotFoundError('Preview expired. Compile again before saving the PDF.')
+            if preview['branch'] != branch:
+                raise ConflictError('This PDF belongs to another branch. Compile this branch before saving.')
+            self.workspace.busy(branch)
+            snapshot = self.workspace.snapshot(branch)
+            if not snapshot['editable']:
+                raise ConflictError('Create a local branch before saving a PDF into a worktree.')
+            source = snapshot['original'] if preview['side']=='original' else snapshot['content']
+            if hashlib.sha256(source.encode()).hexdigest()!=preview['revision'] or snapshot['commit']!=preview['commit']:
+                raise ConflictError('The branch changed after PDF compilation. Compile again before saving.')
+            location = self.workspace.location(branch, create=True)
+            target = safe_path(location, preview['filename'])
+            current = hashlib.sha256(target.read_bytes()).hexdigest() if target.is_file() else None
+            if current is not None and existing_revision != current:
+                raise PDFExistsError(preview['filename'], current)
+            if current is None and existing_revision is not None:
+                raise ConflictError('The existing PDF changed after confirmation. Save again.')
+            content = pdf.read_bytes()
+            if not content.startswith(b'%PDF-'):
+                raise ValueError('The retained preview is not a PDF. Compile again.')
+            try:
+                atomic_write_bytes(target, content)
+            except OSError as error:
+                self.workspace.diagnostics.error('pdf_failed', error, operation='save_pdf')
+                raise
+            self.workspace.diagnostics.record('pdf_saved', operation='save_pdf')
+            return {'saved': True, 'branch': branch, 'filename': target.name, 'path': str(target)}

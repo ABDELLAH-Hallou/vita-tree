@@ -59,7 +59,7 @@ if step=='adapt':
 ''')
     model_patch=patch('vita_tree.providers.codex_efforts',return_value={'test-codex':['low','medium','high'],'test-current':['low','medium','high']})
     model_patch.start()
-    server=VitaTreeServer(('127.0.0.1',0),root,'main.tex',fake_vita)
+    server=VitaTreeServer(('127.0.0.1',0),root,'main.tex',fake_vita,log_dir=root/'.git/test-logs')
     thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
     errors=[]
     try:
@@ -208,6 +208,23 @@ if step=='adapt':
             expect(page.locator('#current-pdf .pdf-page')).to_have_css('background-color','rgb(255, 255, 255)')
             expect(page.locator('#original-pdf .textLayer')).to_have_count(1,timeout=180000)
             assert page.locator('#current-pdf .textLayer').inner_text().strip()
+            # Save the actual compiled previews directly into this branch's worktree.
+            page.locator('#current-pdf .save-pdf').click()
+            expect(page.locator('#notice')).to_contain_text('Saved cv-Jordan_Lee.pdf')
+            saved_pdf=worktree/'cv-Jordan_Lee.pdf'
+            assert saved_pdf.read_bytes().startswith(b'%PDF-')
+            assert len(PdfReader(saved_pdf).pages)==1
+            page.once('dialog',lambda dialog:dialog.accept())
+            page.locator('#current-pdf .save-pdf').click()
+            expect(page.locator('#current-pdf .save-pdf')).to_be_enabled()
+            page.locator('#original-pdf .save-pdf').click()
+            expect(page.locator('#notice')).to_contain_text('Saved cv-Jordan_Lee-original.pdf')
+            assert (worktree/'cv-Jordan_Lee-original.pdf').is_file()
+            href=page.locator('#current-pdf .pdf-download').get_attribute('href')
+            response=page.request.get('http://127.0.0.1:'+str(server.server_port)+href+'&download=1')
+            assert 'cv-Jordan_Lee.pdf' in response.headers['content-disposition']
+            assert response.body()==saved_pdf.read_bytes()
+
             selected=page.locator('#current-pdf .textLayer').evaluate("el => {const range=document.createRange();range.selectNodeContents(el);const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);return selection.toString();}")
             assert 'Jordan' in selected and 'Python' in selected,selected
             page.evaluate('window.getSelection().removeAllRanges()')
@@ -258,7 +275,7 @@ if step=='adapt':
                 print('Sample CV PDF pages:',count)
             assert not errors, errors
             browser.close()
-        print('PASS: provider/model discovery, reasoning delivered to both CLI steps, themes, branch creation, edits, reviewed commit/push with safe retry, reports, conflicts, selectable PDFs, zoom, mobile layout, zero browser errors.')
+        print('PASS: provider/model discovery, reasoning delivered to both CLI steps, themes, branch creation, edits, reviewed commit/push with safe retry, reports, conflicts, named worktree PDF export and overwrite, selectable PDFs, zoom, mobile layout, zero browser errors.')
         print('Artifacts:',artifacts)
     finally:
         model_patch.stop()

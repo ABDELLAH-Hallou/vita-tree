@@ -15,6 +15,8 @@ import threading
 import time
 import uuid
 
+from .fileio import atomic_write_bytes
+from .observability import Diagnostics
 from .latex import parse_document, replace_leaf
 from .workflow import REPORTS, MESSAGES, capabilities as workflow_capabilities, plan, transition, clean_stages, reusable_reports
 from .server import branch_payload, run_git
@@ -63,18 +65,13 @@ def read_text(path: Path) -> str:
 
 
 def atomic_write(path: Path, content: str):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temp = path.with_name(path.name + "." + uuid.uuid4().hex + ".tmp")
-    try:
-        temp.write_text(content, encoding="utf-8", newline="")
-        os.replace(temp, path)
-    finally:
-        temp.unlink(missing_ok=True)
+    atomic_write_bytes(path, content.encode('utf-8'))
 
 
 class Workspace:
-    def __init__(self, repository: Path, document_path="main.tex", vita_source: Path | None = None):
+    def __init__(self, repository: Path, document_path="main.tex", vita_source: Path | None = None, diagnostics=None):
         self.repository = repository
+        self.diagnostics = diagnostics or Diagnostics()
         self.document_path = document_path
         safe_path(repository, document_path)
         common = Path(run_git(repository, "rev-parse", "--git-common-dir"))
@@ -213,8 +210,12 @@ class Workspace:
         return result
 
     def _persist_job(self, record):
-        atomic_write(self.root / "job-history" / (record["id"] + ".json"),
-                     json.dumps({key: record.get(key) for key in self.JOB_FIELDS}))
+        try:
+            atomic_write(self.root / "job-history" / (record["id"] + ".json"),
+                         json.dumps({key: record.get(key) for key in self.JOB_FIELDS}))
+        except OSError as error:
+            self.diagnostics.error('history_write_failed', error, run_id=record['id'], operation='job_history')
+            raise
 
     def _load_jobs(self):
         for path in (self.root / "job-history").glob("*.json"):
@@ -230,12 +231,18 @@ class Workspace:
                        for value in (record.get(key) for key in ("createdAt", "startedAt", "finishedAt"))):
                     continue
                 if record["status"] in self.ACTIVE_STATUSES:
+                    previous = dict(record)
                     record["stages"] = transition(record.get("stages"), terminal="interrupted")
                     record.update(status="interrupted", step="interrupted", finishedAt=time.time(), reviewed=False,
                                   message="The server stopped before this run finished. Review the branch and start a new run.")
-                    self._persist_job(record)
+                    try:
+                        self._persist_job(record)
+                    except OSError:
+                        pass  # Keep recovered history visible even when its folder is read-only.
+                    self.diagnostics.workflow(record, previous)
                 self.jobs[record["id"]] = record
-            except (OSError, ValueError, TypeError, AttributeError):
+            except (OSError, ValueError, TypeError, AttributeError) as error:
+                self.diagnostics.error('history_load_failed', error, operation='job_history')
                 continue  # A damaged history entry must not prevent opening the CV.
 
     def list_jobs(self):
@@ -255,9 +262,37 @@ class Workspace:
             record = self.jobs[ident]
             if record["status"] in self.ACTIVE_STATUSES:
                 raise ConflictError("This AI run is still active. Review it when it finishes.")
-            record["reviewed"] = True
-            self._persist_job(record)
+            if record.get('reviewed'):
+                return self._public_job(record)
+            updated = {**record, 'reviewed': True}
+            try:
+                self._persist_job(updated)
+            except OSError as error:
+                raise RuntimeError('Review state could not be saved; the run remains unreviewed. Check write access to .git/vita-tree and disk space. If using a restricted terminal, restart vt run from a normal terminal.') from error
+            record.update(updated)
+            self.diagnostics.record('review_saved', run_id=ident)
             return self._public_job(record)
+
+    def review_jobs(self, identifiers):
+        if not isinstance(identifiers, list) or not 1 <= len(identifiers) <= 500 or any(
+                not isinstance(ident, str) or not re.fullmatch(r'[a-f0-9]{32}', ident) for ident in identifiers):
+            raise ValueError('Select between 1 and 500 runs to mark as reviewed.')
+        reviewed, failed = [], []
+        with self.lock:
+            for ident in dict.fromkeys(identifiers):
+                if ident not in self.jobs:
+                    failed.append({'id': ident, 'error': 'Run no longer exists. Refresh the branch list.'})
+                    continue
+                if self.jobs[ident]['status'] in self.ACTIVE_STATUSES:
+                    failed.append({'id': ident, 'error': 'This run is still active. Wait for it to finish.'})
+                    continue
+                try:
+                    self.review_job(ident)
+                except (RuntimeError, OSError):
+                    failed.append({'id': ident, 'error': 'Review state could not be saved. Check write access and retry.'})
+                else:
+                    reviewed.append(ident)
+        return {'reviewed': reviewed, 'failed': failed}
 
     def job_result(self, ident):
         record = self.get_job(ident)
@@ -289,10 +324,15 @@ class Workspace:
             self._closed = True
             for record in self.jobs.values():
                 if record["status"] in self.ACTIVE_STATUSES:
+                    previous = dict(record)
                     record["stages"] = transition(record.get("stages"), terminal="interrupted")
                     record.update(status="interrupted", step="interrupted", finishedAt=time.time(), reviewed=False,
                                   message="The server stopped before this run finished. Review the branch and start a new run.")
-                    self._persist_job(record)
+                    try:
+                        self._persist_job(record)
+                    except OSError:
+                        pass
+                    self.diagnostics.workflow(record, previous)
 
     def busy(self, name):
         if self.active_job(name):
@@ -616,6 +656,7 @@ class Workspace:
             atomic_write(inputs / "job.md", job)
             self._persist_job(record)
             self.jobs[ident] = record
+            self.diagnostics.workflow(record)
             thread = threading.Thread(target=self._run_ai, args=(record, context), daemon=True)
             self._ai_threads.add(thread)
             try:
@@ -666,8 +707,16 @@ class Workspace:
         with self.lock:
             if self._closed:
                 return False
-            record.update(values)
-            self._persist_job(record)
+            previous = dict(record)
+            updated = {**record, **values}
+            try:
+                self._persist_job(updated)
+            except OSError as error:
+                if updated['status'] not in {'failed', 'interrupted'}:
+                    raise AIRunError('The workflow could not save its status. Check .git/vita-tree permissions and inspect the branch files before retrying.') from error
+                updated['message'] = 'The run stopped, but its history could not be saved. Check .git/vita-tree permissions and inspect the branch before retrying.'
+            record.update(updated)
+            self.diagnostics.workflow(record, previous)
             return True
 
     def _run_ai(self, record, context):
@@ -710,6 +759,8 @@ class Workspace:
                         safe_path(stage, '.vita/results/' + filename).unlink(missing_ok=True)
                 process = subprocess.run(args, cwd=stage, env=context["env"], stdin=subprocess.DEVNULL, capture_output=True, timeout=600)
                 reports = [read_text(safe_path(stage, ".vita/results/" + name)).strip() for name in REPORTS[step]]
+                if process.returncode:
+                    self.diagnostics.record('provider_failed', 'ERROR', run_id=record['id'], step=step, exit_code=process.returncode)
                 if process.returncode or not any(reports):
                     raise AIRunError(f"VITA {step} did not produce a report. Check provider configuration and authentication. Your CV is unchanged.")
                 if step == "extract":
@@ -765,6 +816,7 @@ class Workspace:
                                           if context['selected'] == {'validating'} else "Selected steps finished. Open the run to review the results."),
                                  stages=transition(record["stages"], terminal="succeeded"))
         except Exception as error:
+            self.diagnostics.error('run_error', error, run_id=record['id'], step=record.get('step'))
             # Never persist exception text or provider stdout: either can contain
             # credentials, prompts, source text, or private local paths.
             message = str(error) if isinstance(error, AIRunError) else (
