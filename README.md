@@ -116,6 +116,8 @@ Structure preserves unsupported source and explicitly reports unknown commands/e
 
 PDF previews and AI snapshots are stored under the repository Git common directory's `vita-tree/pdf/` and `vita-tree/runs/`. AI input text is retained in `vita-tree/run-inputs/`, and run status and review state in `vita-tree/job-history/`. These can accumulate; keep the server stopped before manually cleaning old cache folders. Do not delete `worktrees/` directly; use Git's worktree commands.
 
+Vita Tree reserves its listening port before opening workspace history. A second server on the same address and port is rejected; stop the existing server or choose a different `--port`. On Windows, the port is reserved exclusively so an older server cannot silently receive requests intended for a new one.
+
 ## Activity, errors, and logs
 
 Open **Activity & logs** in the sidebar or workspace footer for running/completed/failed run counts, request metrics, and recent events. Errors include a reference ID; paste it into the activity search to find the operation, error type, OS error code, and code location. **Download diagnostics** exports a sanitized snapshot without local log paths.
