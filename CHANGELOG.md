@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.5.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.4.3...v1.5.0) (2026-10-19)
+
+
+### Features
+
+* add bulk run review and clarify Git permission failures ([5265f11](https://github.com/ABDELLAH-Hallou/vita-tree/commit/5265f1184761cf9a1036f76557a5ada0256ad7c6))
+* add workflow diagnostics and worktree PDF exports ([2e8fe13](https://github.com/ABDELLAH-Hallou/vita-tree/commit/2e8fe13d2707cff4bf20682e942dd830438ebba2))
+* add workflow diagnostics and worktree PDF exports ([a15dfa8](https://github.com/ABDELLAH-Hallou/vita-tree/commit/a15dfa8bef7c9ab0151dbff537e6657f303b1015))
+
 ## [1.4.3](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.4.2...v1.4.3) (2026-10-19)
 
 
