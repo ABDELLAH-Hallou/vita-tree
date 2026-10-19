@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import errno
+import socket
 import secrets
 import subprocess
 import os
@@ -166,6 +168,25 @@ def branch_content_payload(
 
 
 class VitaTreeServer(ThreadingHTTPServer):
+    # Windows SO_REUSEADDR permits two live servers to share a port. POSIX
+    # retains address reuse for restart, but never enables SO_REUSEPORT.
+    allow_reuse_address = os.name != 'nt'
+    allow_reuse_port = False
+
+    def server_bind(self):
+        if os.name == 'nt':
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        try:
+            super().server_bind()
+        except OSError as error:
+            if error.errno == errno.EADDRINUSE or getattr(error, 'winerror', None) in {10048, 10013}:
+                host, port = self.server_address[:2]
+                reason = ('the port is already in use or Windows denied exclusive access'
+                          if getattr(error, 'winerror', None) == 10013 else 'the port is already in use')
+                raise RuntimeError(f'Cannot start Vita Tree at http://{host}:{port}: {reason}. '
+                                   'Stop the existing server or choose another --port.') from error
+            raise
+
     def __init__(
         self,
         address: tuple[str, int],
@@ -180,24 +201,33 @@ class VitaTreeServer(ThreadingHTTPServer):
         self.repository = repository
         self.document_path = document_path
         self.diagnostics = Diagnostics(log_dir if log_dir is not None else default_log_directory(repository), log_level)
-        try:
-            self.workspace = Workspace(repository, document_path, vita_source, self.diagnostics)
-            self.compiler = PDFCompiler(self.workspace)
-        except Exception:
-            self.diagnostics.close()
-            raise
+        self.workspace = None
+        self.socket = None
+        self._started = False
         self.token = secrets.token_urlsafe(32)
         try:
-            super().__init__(address, DashboardHandler)
-        except Exception:
-            self.diagnostics.close()
+            super().__init__(address, DashboardHandler, bind_and_activate=False)
+            # Reserve the port before loading history: a rejected second server
+            # must not mark the first server's active runs as interrupted.
+            self.server_bind()
+            self.workspace = Workspace(repository, document_path, vita_source, self.diagnostics)
+            self.compiler = PDFCompiler(self.workspace)
+            self.server_activate()
+        except Exception as error:
+            self.diagnostics.error('request_failed', error, operation='server_start')
+            self.server_close()
             raise
+        self._started = True
         self.diagnostics.record('server_started', operation='server')
 
     def server_close(self):
-        self.workspace.close()
-        super().server_close()
-        self.diagnostics.record('server_stopped', operation='server')
+        if self.workspace is not None:
+            self.workspace.close()
+        if self.socket is not None:
+            super().server_close()
+        if self._started:
+            self.diagnostics.record('server_stopped', operation='server')
+            self._started = False
         self.diagnostics.close()
 
     def handle_error(self, request, client_address):
