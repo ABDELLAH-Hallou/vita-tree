@@ -35,6 +35,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     run.add_argument("--no-browser", action="store_true")
     run.add_argument("--vita-source", type=Path, help="Path to a local vita-cv checkout (optional)")
+    run.add_argument("--log-dir", type=Path, help="Folder for rotating structured logs (default: user application data)")
+    run.add_argument("--log-level", choices=("debug", "info", "warning", "error"), default="info")
     return parser
 
 
@@ -50,6 +52,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 document_path=args.document_path,
                 open_browser=not args.no_browser,
                 vita_source=args.vita_source.resolve() if args.vita_source else None,
+                log_dir=args.log_dir.resolve() if args.log_dir else None,
+                log_level=args.log_level,
             )
         except (OSError, RuntimeError) as error:
             print(f"vt: {error}", file=sys.stderr)

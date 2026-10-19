@@ -29,7 +29,7 @@ def main():
     prompts = source / 'vita/assets/prompts'; prompts.mkdir(parents=True)
     for step in ('extract', 'review', 'cover'):
         (prompts / (step + '.md')).write_text('Fixture task')
-    server = VitaTreeServer(('127.0.0.1', 0), root, 'main.tex', source)
+    server = VitaTreeServer(('127.0.0.1', 0), root, 'main.tex', source, log_dir=root/'.git/test-logs')
     server.workspace.create('master', 'platform-engineer', json.dumps({'label': 'platform-engineer', 'pipeline': True, 'extraction': True, 'hold': 'review'}), digest(SOURCE))
     server.workspace.create('master', 'research-engineer', json.dumps({'label': 'research-engineer', 'pipeline': True, 'fail': 'extract'}), digest(SOURCE))
     server.workspace.create('master', 'independent-steps', json.dumps({'label': 'independent-steps', 'pipeline': True}), digest(SOURCE))

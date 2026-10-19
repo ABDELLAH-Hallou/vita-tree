@@ -195,7 +195,7 @@ class HTTPTests(unittest.TestCase):
 
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory(prefix='.vita-tree-test-',dir=Path.cwd())
-        self.root=init_repo(Path(self.temp.name));self.server=VitaTreeServer(('127.0.0.1',0),self.root,'main.tex')
+        self.root=init_repo(Path(self.temp.name));self.server=VitaTreeServer(('127.0.0.1',0),self.root,'main.tex',log_dir=self.root/'.git/test-logs')
         self.thread=threading.Thread(target=self.server.serve_forever,daemon=True);self.thread.start()
         self.url='http://127.0.0.1:'+str(self.server.server_port)
 

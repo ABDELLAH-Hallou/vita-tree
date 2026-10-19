@@ -32,7 +32,7 @@ def main():
     git('config', 'user.name', 'Package test'); git('config', 'user.email', 'test@example.invalid')
     (repo / 'main.tex').write_text(source, encoding='utf-8')
     git('add', 'main.tex'); git('commit', '-m', 'Fixture')
-    server = VitaTreeServer(('127.0.0.1', 0), repo, 'main.tex')
+    server = VitaTreeServer(('127.0.0.1', 0), repo, 'main.tex', log_dir=repo/'.git/test-logs')
     if '--expect-ai' in sys.argv:
         assert server.workspace.ai_bridge(), 'Installed [ai] extra was not discovered'
         assert server.workspace.vita_source.is_relative_to(Path(sys.prefix).resolve())

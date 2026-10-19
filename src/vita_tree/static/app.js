@@ -4,6 +4,7 @@ import {createLatexEditor} from './vendor/editor.mjs';
 import {createRunMonitor, isActiveRun, runLabel, runSteps} from './runs.js';
 import {renderGraph, graphStages, statusNames} from './workflow.js';
 import {reportDetails} from './reports.js';
+import {initDiagnostics} from './diagnostics.js';
 state.filter='all';
 state.workflowChoices=new Map();
 const aiSteps=['extract','analyze','adapt','review','cover'];
@@ -117,7 +118,7 @@ async function openBranch(name, force=false) {
   if(!force && !canLeave()) return;
   const previous=state.snapshot?.branch;
   const generation=++state.generation;
-  state.snapshot=null;state.displayedRun=null;state.graphRunId=null;state.selectedTask=null;$('#task-inspector').hidden=true;
+  state.pdfGeneration++;state.snapshot=null;state.displayedRun=null;state.graphRunId=null;state.selectedTask=null;$('#task-inspector').hidden=true;
   $('#selected-run').hidden=true;
   for(const id of ['provider','model','reasoning',...aiSteps.map(id=>'step-'+id)]) $('#'+id).disabled=true;
   for(const id of aiSteps.map(id=>'step-'+id))$('#'+id).checked=false;
@@ -424,12 +425,29 @@ $('#task-output').onclick=async()=>{
 };
 let pdfjs;
 async function pdfLibrary(){if(!pdfjs){pdfjs=await import('./vendor/pdf.mjs');pdfjs.GlobalWorkerOptions.workerSrc='/vendor/pdf.worker.mjs';}return pdfjs;}
+async function savePDF(side, info, button){
+  const snapshot=state.snapshot;if(!snapshot)return;
+  if(side==='current'&&state.dirty){notice('Save your LaTeX edits and compile again before saving the PDF.',true);return;}
+  button.disabled=true;
+  try{
+    let saved;
+    try{saved=await api('/api/pdf-save',{id:info.id,branch:snapshot.branch});}
+    catch(error){
+      if(!error.existingRevision||!window.confirm(`${error.filename} already exists in this worktree. Replace it with this preview?`)){
+        if(!error.existingRevision)throw error;return;
+      }
+      saved=await api('/api/pdf-save',{id:info.id,branch:snapshot.branch,existingRevision:error.existingRevision});
+    }
+    if(state.snapshot===snapshot)notice(`Saved ${saved.filename} in ${saved.path}`);
+  }catch(error){if(state.snapshot===snapshot)notice(error.message,true);}
+  finally{button.disabled=false;}
+}
 async function renderPDF(side, info, generation){
   const library=await pdfLibrary();const container=$(`#${side}-pdf`);
   const loadingTask=library.getDocument({url:info.url,cMapUrl:'/vendor/cmaps/',cMapPacked:true,standardFontDataUrl:'/vendor/standard_fonts/',wasmUrl:'/vendor/wasm/'});
   const pdf=await loadingTask.promise;
   if(generation!==state.pdfGeneration){await loadingTask.destroy();return;}
-  container.replaceChildren();const link=document.createElement('a');link.className='pdf-download';link.href=info.url;link.target='_blank';link.rel='noopener';link.textContent='Open PDF ↗';container.append(link);
+  container.replaceChildren();const actions=document.createElement('div');actions.className='pdf-actions';const link=document.createElement('a');link.className='pdf-download';link.href=info.url;link.target='_blank';link.rel='noopener';link.textContent='Open PDF ↗';const save=document.createElement('button');save.className='save-pdf';save.textContent='Save PDF to worktree';save.title=info.filename||'Save this PDF';save.disabled=!state.snapshot?.editable;save.onclick=()=>savePDF(side,info,save);actions.append(link,save);container.append(actions);
   for(let pageNumber=1;pageNumber<=pdf.numPages;pageNumber++){
     const page=await pdf.getPage(pageNumber);if(generation!==state.pdfGeneration){await loadingTask.destroy();return;}
     const natural=page.getViewport({scale:1});const available=Math.max(200,container.clientWidth-30);const zoom=$('#zoom').value;const scale=zoom==='fit'?available/natural.width:Number(zoom);const viewport=page.getViewport({scale});
@@ -452,7 +470,7 @@ async function compilePDFs(){
     }));
     if(generation!==state.pdfGeneration)return;
     const warnings=results.flatMap(r=>r.status==='fulfilled'?r.value?.warnings||[]:[r.reason.message]);notice(warnings.length?warnings.join('\n'):'Both PDFs compiled. Select text directly on either page.',results.some(r=>r.status==='rejected'));
-  }finally{$('#compile').disabled=false;}
+  }finally{$('#compile').disabled=!state.snapshot;}
 }
 $('#zoom').onchange=async()=>{const generation=++state.pdfGeneration;try{for(const side of ['original','current'])if(state.pdfs[side])await renderPDF(side,state.pdfs[side],generation);}catch(error){notice(error.message,true);}};
 document.querySelectorAll('[data-filter]').forEach(button=>button.onclick=()=>{state.filter=button.dataset.filter;document.querySelectorAll('[data-filter]').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));renderBranches();});
@@ -476,6 +494,7 @@ window.addEventListener('pagehide',()=>{
     body:JSON.stringify({branch:state.snapshot.branch})}).catch(()=>{});
 });
 document.addEventListener('keydown',event=>{if(event.key==='/'&&!event.target.closest('input,textarea,select,[contenteditable]')&&!$('#board').hidden){event.preventDefault();$('#search').focus();}if((event.ctrlKey||event.metaKey)&&event.key==='s'&&state.snapshot){event.preventDefault();state.view==='ai'?saveJob():saveSource();}});
+initDiagnostics({api});
 try{state.session=await api('/api/session');await loadBranches();const params=new URLSearchParams(location.search), branch=params.get('branch');if(['structure','source','pdf','changes','ai'].includes(params.get('view')))state.view=params.get('view');if(branch)await openBranch(branch);runMonitor=createRunMonitor({api,changed:runsChanged});runMonitor.start();}catch(error){$('#branch-list').innerHTML=`<p class="empty">${esc(error.message)}</p>`;}
 
 setInterval(()=>{document.querySelectorAll(".dag-time[data-started-at]").forEach(el=>{el.textContent=`${Math.max(0,Math.floor(Date.now()/1000-Number(el.dataset.startedAt)))}s`;});},1000);

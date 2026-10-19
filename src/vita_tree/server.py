@@ -5,10 +5,15 @@ from __future__ import annotations
 import json
 import secrets
 import subprocess
+import os
+import sys
+import time
+import uuid
 import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlparse, quote
+from .observability import Diagnostics, default_log_directory, request_context
 
 
 STATIC_ROOT = Path(__file__).resolve().parent / "static"
@@ -165,19 +170,45 @@ class VitaTreeServer(ThreadingHTTPServer):
         repository: Path,
         document_path: str,
         vita_source: Path | None = None,
+        log_dir: Path | None = None,
+        log_level: str = 'INFO',
     ) -> None:
         from .workspace import Workspace
         from .pdf import PDFCompiler
         self.repository = repository
         self.document_path = document_path
-        self.workspace = Workspace(repository, document_path, vita_source)
-        self.compiler = PDFCompiler(self.workspace)
+        self.diagnostics = Diagnostics(log_dir if log_dir is not None else default_log_directory(repository), log_level)
+        try:
+            self.workspace = Workspace(repository, document_path, vita_source, self.diagnostics)
+            self.compiler = PDFCompiler(self.workspace)
+        except Exception:
+            self.diagnostics.close()
+            raise
         self.token = secrets.token_urlsafe(32)
-        super().__init__(address, DashboardHandler)
+        try:
+            super().__init__(address, DashboardHandler)
+        except Exception:
+            self.diagnostics.close()
+            raise
+        self.diagnostics.record('server_started', operation='server')
 
     def server_close(self):
         self.workspace.close()
         super().server_close()
+        self.diagnostics.record('server_stopped', operation='server')
+        self.diagnostics.close()
+
+    def handle_error(self, request, client_address):
+        error = sys.exc_info()[1]
+        if error:
+            self.diagnostics.error('request_failed', error, operation='server_thread')
+
+    def diagnostic_snapshot(self):
+        runs = self.workspace.list_jobs()['runs']
+        result = self.diagnostics.snapshot()
+        result['history'] = {status: sum(run['status']==status for run in runs)
+                             for status in ('running', 'succeeded', 'failed', 'interrupted')}
+        return result
 
 
 class DashboardHandler(SimpleHTTPRequestHandler):
@@ -195,12 +226,48 @@ class DashboardHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args: object, **kwargs: object) -> None:
         super().__init__(*args, directory=str(STATIC_ROOT), **kwargs)
 
-    def do_GET(self) -> None:  # noqa: N802 - stdlib handler API
+    def _observe(self, action):
+        self.request_id = uuid.uuid4().hex[:12]
+        context_token = request_context.set(self.request_id)
+        self.response_status = 500
+        self.headers_sent = False
+        started = time.monotonic()
+        route = urlparse(self.path).path
+        try:
+            action()
+        except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
+            self.response_status = 499
+            self.server.diagnostics.record('client_disconnected', 'DEBUG', request_id=self.request_id, route=route)
+        except Exception as error:
+            if not self.headers_sent:
+                try:
+                    self.error_response(error, 500, unexpected=True)
+                except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
+                    self.response_status = 499
+            else:
+                self.server.diagnostics.error('request_failed', error, request_id=self.request_id, route=route)
+        finally:
+            try:
+                self.server.diagnostics.request(self.command, route, self.response_status, time.monotonic()-started, self.request_id)
+            finally:
+                request_context.reset(context_token)
+
+    def do_GET(self):
+        self._observe(self._get)
+
+    def _get(self) -> None:  # noqa: N802 - stdlib handler API
         if not self.check_origin():
             return
         parsed = urlparse(self.path)
         path = parsed.path
         query = parse_qs(parsed.query)
+        if path == '/api/diagnostics':
+            self.api_call(self.server.diagnostic_snapshot)
+            return
+        if path == '/metrics':
+            active = self.server.diagnostic_snapshot()['history']['running']
+            self.send_bytes(self.server.diagnostics.prometheus(active).encode(), 'text/plain; version=0.0.4; charset=utf-8')
+            return
         if path == "/api/session":
             self.send_json({"token": self.server.token, **self.server.workspace.capabilities()})
             return
@@ -225,31 +292,19 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             if not pdf or not pdf.is_file():
                 self.send_json({"error": "Preview expired. Compile again."}, status=404)
             else:
-                self.send_bytes(pdf.read_bytes(), "application/pdf")
+                info = self.server.compiler.previews.get(query.get('id', [''])[0], {})
+                self.send_bytes(pdf.read_bytes(), "application/pdf", filename=info.get('filename'),
+                                download=query.get('download', [''])[0]=='1')
             return
         if path == "/api/branches":
-            try:
-                self.send_json(branch_payload(self.server.repository))
-            except (RuntimeError, OSError, ValueError) as error:
-                self.send_json({"error": str(error)}, status=500)
+            self.api_call(lambda: branch_payload(self.server.repository))
             return
         if path == "/api/branch-content":
-            name = parse_qs(parsed.query).get("branch", [""])[0]
+            name = query.get('branch', [''])[0]
             if not name:
-                self.send_json({"error": "Missing branch name"}, status=400)
+                self.send_json({'error': 'Missing branch name'}, status=400)
                 return
-            try:
-                self.send_json(
-                    branch_content_payload(
-                        self.server.repository,
-                        name,
-                        self.server.document_path,
-                    )
-                )
-            except (ValueError, FileNotFoundError) as error:
-                self.send_json({"error": str(error)}, status=404)
-            except (RuntimeError, OSError) as error:
-                self.send_json({"error": str(error)}, status=500)
+            self.api_call(lambda: branch_content_payload(self.server.repository, name, self.server.document_path))
             return
         if path == "/health":
             self.send_json(
@@ -270,6 +325,9 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         return True
 
     def do_POST(self):
+        self._observe(self._post)
+
+    def _post(self):
         if not self.check_origin():
             return
         if not secrets.compare_digest(self.headers.get("X-Vita-Token", ""), self.server.token):
@@ -299,6 +357,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             "/api/adapt": lambda: workspace.start_ai(data["branch"], data["revision"], data["jobRevision"], data.get("provider", ""), data.get("language", "en"), data.get("model"), data.get("reasoning", ""), data.get("workflow")),
             "/api/parse": lambda: self.parse_source(data),
             "/api/lint": lambda: self.parse_source(data, lint_only=True),
+            "/api/pdf-save": lambda: self.server.compiler.save(data['id'], data['branch'], data.get('existingRevision')),
             "/api/pdf": lambda: self.server.compiler.compile(data["branch"], data.get("side", "current"), data.get("engine", "auto")),
         }
         if path not in actions:
@@ -313,36 +372,57 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             raise ValueError("Invalid source")
         return {"diagnostics": lint_source(content)} if lint_only else parse_document(content)
 
+    def error_response(self, error, status, extra=None, unexpected=False):
+        reference = getattr(self, 'request_id', uuid.uuid4().hex[:12])
+        self.server.diagnostics.error('request_failed', error, level='ERROR' if status>=500 else 'WARNING',
+                                      request_id=reference, route=urlparse(self.path).path)
+        if isinstance(error, PermissionError):
+            message = 'Windows denied access to an application file. Check folder permissions or restart vt run from a normal terminal outside a restricted sandbox.'
+        elif isinstance(error, OSError):
+            message = 'A local file operation failed. Check disk space and folder permissions.'
+        elif unexpected:
+            message = 'The operation could not finish. Open Activity & logs for details.'
+        else:
+            message = str(error)
+        self.send_json({'error': message + ' Reference: ' + reference, 'requestId': reference, **(extra or {})}, status=status)
+
     def api_call(self, action):
         from .workspace import ConflictError, PushError
+        from .pdf import PDFExistsError
         try:
             result = action()
+        except PDFExistsError as error:
+            self.error_response(error, 409, {'filename': error.filename, 'existingRevision': error.revision})
         except PushError as error:
-            self.send_json({"error": str(error), "commitCreated": error.commit_created,
-                            "commit": error.commit, "canRetry": True}, status=502)
+            self.error_response(error, 502, {'commitCreated': error.commit_created, 'commit': error.commit, 'canRetry': True})
         except ConflictError as error:
-            self.send_json({"error": str(error)}, status=409)
+            self.error_response(error, 409)
         except FileNotFoundError as error:
-            self.send_json({"error": str(error)}, status=404)
+            self.error_response(error, 404)
         except (ValueError, KeyError, TypeError) as error:
-            self.send_json({"error": str(error)}, status=400)
+            self.error_response(error, 400)
         except (RuntimeError, OSError, subprocess.SubprocessError) as error:
-            self.send_json({"error": str(error)}, status=500)
+            self.error_response(error, 500)
         else:
-            try:
-                self.send_json(result)
-            except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
-                pass  # The client navigated away while the operation completed.
+            self.send_json(result)
 
     def end_headers(self):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'")
+        self.send_header('X-Request-ID', getattr(self, 'request_id', ''))
         super().end_headers()
+        self.headers_sent = True
 
-    def send_bytes(self, body: bytes, content_type: str, status=200):
+    def send_response(self, code, message=None):
+        self.response_status = code
+        super().send_response(code, message)
+
+    def send_bytes(self, body: bytes, content_type: str, status=200, filename=None, download=False):
         self.send_response(status)
         self.send_header("Content-Type", content_type)
+        if filename:
+            self.send_header('Content-Disposition', ('attachment' if download else 'inline') + "; filename=\"cv.pdf\"; filename*=UTF-8''" + quote(filename))
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
@@ -353,9 +433,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         self.send_bytes(body, "application/json; charset=utf-8", status)
 
     def log_message(self, message_format: str, *args: object) -> None:
-        if args and str(args[1]) == "200":
-            return
-        super().log_message(message_format, *args)
+        pass  # Structured request observations exclude URLs, payloads and headers.
 
 
 def serve(
@@ -365,16 +443,23 @@ def serve(
     document_path: str = "main.tex",
     open_browser: bool = True,
     vita_source: Path | None = None,
+    log_dir: Path | None = None,
+    log_level: str = 'INFO',
 ) -> None:
     if not STATIC_ROOT.is_dir():
         raise RuntimeError(f"Dashboard assets not found: {STATIC_ROOT}")
 
     if host not in {"127.0.0.1", "localhost"}:
         raise RuntimeError("Vita Tree supports localhost only because it can edit files and run AI.")
-    server = VitaTreeServer((host, port), repository, document_path, vita_source)
+    server = VitaTreeServer((host, port), repository, document_path, vita_source, log_dir, log_level)
     url = f"http://{host}:{server.server_port}"
     print(f"vita-tree · {repository}")
     print(f"Dashboard running at {url}")
+    print(f"Metrics: {url}/metrics")
+    if server.diagnostics.handler:
+        print(f"Logs: {server.diagnostics.path}")
+    else:
+        print(server.diagnostics.file_error or 'File logging is disabled.', file=sys.stderr)
     print("Press Ctrl+C to stop.")
     if open_browser:
         webbrowser.open(url)

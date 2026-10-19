@@ -23,7 +23,7 @@ def main():
     control = root / '.git/ai-control'; control.mkdir()
     config = root / '.vita'; config.mkdir()
     (config / 'extensions.json').write_text(json.dumps({'llm_providers': {'openai': {'model': 'fixture-model'}}}))
-    server = VitaTreeServer(('127.0.0.1', 0), root, 'main.tex')
+    server = VitaTreeServer(('127.0.0.1', 0), root, 'main.tex', log_dir=root/'.git/test-logs')
     server.workspace.vita_source = None
     thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
     command = [sys.executable, str(Path(__file__).with_name('fake_ai_process.py').resolve())]
@@ -83,13 +83,33 @@ def main():
             page.locator('#view-run').click()
             expect(page.locator('#mark-run-reviewed')).to_be_enabled()
             assert not server.workspace.get_job(alpha['id'])['reviewed']
-            # An acknowledgement error keeps the run pending and allows retry.
-            page.route('**/api/job-reviewed', lambda route: route.fulfill(status=500, json={'error':'Could not mark this run reviewed. Retry.'}))
-            page.locator('#mark-run-reviewed').click()
-            expect(page.locator('#notice')).to_contain_text('Could not mark this run reviewed')
+            # Reproduce the real disk-permission error, including the memory/disk rollback.
+            with patch('vita_tree.workspace.atomic_write',side_effect=PermissionError(13,'private-persistence-canary','/private/person/file')):
+                with page.expect_response(lambda response: response.url.endswith('/api/job-reviewed')) as pending:
+                    page.locator('#mark-run-reviewed').click()
+                failure=pending.value.json()
+                expect(page.locator('#notice')).to_contain_text('Review state could not be saved')
+                expect(page.locator('#mark-run-reviewed')).to_have_text('Mark as reviewed')
+                expect(page.locator('#mark-run-reviewed')).to_be_enabled()
+                assert not server.workspace.get_job(alpha['id'])['reviewed']
+                history=server.workspace.root/'job-history'/(alpha['id']+'.json')
+                assert not json.loads(history.read_text())['reviewed']
             expect(page.locator('#filter-review')).to_have_text('1')
-            assert not server.workspace.get_job(alpha['id'])['reviewed']
-            page.unroute('**/api/job-reviewed')
+            page.locator('#workspace [data-open-diagnostics]').click()
+            expect(page.locator('#diagnostics-dialog')).to_be_visible()
+            page.locator('#diagnostics-search').fill(failure['requestId'])
+            expect(page.locator('#diagnostics-events')).to_contain_text('PermissionError')
+            expect(page.locator('#diagnostics-events')).to_contain_text('errno 13')
+            expect(page.locator('#diagnostics-events')).to_contain_text(alpha['id'])
+            assert 'private-persistence-canary' not in page.locator('#diagnostics-dialog').inner_text()
+            with page.expect_download() as exported:
+                page.locator('#download-diagnostics').click()
+            bundle=Path(exported.value.path()).read_text()
+            assert 'private-persistence-canary' not in bundle and '/private/person' not in bundle
+            assert 'path' not in json.loads(bundle)['logging']
+            page.locator('#diagnostics-search').fill('')
+            page.screenshot(path=str(artifacts/'activity-errors-dark.png'),full_page=True)
+            page.get_by_role('button',name='Close activity and logs').click()
             page.locator('#mark-run-reviewed').click()
             expect(page.locator('#mark-run-reviewed')).to_have_text('Reviewed')
             expect(page.locator('#mark-run-reviewed')).to_be_disabled()
@@ -113,6 +133,11 @@ def main():
             page.set_viewport_size({'width': 390, 'height': 844})
             assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), 'Review inbox overflows mobile screen'
             page.screenshot(path=str(artifacts/'review-inbox-mobile.png'), full_page=True)
+            page.locator('#show-activity').click()
+            expect(page.locator('#metric-failed')).to_have_text('1')
+            assert page.locator('#diagnostics-dialog').evaluate('el=>el.scrollWidth<=el.clientWidth'), 'Activity panel overflows mobile'
+            page.screenshot(path=str(artifacts/'activity-mobile.png'),full_page=True)
+            page.get_by_role('button',name='Close activity and logs').click()
             page.locator('[data-filter=failed]').click()
             page.get_by_role('button', name='Open beta', exact=True).click()
             page.locator('#view-run').click()
@@ -131,7 +156,7 @@ def main():
             assert server.workspace.location('alpha').is_dir()
             assert not errors, errors
             browser.close()
-        print('PASS: independent concurrent processes without a queue, global status, sidebar review inbox, explicit acknowledgement and retry, persisted review state, navigation, refresh, clean worktree release, dark/light/mobile UI.')
+        print('PASS: independent concurrent processes without a queue, global status, sidebar review inbox, real permission failure rollback, diagnostic correlation and export, acknowledgement and retry, persisted review state, navigation, refresh, clean worktree release, dark/light/mobile UI.')
     finally:
         for label in ('alpha', 'beta', 'gamma'):
             (control / (label + '.release')).touch()

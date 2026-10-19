@@ -108,11 +108,31 @@ For a pipx editable installation, source changes take effect when you restart `v
 | Multi-file uncommitted changes when creating a branch | Only the displayed main document is copied; other files come from the base commit |
 | Bibliography, makeindex, minted/shell-escape builds | Not orchestrated; current compiler runs the selected TeX engine twice |
 | Guaranteed perfect PDF reading order for arbitrary templates/fonts | Not possible; depends on the PDF's text encoding and layout |
-| Successful AI generation for every provider | Depends on VITA credentials/provider availability; failed runs do not replace the CV |
+| Successful AI generation for every provider | Depends on VITA credentials/provider availability; provider, validation, and conflict failures preserve the CV; inspect files after disk-write failures |
 
 Structure preserves unsupported source and explicitly reports unknown commands/environments. It is a reading/editing aid, not a TeX engine. Source edits can temporarily be invalid; the UI reports parse/compile failures instead of pretending a stale PDF is current. AI results are syntax-checked but still require PDF compilation and factual review.
 
 PDF previews and AI snapshots are stored under the repository Git common directory's `vita-tree/pdf/` and `vita-tree/runs/`. AI input text is retained in `vita-tree/run-inputs/`, and run status and review state in `vita-tree/job-history/`. These can accumulate; keep the server stopped before manually cleaning old cache folders. Do not delete `worktrees/` directly; use Git's worktree commands.
+
+## Activity, errors, and logs
+
+Open **Activity & logs** in the sidebar or workspace footer for running/completed/failed run counts, request metrics, and recent events. Errors include a reference ID; paste it into the activity search to find the operation, error type, OS error code, and code location. **Download diagnostics** exports a sanitized snapshot without local log paths.
+
+`vt run` prints the log filename and metrics URL at startup. Rotating JSON logs live outside the repository, under `%LOCALAPPDATA%\vita-tree\logs\<repository-id>` on Windows or `$XDG_STATE_HOME/vita-tree/logs/<repository-id>` on other platforms (default `~/.local/state`). Each server session keeps up to six 1 MB files. Logs exclude CV/job contents, prompts, credentials, request payloads, and raw provider output. If file logging cannot write, the UI retains the latest 200 events in memory and reports the logging failure.
+
+```powershell
+vt run . --log-level debug --log-dir C:\path\to\private-logs
+```
+
+Prometheus metrics are available at `http://127.0.0.1:8765/metrics` on the same server port. They include HTTP counts/durations, active runs, workflow outcomes, and step counts/durations. Request/workflow counters reset on restart; saved run history remains available.
+
+**Permission denied when marking reviewed:** the run is acknowledged only after history is saved. Temporary file locks are retried. Permanent write denials still require write access to `.git/vita-tree`; if the server was launched inside a restricted agent terminal, stop it and restart `vt run` from a normal terminal as your own user. No administrator mode or automatic permission changes are required by Vita Tree.
+
+## Save a PDF into its worktree
+
+Compile the PDF, then click **Save PDF to worktree** above the preview. A CV headed “Jordan Lee” saves as `cv-Jordan_Lee.pdf` in the selected branch's existing worktree. The original preview uses `cv-Jordan_Lee-original.pdf`; documents without a recognizable name use `cv.pdf`. The UI shows the saved path. Existing files require confirmation, and a changed branch must be compiled again before saving.
+
+These PDFs are local artifacts; saving does not stage, commit, or push them. Repository ignore rules still apply. **Open PDF** uses the browser viewer, whose own download button follows the browser's save-location settings.
 
 ## Development and verification
 
