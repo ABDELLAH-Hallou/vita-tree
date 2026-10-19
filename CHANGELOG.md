@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.3](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.4.2...v1.4.3) (2026-10-19)
+
+
+### Bug Fixes
+
+* clarify run review and remove duplicate notifications ([36974b7](https://github.com/ABDELLAH-Hallou/vita-tree/commit/36974b7c8264560fdeb5068b9633ad12f175cad8))
+
 ## [1.4.2](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.4.1...v1.4.2) (2026-10-17)
 
 
