@@ -10,6 +10,37 @@ state.workflowChoices=new Map();
 const aiSteps=['extract','analyze','adapt','review','cover'];
 const stepAvailable=id=>!['extract','review','cover'].includes(id)||!!state.session?.workflow?.[id];
 state.runs = [];
+state.reviewSelection = new Set();
+state.reviewing = false;
+let visibleReviewBranches = [];
+const reviewableRuns = branch => state.runs.filter(run=>run.branch===branch&&!isActiveRun(run)&&!run.reviewed);
+function updateBulkReview(){
+  const count=state.runs.filter(run=>state.reviewSelection.has(run.branch)&&!isActiveRun(run)&&!run.reviewed).length;
+  $('#bulk-review').disabled=state.reviewing||!count;
+  $('#bulk-review').textContent=state.reviewing?'Saving review state…':'Mark selected as reviewed';
+  $('#bulk-review-count').textContent=count?`${count} ${count===1?'run':'runs'} selected`:'';
+  const selected=visibleReviewBranches.filter(branch=>state.reviewSelection.has(branch)).length;
+  const all=$('#select-review-visible');all.checked=!!selected&&selected===visibleReviewBranches.length;
+  all.indeterminate=!!selected&&selected<visibleReviewBranches.length;all.disabled=state.reviewing||!visibleReviewBranches.length;
+}
+$('#select-review-visible').onchange=event=>{
+  for(const branch of visibleReviewBranches)event.target.checked?state.reviewSelection.add(branch):state.reviewSelection.delete(branch);
+  renderBranches();
+};
+$('#bulk-review').onclick=async()=>{
+  const ids=state.runs.filter(run=>state.reviewSelection.has(run.branch)&&!isActiveRun(run)&&!run.reviewed).map(run=>run.id);
+  if(state.reviewing||!ids.length)return;
+  if(ids.length>500){$('#bulk-review-status').hidden=false;$('#bulk-review-status').textContent='Select fewer branches: up to 500 runs can be reviewed at once.';return;}
+  state.reviewing=true;renderBranches();const status=$('#bulk-review-status');status.hidden=false;status.textContent=`Saving review state for ${ids.length} runs…`;
+  try{
+    const result=await api('/api/jobs-reviewed',{ids});
+    const saved=new Set(result.reviewed);
+    for(const run of state.runs)if(saved.has(run.id))run.reviewed=true;
+    status.textContent=`${result.reviewed.length} ${result.reviewed.length===1?"run":"runs"} marked as reviewed.`+(result.failed.length?` ${result.failed.length} could not be saved and remain selected. ${result.failed[0].error} Reference: ${result.requestId}`:'');
+    await runMonitor.refresh();
+  }catch(error){status.textContent=error.message;}
+  finally{state.reviewing=false;renderBranches();}
+};
 let runMonitor;
 const editors = Object.fromEntries(['original', 'current'].map(side => [side, createLatexEditor($(`#${side}-source`), {
   label: side === 'original' ? 'Original LaTeX' : 'New version LaTeX', readOnly: true,
@@ -82,6 +113,8 @@ function renderBranches() {
   };
   for(const filter of ['all','running','review','failed']) $('#filter-'+filter).textContent=state.branches.filter(b=>matchesFilter(b,filter)).length;
   const branches = state.branches.filter(b => matchesFilter(b,state.filter) && `${b.name} ${b.subject} ${b.author}`.toLowerCase().includes(query));
+  for(const branch of state.reviewSelection)if(!reviewableRuns(branch).length)state.reviewSelection.delete(branch);
+  visibleReviewBranches=branches.filter(branch=>reviewableRuns(branch.name).length).map(branch=>branch.name);
   $('#branch-list').replaceChildren();
   for (const b of branches) {
     const row = document.createElement('button'); row.className='branch-row'; row.setAttribute('aria-label', `Open ${b.name}`);
@@ -89,7 +122,12 @@ function renderBranches() {
     row.onclick=() => {
       const pending=state.filter==='review'&&state.runs.find(run=>run.branch===b.name&&run.status==='succeeded'&&!run.reviewed);
       if(pending)openRun(pending).catch(error=>notice(error.message,true));else openBranch(b.name);
-    }; $('#branch-list').append(row);
+    };
+    const entry=document.createElement('div');entry.className='branch-entry';
+    const select=document.createElement('input');select.type='checkbox';select.className='select-branch-review';
+    select.setAttribute('aria-label',`Select unreviewed runs for ${b.name}`);select.disabled=state.reviewing||!reviewableRuns(b.name).length;
+    select.checked=state.reviewSelection.has(b.name);select.onchange=()=>{select.checked?state.reviewSelection.add(b.name):state.reviewSelection.delete(b.name);updateBulkReview();};
+    entry.append(select,row);$('#branch-list').append(entry);
     const branchRuns=state.runs.filter(run=>run.branch===b.name);
     const run=branchRuns.find(isActiveRun)||branchRuns.find(item=>!item.reviewed)||branchRuns[0];
     if(run&&(isActiveRun(run)||!run.reviewed||['failed','interrupted'].includes(run.status))){
@@ -100,6 +138,7 @@ function renderBranches() {
   if(!branches.length) $('#branch-list').innerHTML=state.filter==='review'&&!query ? '<p class="empty">No completed runs need review.</p>' : '<p class="empty">No branches here. Try another filter or create a branch for your next application.</p>';
   $('#result-count').textContent=`${branches.length} ${branches.length===1?'branch':'branches'}`;
   $('#total-count').textContent=state.branches.length;
+  updateBulkReview();
 }
 async function loadBranches() {
   $('#refresh').disabled=true;

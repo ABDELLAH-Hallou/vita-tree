@@ -35,6 +35,20 @@ def main():
             page.on('pageerror', lambda error: errors.append(str(error)))
             page.goto(f'http://127.0.0.1:{server.server_port}')
             expect(page.get_by_role('button', name='Open master', exact=True)).to_be_visible(timeout=30000)
+            # A denied Git ref write stays in the dialog and keeps the form available.
+            from vita_tree.workspace import run_git as original_git
+            def denied_git(repository,*args,**kwargs):
+                if 'worktree' in args and 'add' in args:raise PermissionError(13,'private-branch-canary','/private/person/ref.lock')
+                return original_git(repository,*args,**kwargs)
+            page.locator('#new-branch').click()
+            page.locator('#branch-name').fill('denied-branch');page.locator('#new-job').fill('Fixture job')
+            with patch('vita_tree.workspace.run_git',side_effect=denied_git):
+                page.locator('#create-form button[type=submit]').click()
+                expect(page.locator('#create-error')).to_contain_text('normal terminal')
+                expect(page.locator('#create-error')).not_to_contain_text('private-branch-canary')
+                expect(page.locator('#create-form button[type=submit]')).to_be_enabled()
+            expect(page.locator('#branch-name')).to_have_value('denied-branch')
+            page.get_by_role('button',name='Close create dialog',exact=True).click()
             for label, mode in (('alpha', 'success'), ('beta', 'provider-fail'), ('gamma', 'success')):
                 page.locator('#new-branch').click()
                 page.locator('#base-branch').select_option('master')
@@ -154,9 +168,41 @@ def main():
             git(root, 'checkout', 'master')
             # Unsaved AI results on other branches must remain on disk.
             assert server.workspace.location('alpha').is_dir()
+            # Bulk review from All branches: filtered select-all, partial failure, safe retry.
+            page.set_viewport_size({'width':1440,'height':1000})
+            page.locator('[data-filter=all]').click()
+            page.locator('#search').fill('gamma')
+            page.locator('#select-review-visible').check()
+            expect(page.locator('#bulk-review-count')).to_have_text('1 run selected')
+            page.locator('#search').fill('')
+            page.get_by_role('checkbox',name='Select unreviewed runs for beta',exact=True).check()
+            expect(page.locator('#bulk-review-count')).to_have_text('2 runs selected')
+            from vita_tree.workspace import atomic_write as original_write
+            beta=next(run for run in server.workspace.list_jobs()['runs'] if run['branch']=='beta')
+            def deny_beta(path,content):
+                if path.name.startswith(beta['id']):raise PermissionError(13,'private-bulk-canary')
+                return original_write(path,content)
+            with patch('vita_tree.workspace.atomic_write',side_effect=deny_beta):
+                page.locator('#bulk-review').click()
+                expect(page.locator('#bulk-review-status')).to_contain_text('1 could not be saved')
+            expect(page.locator('#bulk-review-count')).to_have_text('1 run selected')
+            expect(page.get_by_role('checkbox',name='Select unreviewed runs for beta',exact=True)).to_be_checked()
+            expect(page.get_by_role('checkbox',name='Select unreviewed runs for gamma',exact=True)).to_be_disabled()
+            assert not server.workspace.get_job(beta['id'])['reviewed']
+            page.locator('#bulk-review').click()
+            expect(page.locator('#bulk-review-status')).to_have_text('1 run marked as reviewed.')
+            expect(page.locator('#bulk-review')).to_be_disabled()
+            expect(page.locator('#filter-review')).to_have_text('0')
+            page.reload()
+            expect(page.locator('#bulk-review')).to_be_disabled()
+            expect(page.locator('#select-review-visible')).to_be_disabled()
+            assert server.workspace.get_job(beta['id'])['reviewed']
+            page.set_viewport_size({'width':390,'height':844})
+            assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), 'Bulk review overflows mobile'
+            page.screenshot(path=str(artifacts/'bulk-review-mobile.png'),full_page=True)
             assert not errors, errors
             browser.close()
-        print('PASS: independent concurrent processes without a queue, global status, sidebar review inbox, real permission failure rollback, diagnostic correlation and export, acknowledgement and retry, persisted review state, navigation, refresh, clean worktree release, dark/light/mobile UI.')
+        print('PASS: denied branch creation, bulk review with partial failure and retry, independent concurrent processes without a queue, global status, sidebar review inbox, real permission failure rollback, diagnostic correlation and export, acknowledgement and retry, persisted review state, navigation, refresh, clean worktree release, dark/light/mobile UI.')
     finally:
         for label in ('alpha', 'beta', 'gamma'):
             (control / (label + '.release')).touch()

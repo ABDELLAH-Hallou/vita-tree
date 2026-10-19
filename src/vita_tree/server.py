@@ -49,6 +49,8 @@ def run_git(repository: Path, *args: str, strip: bool = True) -> str:
     )
     if process.returncode:
         message = process.stderr.strip() or "Git command failed"
+        if 'permission denied' in message.lower() or 'access is denied' in message.lower():
+            raise PermissionError(13, 'Git was denied access to repository files')
         raise RuntimeError(message)
     return process.stdout.strip() if strip else process.stdout
 
@@ -350,6 +352,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         actions = {
             "/api/release-worktree": lambda: workspace.release_worktree(data["branch"]),
             "/api/job-reviewed": lambda: workspace.review_job(data["id"]),
+            "/api/jobs-reviewed": lambda: {**workspace.review_jobs(data["ids"]), 'requestId': self.request_id},
             "/api/save": lambda: workspace.save(data["branch"], data["path"], data["revision"], data.get("content"), data.get("leaf"), data.get("text")),
             "/api/commit-preview": lambda: workspace.commit_preview(data["branch"], data.get("sourceRevision"), data.get("sourceContent"), data.get("jobRevision"), data.get("jobContent")),
             "/api/commit-push": lambda: workspace.commit_and_push(data["branch"], data.get("message"), data.get("review"), data.get("sourceRevision"), data.get("sourceContent"), data.get("jobRevision"), data.get("jobContent")),
@@ -377,7 +380,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         self.server.diagnostics.error('request_failed', error, level='ERROR' if status>=500 else 'WARNING',
                                       request_id=reference, route=urlparse(self.path).path)
         if isinstance(error, PermissionError):
-            message = 'Windows denied access to an application file. Check folder permissions or restart vt run from a normal terminal outside a restricted sandbox.'
+            message = 'Permission denied while writing repository or application files. Stop this server and restart vt run from a normal terminal outside a restricted sandbox. If it persists, check write access to the repository and its .git folder. Your existing work is preserved.'
         elif isinstance(error, OSError):
             message = 'A local file operation failed. Check disk space and folder permissions.'
         elif unexpected:

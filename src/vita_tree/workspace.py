@@ -273,6 +273,27 @@ class Workspace:
             self.diagnostics.record('review_saved', run_id=ident)
             return self._public_job(record)
 
+    def review_jobs(self, identifiers):
+        if not isinstance(identifiers, list) or not 1 <= len(identifiers) <= 500 or any(
+                not isinstance(ident, str) or not re.fullmatch(r'[a-f0-9]{32}', ident) for ident in identifiers):
+            raise ValueError('Select between 1 and 500 runs to mark as reviewed.')
+        reviewed, failed = [], []
+        with self.lock:
+            for ident in dict.fromkeys(identifiers):
+                if ident not in self.jobs:
+                    failed.append({'id': ident, 'error': 'Run no longer exists. Refresh the branch list.'})
+                    continue
+                if self.jobs[ident]['status'] in self.ACTIVE_STATUSES:
+                    failed.append({'id': ident, 'error': 'This run is still active. Wait for it to finish.'})
+                    continue
+                try:
+                    self.review_job(ident)
+                except (RuntimeError, OSError):
+                    failed.append({'id': ident, 'error': 'Review state could not be saved. Check write access and retry.'})
+                else:
+                    reviewed.append(ident)
+        return {'reviewed': reviewed, 'failed': failed}
+
     def job_result(self, ident):
         record = self.get_job(ident)
         if record["status"] in self.ACTIVE_STATUSES:

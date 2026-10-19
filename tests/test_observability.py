@@ -100,6 +100,47 @@ class PersistenceAndPDFTests(unittest.TestCase):
         try:self.assertTrue(reopened.get_job(record['id'])['reviewed'])
         finally:reopened.close()
 
+    def test_bulk_review_partial_failure_active_run_and_retry(self):
+        for letter, status in [('a','succeeded'),('b','failed'),('c','running')]:
+            record={'id':letter*32,'branch':'master','status':status,'step':'completed','reviewed':False,'stages':[]}
+            self.workspace.jobs[record['id']]=record;self.workspace._persist_job(record)
+        from vita_tree.workspace import atomic_write
+        def denied(path, content):
+            if path.name.startswith('b'*32):raise PermissionError(13,'private-canary')
+            return atomic_write(path,content)
+        with patch('vita_tree.workspace.atomic_write',side_effect=denied):
+            result=self.workspace.review_jobs(['a'*32,'b'*32,'c'*32,'d'*32,'a'*32])
+        self.assertEqual(result['reviewed'],['a'*32]);self.assertEqual(len(result['failed']),3)
+        self.assertTrue(self.workspace.get_job('a'*32)['reviewed'])
+        self.assertFalse(self.workspace.get_job('b'*32)['reviewed'])
+        self.assertFalse(self.workspace.get_job('c'*32)['reviewed'])
+        self.assertNotIn('private-canary',json.dumps(result))
+        self.assertEqual(self.workspace.review_jobs(['a'*32,'b'*32])['reviewed'],['a'*32,'b'*32])
+        reopened=Workspace(self.root)
+        try:self.assertTrue(reopened.get_job('b'*32)['reviewed'])
+        finally:reopened.close()
+        for invalid in ([],['invalid'],'all',['a'*32]*501):
+            with self.assertRaises(ValueError):self.workspace.review_jobs(invalid)
+
+    def test_branch_permission_failure_is_actionable_without_creating_branch(self):
+        from vita_tree.server import run_git
+        import subprocess
+        import vita_tree.workspace as module
+        original=module.run_git
+        def denied(repository,*args,**kwargs):
+            if 'worktree' in args and 'add' in args:
+                with patch('vita_tree.server.subprocess.run',return_value=subprocess.CompletedProcess(args,128,'',"fatal: cannot lock ref: Unable to create /private/person/cv.lock: Permission denied")):
+                    return run_git(repository,*args,**kwargs)
+            return original(repository,*args,**kwargs)
+        with patch('vita_tree.workspace.run_git',side_effect=denied):
+            with self.assertRaises(PermissionError) as error:self.workspace.create('master','denied-branch','A role',digest(SOURCE))
+        self.assertEqual(error.exception.errno,13)
+        self.assertNotIn('/private/person',str(error.exception))
+        self.assertNotIn('denied-branch',original(self.root,'branch','--list'))
+        self.assertEqual(self.workspace.read('master','main.tex'),SOURCE)
+        created=self.workspace.create('master','denied-branch','A role',digest(SOURCE))
+        self.assertEqual(created['branch'],'denied-branch')
+
     def test_progress_persistence_failure_stops_work_and_keeps_failure_visible(self):
         record={'id':'c'*32,'branch':'master','status':'running','step':'analyze','reviewed':False,'stages':[]}
         self.workspace.jobs[record['id']]=record;self.workspace._persist_job(record)

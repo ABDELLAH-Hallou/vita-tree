@@ -24,6 +24,8 @@
         <div class="workspace-note"><strong>One branch per opportunity</strong><p>Start from your base CV. Add the role, run the workflow, then compare the result before you commit.</p><span>Powered by Vita CV</span></div>
       </aside><div class="branch-table">
       <div class="list-toolbar"><label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Search branches…" aria-label="Search branches"><kbd>/</kbd></label><button id="refresh" class="quiet">↻ Refresh</button></div>
+      <div class="bulk-review-toolbar"><label><input id="select-review-visible" type="checkbox"> Select visible branches with unreviewed runs</label><button id="bulk-review" disabled>Mark selected as reviewed</button><span id="bulk-review-count" class="helper"></span></div>
+      <p id="bulk-review-status" class="bulk-review-status" role="status" hidden></p>
       <div class="list-head"><span>Branch</span><span>Latest commit</span><span>Updated</span></div>
       <div id="branch-list" aria-live="polite"><p class="empty">Loading branches…</p></div>
       <footer class="list-footer"><span id="result-count"></span><span>Latest activity first</span></footer></div></div>
