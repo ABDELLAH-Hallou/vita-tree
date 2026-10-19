@@ -85,7 +85,10 @@ function renderBranches() {
   for (const b of branches) {
     const row = document.createElement('button'); row.className='branch-row'; row.setAttribute('aria-label', `Open ${b.name}`);
     row.innerHTML=`<span class="branch-cell"><span class="branch-icon" aria-hidden="true">⑂</span><span class="branch-info"><span class="branch-name">${esc(b.name)}</span><span class="branch-detail">${b.current?'Current branch':b.local?'Local branch':`Remote · ${esc(b.remote)}`}</span></span></span><span class="commit-cell"><span class="commit-subject">${esc(b.subject)}</span><span class="commit-meta">${esc(b.commit)} · ${esc(b.author)}</span></span><time class="branch-date" datetime="${esc(b.modifiedAt)}" title="${esc(new Date(b.modifiedAt).toLocaleString())}">${relative(b.timestamp)}</time>`;
-    row.onclick=() => openBranch(b.name); $('#branch-list').append(row);
+    row.onclick=() => {
+      const pending=state.filter==='review'&&state.runs.find(run=>run.branch===b.name&&run.status==='succeeded'&&!run.reviewed);
+      if(pending)openRun(pending).catch(error=>notice(error.message,true));else openBranch(b.name);
+    }; $('#branch-list').append(row);
     const branchRuns=state.runs.filter(run=>run.branch===b.name);
     const run=branchRuns.find(isActiveRun)||branchRuns.find(item=>!item.reviewed)||branchRuns[0];
     if(run&&(isActiveRun(run)||!run.reviewed||['failed','interrupted'].includes(run.status))){
@@ -93,7 +96,7 @@ function renderBranches() {
       badge.textContent=runLabel(run)+(!isActiveRun(run)&&!run.reviewed?' · To review':'');row.querySelector('.branch-info').append(badge);
     }
   }
-  if(!branches.length) $('#branch-list').innerHTML='<p class="empty">No branches here. Try another filter or create a branch for your next application.</p>';
+  if(!branches.length) $('#branch-list').innerHTML=state.filter==='review'&&!query ? '<p class="empty">No completed runs need review.</p>' : '<p class="empty">No branches here. Try another filter or create a branch for your next application.</p>';
   $('#result-count').textContent=`${branches.length} ${branches.length===1?'branch':'branches'}`;
   $('#total-count').textContent=state.branches.length;
 }
@@ -114,11 +117,11 @@ async function openBranch(name, force=false) {
   if(!force && !canLeave()) return;
   const previous=state.snapshot?.branch;
   const generation=++state.generation;
-  state.snapshot=null;state.graphRunId=null;state.selectedTask=null;$('#task-inspector').hidden=true;
+  state.snapshot=null;state.displayedRun=null;state.graphRunId=null;state.selectedTask=null;$('#task-inspector').hidden=true;
   $('#selected-run').hidden=true;
   for(const id of ['provider','model','reasoning',...aiSteps.map(id=>'step-'+id)]) $('#'+id).disabled=true;
   for(const id of aiSteps.map(id=>'step-'+id))$('#'+id).checked=false;
-  for(const id of ['save-source','save-job','run-adapt','run-all','task-run','branch-from','compile','commit-push']) $('#'+id).disabled=true;
+  for(const id of ['save-source','save-job','run-adapt','run-all','task-run','branch-from','compile','commit-push','view-run','mark-run-reviewed']) $('#'+id).disabled=true;
   editors.current.setReadOnly(true);$('#job-description').readOnly=true;
   $('#board').hidden=true;$('#workspace').hidden=false;document.body.classList.add('in-workspace');
   $('#branch-title').textContent=name; notice('Loading the branch…');
@@ -332,7 +335,6 @@ async function openRun(run){
       $('#selected-run-files').append(reportDetails(path,content,{open:/analy(sis|ze)\.md$/.test(path),label:detail.inputs?.includes(path)?`Input · ${path}`:path}));
     }
     if(!Object.keys(detail.files).length)$('#selected-run-files').textContent='No result files were produced by this run.';
-    await api('/api/job-reviewed',{id:run.id});
   }
   $('#ai-panel').scrollIntoView({block:'start'});
 }
@@ -354,10 +356,15 @@ function renderWorkflow(){
   const runs=state.runs.filter(run=>run.branch===state.snapshot.branch);
   const selected=state.graphRunId || state.snapshot.running?.id || runs[0]?.id || 'draft';
   const select=$('#workflow-run');
-  select.replaceChildren(new Option('Next run','draft'),...runs.map(run=>new Option(`${new Date(run.createdAt*1000).toLocaleString()} — ${runSteps(run)} · ${runLabel(run)}`,run.id)));
+  select.replaceChildren(new Option('Next run','draft'),...runs.map(run=>new Option(`${new Date(run.createdAt*1000).toLocaleString()} — ${runSteps(run)} · ${runLabel(run)}${isActiveRun(run)?'':run.reviewed?' · Reviewed':' · Unreviewed'}`,run.id)));
   const run=runs.find(run=>run.id===selected) || (state.snapshot.running?.id===selected?state.snapshot.running:null);
   if(run&&!runs.some(item=>item.id===run.id))select.add(new Option('Current run',run.id));
   select.value=run?run.id:'draft';state.displayedRun=run;
+  const finished=run&&!isActiveRun(run);
+  $('#view-run').hidden=!finished;$('#view-run').disabled=!!state.openingRunId;
+  const reviewButton=$('#mark-run-reviewed');reviewButton.hidden=!finished;
+  reviewButton.disabled=!!run?.reviewed||!!state.reviewingRunId;
+  reviewButton.textContent=run?.reviewed?'Reviewed':state.reviewingRunId===run?.id?'Marking…':'Mark as reviewed';
   $('#workflow-summary').textContent=run ? run.message : 'Plan your next run. Skipped steps make no AI calls.';
   renderGraph($('#workflow-graph'),{run,options:workflowOptions(),available:state.session.workflow,selected:state.selectedTask,select:selectTask});
   if(state.selectedTask)updateInspector();
@@ -375,6 +382,23 @@ function updateInspector(){
   if(isActiveRun(state.displayedRun))$('#task-status').textContent+=' · Outputs open after the run finishes.';
 }
 function selectTask(task){state.selectedTask=task.id;renderWorkflow();}
+$('#view-run').onclick=async()=>{
+  const run=state.displayedRun;if(!run||isActiveRun(run)||state.openingRunId)return;
+  state.openingRunId=run.id;renderWorkflow();
+  try{await openRun(run);}catch(error){notice(error.message,true);}
+  finally{state.openingRunId=null;renderWorkflow();}
+};
+$('#mark-run-reviewed').onclick=async()=>{
+  const run=state.displayedRun;if(!run||isActiveRun(run)||run.reviewed||state.reviewingRunId)return;
+  state.graphRunId=run.id;state.reviewingRunId=run.id;renderWorkflow();notice();
+  try{
+    const reviewed=await api('/api/job-reviewed',{id:run.id});
+    state.runs=state.runs.map(item=>item.id===reviewed.id?reviewed:item);
+    renderBranches();renderWorkflow();toast('Run marked as reviewed.');
+    await runMonitor.refresh();
+  }catch(error){notice(error.message,true);}
+  finally{state.reviewingRunId=null;renderWorkflow();}
+};
 $('#workflow-run').onchange=()=>{state.graphRunId=$('#workflow-run').value;renderWorkflow();};
 for(const id of aiSteps)$('#step-'+id).onchange=()=>{
   state.workflowChoices.set(state.snapshot.branch,workflowOptions());state.graphRunId='draft';configureWorkflow();renderWorkflow();
@@ -452,6 +476,6 @@ window.addEventListener('pagehide',()=>{
     body:JSON.stringify({branch:state.snapshot.branch})}).catch(()=>{});
 });
 document.addEventListener('keydown',event=>{if(event.key==='/'&&!event.target.closest('input,textarea,select,[contenteditable]')&&!$('#board').hidden){event.preventDefault();$('#search').focus();}if((event.ctrlKey||event.metaKey)&&event.key==='s'&&state.snapshot){event.preventDefault();state.view==='ai'?saveJob():saveSource();}});
-try{state.session=await api('/api/session');await loadBranches();const params=new URLSearchParams(location.search), branch=params.get('branch');if(['structure','source','pdf','changes','ai'].includes(params.get('view')))state.view=params.get('view');if(branch)await openBranch(branch);runMonitor=createRunMonitor({api,openRun,changed:runsChanged});runMonitor.start();}catch(error){$('#branch-list').innerHTML=`<p class="empty">${esc(error.message)}</p>`;}
+try{state.session=await api('/api/session');await loadBranches();const params=new URLSearchParams(location.search), branch=params.get('branch');if(['structure','source','pdf','changes','ai'].includes(params.get('view')))state.view=params.get('view');if(branch)await openBranch(branch);runMonitor=createRunMonitor({api,changed:runsChanged});runMonitor.start();}catch(error){$('#branch-list').innerHTML=`<p class="empty">${esc(error.message)}</p>`;}
 
 setInterval(()=>{document.querySelectorAll(".dag-time[data-started-at]").forEach(el=>{el.textContent=`${Math.max(0,Math.floor(Date.now()/1000-Number(el.dataset.startedAt)))}s`;});},1000);
