@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.2](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.5.1...v1.5.2) (2026-10-19)
+
+
+### Bug Fixes
+
+* compile and preview cover-letter PDFs ([41308e7](https://github.com/ABDELLAH-Hallou/vita-tree/commit/41308e7e4b7737fc3e5ca58f3c68ec662e5fc2d7))
+* compile cover-letter PDFs and expose them in the UI ([2c51b69](https://github.com/ABDELLAH-Hallou/vita-tree/commit/2c51b691885a4fbd89ca9fa4bc97d6f641a45caf))
+
 ## [1.5.1](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.5.0...v1.5.1) (2026-10-19)
 
 
