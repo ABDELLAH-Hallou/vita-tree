@@ -9,6 +9,7 @@ state.filter='all';
 state.workflowChoices=new Map();
 const aiSteps=['extract','analyze','adapt','review','cover'];
 const stepAvailable=id=>!['extract','review','cover'].includes(id)||!!state.session?.workflow?.[id];
+state.pdfDocument='cv';
 state.runs = [];
 state.reviewSelection = new Set();
 state.reviewing = false;
@@ -170,7 +171,7 @@ async function openBranch(name, force=false) {
     if(generation!==state.generation)return;
     const [data,catalog]=await Promise.all([api('/api/workspace?branch='+encodeURIComponent(name)),api('/api/providers?branch='+encodeURIComponent(name))]);
     if(generation!==state.generation) return;
-    state.snapshot=data; state.catalog=catalog; state.dirty=false; state.jobDirty=false; state.pdfs={};state.pdfGeneration++;
+    state.snapshot=data; state.catalog=catalog; state.dirty=false; state.jobDirty=false; state.pdfs={};state.pdfDocument='cv';$('#pdf-document').value='cv';state.pdfGeneration++;
     renderProviders();
     history.replaceState(null,'','?branch='+encodeURIComponent(name));
     updateSnapshot(); setView(state.view);
@@ -201,6 +202,10 @@ function updateSnapshot() {
   if(!Object.keys(s.artifacts).length) $('#artifacts').innerHTML='<p class="helper">No reports yet. Run the workflow to see the job analysis and proposed changes here.</p>';
   for(const [key,artifact] of Object.entries(s.artifacts)) $('#artifacts').append(reportDetails(artifact.path,artifact.content,{open:key==='analyze'}));
   configureWorkflow();renderWorkflow();
+  if(s.cover){
+    const button=document.createElement('button');button.id='open-cover-pdf';button.textContent='Open cover-letter PDF';
+    button.onclick=()=>openCoverPDF();$('#artifacts').prepend(button);
+  }
   updateSaveState();
 }
 function renderDocument(side, data) {
@@ -217,7 +222,7 @@ function setView(view){
   state.view=view;
   document.querySelectorAll('[data-view]').forEach(b=>{b.setAttribute('aria-selected',String(b.dataset.view===view));b.tabIndex=b.dataset.view===view?0:-1;});
   if(state.snapshot)history.replaceState(null,'','?'+new URLSearchParams({branch:state.snapshot.branch,view}));
-  $('#comparison').hidden=!['structure','source','pdf'].includes(view);$('#structure-hint').hidden=view!=='structure';$('#pdf-toolbar').hidden=view!=='pdf';$('#changes-panel').hidden=view!=='changes';$('#ai-panel').hidden=view!=='ai';$('#document-actions').hidden=false;$('#save-source').hidden=['ai','pdf'].includes(view);
+  $('#comparison').hidden=!['structure','source','pdf'].includes(view)||(view==='pdf'&&state.pdfDocument==='cover');$('#cover-pdf-pane').hidden=view!=='pdf'||state.pdfDocument!=='cover';$('#compile').textContent=state.pdfDocument==='cover'?'Compile cover letter':'Compile both PDFs';$('#structure-hint').hidden=view!=='structure';$('#pdf-toolbar').hidden=view!=='pdf';$('#changes-panel').hidden=view!=='changes';$('#ai-panel').hidden=view!=='ai';$('#document-actions').hidden=false;$('#save-source').hidden=['ai','pdf'].includes(view);
   for(const side of ['original','current']) {$(`#${side}-document`).hidden=view!=='structure';$(`#${side}-source`).hidden=view!=='source';$(`#${side}-pdf`).hidden=view!=='pdf';}
   if(view==='source') for(const editor of Object.values(editors)) editor.refresh();
   if(!state.snapshot)return;
@@ -226,7 +231,7 @@ function setView(view){
     notice(state.dirty?'The reading view shows the saved version. Save your LaTeX edits to update it.':warnings.join('\n'));
   } else if(view==='pdf') {
     notice(state.dirty?'PDF preview uses the saved version. Save your LaTeX changes first.':'');
-    for(const side of ['original','current']) if(!state.pdfs[side]) $(`#${side}-pdf`).innerHTML='<p class="pdf-message">Compile to see the exact PDF layout.<br>Text will remain selectable.</p>';
+    for(const side of state.pdfDocument==='cover'?['cover']:['original','current']) if(!state.pdfs[side]) $(`#${side}-pdf`).innerHTML='<p class="pdf-message">Compile to see the exact PDF layout.<br>Text will remain selectable.</p>';
   } else notice();
 }
 async function saveSource(){
@@ -375,6 +380,8 @@ async function openRun(run){
       $('#selected-run-files').append(reportDetails(path,content,{open:/analy(sis|ze)\.md$/.test(path),label:detail.inputs?.includes(path)?`Input · ${path}`:path}));
     }
     if(!Object.keys(detail.files).length)$('#selected-run-files').textContent='No result files were produced by this run.';
+    if(detail.coverPdf){const button=document.createElement('button');button.id='open-run-cover-pdf';button.textContent='Open generated cover-letter PDF';button.onclick=()=>openCoverPDF(detail.coverPdf.runId);$('#selected-run-files').prepend(button);}
+
   }
   $('#ai-panel').scrollIntoView({block:'start'});
 }
@@ -454,6 +461,7 @@ $('#task-output').onclick=async()=>{
   const task=state.selectedTask, run=state.displayedRun;
   if(task==='validating'){setView('structure');$('#comparison').scrollIntoView({block:'start'});return;}
   try{
+    if(task==='cover'&&run&&!isActiveRun(run)){const detail=await api('/api/job-result?id='+encodeURIComponent(run.id));if(detail.coverPdf){await openCoverPDF(run.id);return;}}
     if(run&&!isActiveRun(run))await openRun(run);else setView('ai');
     const match={extract:'job.json',analyze:'analy',review:'review.',cover:'cover',adapt:'main.tex'}[task];
     const area=run&&!isActiveRun(run)?$('#selected-run-files'):$('#artifacts');
@@ -498,20 +506,28 @@ async function renderPDF(side, info, generation){
   }
   await loadingTask.destroy();
 }
-async function compilePDFs(){
-  if(state.dirty){notice('Save your LaTeX edits before compiling.',true);return;}
-  const generation=++state.pdfGeneration, branch=state.snapshot.branch;$('#compile').disabled=true;notice('Compiling the saved versions with the real TeX engine…');
+async function openCoverPDF(runId=null){
+  state.pdfDocument='cover';$('#pdf-document').value='cover';setView('pdf');await compilePDFs(runId);
+}
+$('#pdf-document').onchange=async()=>{
+  state.pdfDocument=$('#pdf-document').value;const generation=++state.pdfGeneration;setView('pdf');
+  try{for(const side of state.pdfDocument==='cover'?['cover']:['original','current'])if(state.pdfs[side])await renderPDF(side,state.pdfs[side],generation);}catch(error){notice(error.message,true);}
+};
+async function compilePDFs(runId=null){
+  if(state.dirty&&state.pdfDocument==='cv'){notice('Save your LaTeX edits before compiling.',true);return;}
+  if(!state.snapshot)return;
+  const document=state.pdfDocument, generation=++state.pdfGeneration, branch=state.snapshot.branch;$('#compile').disabled=true;notice('Compiling the saved versions with the real TeX engine…');
   try{
-    const results=await Promise.allSettled(['original','current'].map(async side=>{
-      $(`#${side}-pdf`).innerHTML='<p class="pdf-message">Compiling PDF…</p>';
-      try{const result=await api('/api/pdf',{branch,side,engine:$('#engine').value});if(generation!==state.pdfGeneration)return;state.pdfs[side]=result;await renderPDF(side,result,generation);return result;}
+    const results=await Promise.allSettled((document==='cover'?['cover']:['original','current']).map(async side=>{
+      delete state.pdfs[side];$(`#${side}-pdf`).innerHTML='<p class="pdf-message">Compiling PDF…</p>';
+      try{const result=await api('/api/pdf',{branch,side:side==='cover'?'current':side,engine:$('#engine').value,document,runId:document==='cover'?runId:null});if(generation!==state.pdfGeneration)return;state.pdfs[side]=result;if(side==='cover')$('#cover-pdf-label').textContent=runId?'Generated PDF from selected run':branch;await renderPDF(side,result,generation);return result;}
       catch(error){if(generation===state.pdfGeneration)$(`#${side}-pdf`).innerHTML=`<p class="pdf-message">${esc(error.message)}</p>`;throw error;}
     }));
     if(generation!==state.pdfGeneration)return;
-    const warnings=results.flatMap(r=>r.status==='fulfilled'?r.value?.warnings||[]:[r.reason.message]);notice(warnings.length?warnings.join('\n'):'Both PDFs compiled. Select text directly on either page.',results.some(r=>r.status==='rejected'));
+    const warnings=results.flatMap(r=>r.status==='fulfilled'?r.value?.warnings||[]:[r.reason.message]);notice(warnings.length?warnings.join('\n'):(document==='cover'?'Cover-letter PDF ready. Text is selectable.':'Both PDFs compiled. Select text directly on either page.'),results.some(r=>r.status==='rejected'));
   }finally{$('#compile').disabled=!state.snapshot;}
 }
-$('#zoom').onchange=async()=>{const generation=++state.pdfGeneration;try{for(const side of ['original','current'])if(state.pdfs[side])await renderPDF(side,state.pdfs[side],generation);}catch(error){notice(error.message,true);}};
+$('#zoom').onchange=async()=>{const generation=++state.pdfGeneration;try{for(const side of state.pdfDocument==='cover'?['cover']:['original','current'])if(state.pdfs[side])await renderPDF(side,state.pdfs[side],generation);}catch(error){notice(error.message,true);}};
 document.querySelectorAll('[data-filter]').forEach(button=>button.onclick=()=>{state.filter=button.dataset.filter;document.querySelectorAll('[data-filter]').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));renderBranches();});
 $('#search').oninput=renderBranches;$('#refresh').onclick=loadBranches;$('#new-branch').onclick=showCreate;$('#branch-from').onclick=showCreate;
 $('#back').onclick=()=>{if(!canLeave())return;const previous=state.snapshot?.branch;state.generation++;state.pdfGeneration++;state.snapshot=null;state.dirty=false;state.jobDirty=false;$('#workspace').hidden=true;$('#board').hidden=false;document.body.classList.remove('in-workspace');history.replaceState(null,'','/');if(previous)releaseBranch(previous);loadBranches();};
@@ -525,7 +541,7 @@ $('.tabs').onkeydown=event=>{
 };
 document.querySelectorAll('.close-dialog').forEach(button=>button.onclick=()=>button.closest('dialog').close());
 $('#job-description').oninput=()=>{state.jobDirty=$('#job-description').value!==state.snapshot.job;$('#job-state').textContent=state.jobDirty?'Unsaved changes':'Saved as job.md';};
-$('#save-source').onclick=saveSource;$('#save-job').onclick=saveJob;$('#commit-push').onclick=showCommit;$('#run-adapt').onclick=()=>runAdapt();$('#compile').onclick=compilePDFs;
+$('#save-source').onclick=saveSource;$('#save-job').onclick=saveJob;$('#commit-push').onclick=showCommit;$('#run-adapt').onclick=()=>runAdapt();$('#compile').onclick=()=>compilePDFs();
 window.addEventListener('beforeunload',event=>{if(state.dirty||state.jobDirty){event.preventDefault();event.returnValue='';}});
 window.addEventListener('pagehide',()=>{
   if(state.snapshot&&state.session)fetch('/api/release-worktree',{method:'POST',keepalive:true,

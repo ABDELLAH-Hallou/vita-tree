@@ -3,7 +3,7 @@ export const tasks = [
   {id:'analyze', title:'Analyze', detail:'Find the evidence and gaps in your original CV.', output:'analysis.md'},
   {id:'adapt', title:'Adapt', detail:'Tailor the CV to the role and selected language.', output:'main.tex + adapt.md'},
   {id:'review', title:'AI review', detail:'Evaluate the current CV. A matching analysis enables a before/after score comparison; otherwise this is a standalone evaluation.', output:'review.md · delta when comparable'},
-  {id:'cover', title:'Cover letter', detail:'Write a letter using the current CV and job context. Adaptation is not required.', output:'cover-letter.tex'},
+  {id:'cover', title:'Cover letter', detail:'Write a letter using the current CV and job context. Compiles a PDF before finishing. Adaptation is not required.', output:'cover-letter.tex + PDF'},
   {id:'validating', title:'Validate', detail:'Check LaTeX structure and file conflicts before applying results. PDF compilation is separate.', output:'Branch files'},
 ];
 export const statusNames = {pending:'Not started', running:'Running', succeeded:'Done', failed:'Failed', blocked:'Blocked', interrupted:'Interrupted', skipped:'Skipped', unavailable:'Unavailable', unknown:'Not recorded'};
