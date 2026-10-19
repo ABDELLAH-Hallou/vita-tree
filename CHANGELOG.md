@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.1](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.5.0...v1.5.1) (2026-10-19)
+
+
+### Bug Fixes
+
+* prevent duplicate servers from sharing the same port ([1671fd1](https://github.com/ABDELLAH-Hallou/vita-tree/commit/1671fd1e786202267957689589899bf321136bf5))
+* reserve the server port before opening workspace history ([dab8fef](https://github.com/ABDELLAH-Hallou/vita-tree/commit/dab8fef83dd0bd980b48596b081f36245c0315ae))
+
 ## [1.5.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.4.3...v1.5.0) (2026-10-19)
 
 
