@@ -1,5 +1,6 @@
 """Workflow graph, report reader, filters and history; no real AI/network calls."""
 import argparse
+import io
 import json
 import os
 from pathlib import Path
@@ -10,6 +11,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
 from playwright.sync_api import sync_playwright, expect
+from pypdf import PdfReader
 from vita_tree.server import VitaTreeServer
 from vita_tree.workspace import digest
 from support import init_repo, SOURCE, set_theme
@@ -94,6 +96,43 @@ def main():
             expect(page.locator('#selected-run-files .report-prose h3').first).to_contain_text('Initial analysis')
             expect(page.locator('#selected-run-files')).to_contain_text('cover-letter.tex')
             completed_id = page.locator('#workflow-run').input_value()
+            # Opening the generated PDF reuses this run's compiled output, without calling TeX again.
+            with patch('vita_tree.pdf.compile_document',side_effect=AssertionError('Retained preview must not recompile')):
+                page.locator('#open-run-cover-pdf').click()
+                expect(page.locator('#cover-pdf .textLayer')).to_have_count(1)
+            expect(page.locator('#comparison')).to_be_hidden()
+            expect(page.locator('#pdf-document')).to_have_value('cover')
+            expect(page.locator('#cover-pdf .textLayer')).to_contain_text('Dear hiring team')
+            expect(page.locator('#cover-pdf .pdf-page')).to_have_css('background-color','rgb(255, 255, 255)')
+            page.locator('#cover-pdf .save-pdf').click()
+            expect(page.locator('#notice')).to_contain_text('Saved cover-letter-Jordan_Lee.pdf')
+            location=server.workspace.location('platform-engineer')
+            saved=location/'cover-letter-Jordan_Lee.pdf'
+            assert saved.read_bytes().startswith(b'%PDF-')
+            reader=PdfReader(saved)
+            assert len(reader.pages)==1 and 'Dear hiring team' in reader.pages[0].extract_text()
+            page.once('dialog',lambda dialog:dialog.accept())
+            page.locator('#cover-pdf .save-pdf').click()
+            expect(page.locator('#cover-pdf .save-pdf')).to_be_enabled()
+            href=page.locator('#cover-pdf .pdf-download').get_attribute('href')
+            downloaded=page.request.get(url+href+'&download=1')
+            assert 'cover-letter-Jordan_Lee.pdf' in downloaded.headers['content-disposition']
+            assert len(PdfReader(io.BytesIO(downloaded.body())).pages)==1
+            for theme in ('dark','light'):
+                set_theme(page,theme)
+                page.screenshot(path=str(artifacts/('cover-letter-'+theme+'.png')),full_page=True)
+            page.set_viewport_size({'width':390,'height':844})
+            page.locator('#zoom').select_option('fit')
+            page.wait_for_function("() => {const p=document.querySelector('#cover-pdf .pdf-page'),c=document.querySelector('#cover-pdf');return p&&p.getBoundingClientRect().width<=c.clientWidth-28;}")
+            expect(page.locator('#cover-pdf .textLayer')).to_have_count(1)
+            assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'),'Cover PDF overflows mobile'
+            page.screenshot(path=str(artifacts/'cover-letter-mobile.png'),full_page=True)
+            page.set_viewport_size({'width':1440,'height':1000})
+            page.locator('#pdf-document').select_option('cv')
+            expect(page.locator('#comparison')).to_be_visible()
+            expect(page.locator('#cover-pdf-pane')).to_be_hidden()
+            page.get_by_role('tab',name='Job & AI',exact=False).click()
+
             page.locator('.dag-node[data-step=review]').click();page.locator('#task-output').click()
             expect(page.locator('#selected-run-files details[data-path=".vita/results/review.md"]')).to_have_attribute('open', '')
             page.locator('#mark-run-reviewed').click()
@@ -219,7 +258,7 @@ def main():
             expect(page.locator('#toggle-workflow')).to_have_attribute('aria-expanded', 'false')
             assert not errors, errors
             browser.close()
-        print('PASS: full pipeline, independent tasks, arbitrary subsets, unsaved-edit guard, failures, task inspector, run history, per-run acknowledgement, branch filters, report Markdown, XSS protection, keyboard, mobile and themes.')
+        print('PASS: automatic cover PDF compilation, exact-run preview, named save/download, selectable text, mobile and themes, full pipeline, independent tasks, arbitrary subsets, unsaved-edit guard, failures, task inspector, run history, per-run acknowledgement, branch filters, report Markdown, XSS protection, keyboard, mobile and themes.')
     finally:
         (control / 'platform-engineer.review.release').touch()
         server.shutdown();server.server_close();worker.join()

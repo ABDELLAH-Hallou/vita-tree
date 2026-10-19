@@ -52,6 +52,47 @@ def export_snapshot(repository: Path, commit: str, target: Path, working: Path |
                 dest.unlink()
 
 
+def compile_document(folder: Path, document_path: str, engine='auto', output=None):
+    """Compile a saved isolated document; never enable shell escape or installers."""
+    if engine not in {'auto', 'pdflatex', 'xelatex', 'lualatex'}:
+        raise ValueError('Invalid TeX engine')
+    entry = safe_path(folder, document_path)
+    source = read_text(entry)
+    if not source.strip():
+        raise FileNotFoundError('No saved LaTeX document is available to compile.')
+    if engine == 'auto':
+        engine = 'xelatex' if any(x in source for x in ('fontspec','polyglossia','unicode-math')) else 'pdflatex'
+    executable = shutil.which(engine)
+    if not executable:
+        raise ValueError(f'{engine} not found. Install MiKTeX or TeX Live, or choose an installed engine.')
+    output = output or folder / '__vt_output'
+    output.mkdir(parents=True, exist_ok=True)
+    version = subprocess.run([executable, "--version"], capture_output=True, timeout=10).stdout.decode(errors="replace")
+    flags = ["-interaction=nonstopmode", "-halt-on-error", "-file-line-error", "-no-shell-escape"]
+    if "MiKTeX" in version:
+        flags += ["--disable-installer", "--disable-write18", "--dont-parse-first-line"]
+    else:
+        flags += ["-no-parse-first-line"]
+    env = os.environ.copy()
+    env.update(openin_any="p", openout_any="p", TEXMFOUTPUT=str(output))
+    command = [executable, *flags, "-output-directory=" + str(output), "./" + document_path]
+    log = ""
+    try:
+        for _ in range(2):
+            process = subprocess.run(command, cwd=folder, env=env, stdin=subprocess.DEVNULL,
+                                     capture_output=True, timeout=90)
+            log = process.stdout.decode("utf-8", errors="replace") + process.stderr.decode("utf-8", errors="replace")
+            if process.returncode:
+                raise ValueError("PDF compilation failed.\n" + log[-6000:])
+    except subprocess.TimeoutExpired as error:
+        raise ValueError("PDF compilation timed out after 90 seconds. Check your LaTeX source and installed packages.") from error
+    pdf = output / (entry.stem + '.pdf')
+    if not pdf.is_file() or not pdf.read_bytes().startswith(b'%PDF-'):
+        raise ValueError('The TeX engine did not produce a PDF')
+    warnings = [line.strip() for line in log.splitlines() if any(x in line for x in ('Overfull','Missing character','LaTeX Warning'))]
+    return {'pdf': pdf, 'engine': engine, 'warnings': warnings}
+
+
 class PDFExistsError(ConflictError):
     def __init__(self, filename, revision):
         super().__init__('A PDF with this name already exists in the worktree. Confirm replacement to continue.')
@@ -65,13 +106,13 @@ class PDFCompiler:
         self.results: dict[str, Path] = {}
         self.previews = {}
 
-    def compile(self, name: str, side: str, engine: str):
+    def compile(self, name: str, side: str, engine: str, document="cv", run_id=None):
         # Keep its worktree available if the user navigates away during export.
         with self.workspace.lock:
             self.workspace._previewing[name] = self.workspace._previewing.get(name, 0) + 1
         started = time.monotonic()
         try:
-            result = self._compile(name, side, engine)
+            result = self._compile(name, side, engine, document, run_id)
             self.workspace.diagnostics.record('pdf_compiled', operation='compile_pdf', duration_ms=(time.monotonic()-started)*1000)
             return result
         except Exception as error:
@@ -87,55 +128,42 @@ class PDFCompiler:
                     if name in self.workspace._release_requested:
                         self.workspace.release_worktree(name)
 
-    def _compile(self, name: str, side: str, engine: str):
-        if side not in {"original", "current"}:
-            raise ValueError("Invalid preview side")
-        if engine not in {"auto", "pdflatex", "xelatex", "lualatex"}:
-            raise ValueError("Invalid TeX engine")
+    def _compile(self, name: str, side: str, engine: str, document='cv', run_id=None):
+        if engine not in {'auto','pdflatex','xelatex','lualatex'}:
+            raise ValueError('Invalid TeX engine')
+        if side not in {'original','current'} or document not in {'cv','cover'}:
+            raise ValueError('Invalid PDF document or preview side')
+        if document == 'cover' and side != 'current' or run_id is not None and document != 'cover':
+            raise ValueError('Cover letters have one generated version')
         with self.lock:
             snapshot = self.workspace.snapshot(name)
-            source = snapshot["original" if side == "original" else "content"]
-            if engine == "auto":
-                engine = "xelatex" if any(x in source for x in ("fontspec", "polyglossia", "unicode-math")) else "pdflatex"
-            executable = shutil.which(engine)
-            if not executable:
-                raise ValueError(f"{engine} not found. Install MiKTeX or TeX Live, or choose an installed engine.")
-            ident = uuid.uuid4().hex
-            folder = self.workspace.root / "pdf" / ident
-            working = self.workspace.location(name) if side == "current" else None
-            export_snapshot(self.workspace.repository, snapshot["commit" if side == "current" else "baseCommit"], folder, working)
-            entry = safe_path(folder, self.workspace.document_path)
-            atomic_write(entry, source)
-            output = folder / "__vt_output"
-            output.mkdir()
-            version = subprocess.run([executable, "--version"], capture_output=True, timeout=10).stdout.decode(errors="replace")
-            flags = ["-interaction=nonstopmode", "-halt-on-error", "-file-line-error", "-no-shell-escape"]
-            if "MiKTeX" in version:
-                flags += ["--disable-installer", "--disable-write18", "--dont-parse-first-line"]
+            source = snapshot['cover'] if document == 'cover' else snapshot['original' if side == 'original' else 'content']
+            filename = ('cover-letter' + cv_filename(snapshot['content'])[2:]) if document == 'cover' else cv_filename(source, side)
+            if run_id is not None:
+                run = self.workspace.get_job(run_id)
+                if run['branch'] != name:
+                    raise ConflictError('This cover-letter PDF belongs to another branch.')
+                built = self.workspace.cover_pdf_result(run_id)
+                if not built:
+                    raise ValueError('This run has no compiled cover-letter PDF. Check its status or compile the saved branch source.')
+                source = read_text(safe_path(self.workspace.root / 'runs' / run_id, 'cover-letter.tex'))
+                filename = 'cover-letter' + cv_filename(read_text(safe_path(self.workspace.root / 'runs' / run_id, 'main.tex')))[2:]
             else:
-                flags += ["-no-parse-first-line"]
-            env = os.environ.copy()
-            env.update(openin_any="p", openout_any="p", TEXMFOUTPUT=str(output))
-            command = [executable, *flags, "-output-directory=" + str(output), "./" + self.workspace.document_path]
-            log = ""
-            try:
-                for _ in range(2):
-                    process = subprocess.run(command, cwd=folder, env=env, stdin=subprocess.DEVNULL,
-                                             capture_output=True, timeout=90)
-                    log = process.stdout.decode("utf-8", errors="replace") + process.stderr.decode("utf-8", errors="replace")
-                    if process.returncode:
-                        raise ValueError("PDF compilation failed.\n" + log[-6000:])
-            except subprocess.TimeoutExpired as error:
-                raise ValueError("PDF compilation timed out after 90 seconds. Check your LaTeX source and installed packages.") from error
-            pdf = output / (entry.stem + ".pdf")
-            if not pdf.is_file() or not pdf.read_bytes().startswith(b"%PDF-"):
-                raise ValueError("The TeX engine did not produce a PDF")
-            self.results[ident] = pdf
-            self.previews[ident] = {'branch': name, 'side': side, 'revision': hashlib.sha256(source.encode()).hexdigest(),
-                                    'filename': cv_filename(source, side), 'commit': snapshot['commit']}
-            warnings = [line.strip() for line in log.splitlines() if any(x in line for x in ("Overfull", "Missing character", "LaTeX Warning"))]
-            return {"id": ident, "url": "/api/pdf-file?id=" + ident, "filename": self.previews[ident]['filename'], "engine": engine,
-                    "warnings": warnings, "revision": hashlib.sha256(source.encode()).hexdigest()}
+                if not source.strip():
+                    raise ValueError('No cover-letter.tex exists on this branch. Run Cover letter first.')
+                ident = uuid.uuid4().hex
+                folder = self.workspace.root / 'pdf' / ident
+                working = self.workspace.location(name) if side == 'current' else None
+                export_snapshot(self.workspace.repository, snapshot['commit' if side == 'current' else 'baseCommit'], folder, working)
+                entry = 'cover-letter.tex' if document == 'cover' else self.workspace.document_path
+                atomic_write(safe_path(folder, entry), source)
+                built = compile_document(folder, entry, engine)
+            ident = uuid.uuid4().hex
+            self.results[ident] = built['pdf']
+            self.previews[ident] = {'branch': name, 'side': side, 'document': document,
+                'revision': hashlib.sha256(source.encode()).hexdigest(), 'filename': filename, 'commit': snapshot['commit']}
+            return {'id': ident, 'url': '/api/pdf-file?id=' + ident, 'filename': filename,
+                    'engine': built['engine'], 'warnings': built['warnings'], 'revision': self.previews[ident]['revision']}
 
     def save(self, ident, branch, existing_revision=None):
         with self.lock, self.workspace.lock:
@@ -149,7 +177,7 @@ class PDFCompiler:
             snapshot = self.workspace.snapshot(branch)
             if not snapshot['editable']:
                 raise ConflictError('Create a local branch before saving a PDF into a worktree.')
-            source = snapshot['original'] if preview['side']=='original' else snapshot['content']
+            source = snapshot['cover'] if preview.get('document') == 'cover' else snapshot['original'] if preview['side']=='original' else snapshot['content']
             if hashlib.sha256(source.encode()).hexdigest()!=preview['revision'] or snapshot['commit']!=preview['commit']:
                 raise ConflictError('The branch changed after PDF compilation. Compile again before saving.')
             location = self.workspace.location(branch, create=True)

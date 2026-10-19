@@ -1659,3 +1659,5 @@ dialog textarea {
 .branch-entry:focus-within {background:var(--hover)}
 .list-head {padding-left:52px}
 @media(max-width:600px){.bulk-review-toolbar {align-items:flex-start;gap:8px}.bulk-review-toolbar label {max-width:100%}.bulk-review-toolbar button {white-space:normal}.branch-entry {padding-left:12px}}
+
+.cover-pdf-pane {max-width:960px;margin:0 auto}.cover-pdf-pane .pdf-scroll {min-height:520px}#open-cover-pdf,#open-run-cover-pdf {margin:0 0 16px}

@@ -193,7 +193,7 @@ class Workspace:
                 "baseCommit": baseline, "baseBranch": meta.get("baseBranch", name + " · committed"),
                 "content": source, "revision": digest(source), "document": parse_document(source),
                 "original": original, "originalDocument": parse_document(original),
-                "job": job, "jobRevision": digest(job), "artifacts": artifacts,
+                "job": job, "jobRevision": digest(job), "artifacts": artifacts, "cover": read("cover-letter.tex"),
                 "diff": "".join(difflib.unified_diff(original.splitlines(True), source.splitlines(True), fromfile="original/"+self.document_path, tofile=name+"/"+self.document_path)),
                 "worktree": str(location) if location else None, "editable": bool(branch["local"]),
                 "dirty": source != self.committed(commit, self.document_path),
@@ -294,6 +294,25 @@ class Workspace:
                     reviewed.append(ident)
         return {'reviewed': reviewed, 'failed': failed}
 
+    def cover_pdf_result(self, ident):
+        record = self.get_job(ident)
+        if record['status'] in self.ACTIVE_STATUSES:
+            return None
+        folder = safe_path(self.root, 'run-pdfs/' + ident)
+        ready, pdf = safe_path(folder, 'ready.json'), safe_path(folder, 'cover-letter.pdf')
+        if not ready.is_file() or not pdf.is_file():
+            return None
+        try:
+            info = json.loads(read_text(ready))
+            if info['engine'] not in {'pdflatex','xelatex','lualatex'} or not isinstance(info['warnings'], list):
+                return None
+        except (ValueError, KeyError, TypeError):
+            return None
+        with pdf.open('rb') as stream:
+            if stream.read(5) != b'%PDF-':
+                return None
+        return {'pdf': pdf, 'engine': info['engine'], 'warnings': info['warnings']}
+
     def job_result(self, ident):
         record = self.get_job(ident)
         if record["status"] in self.ACTIVE_STATUSES:
@@ -312,7 +331,8 @@ class Workspace:
         if 'adapt' in skipped:
             inputs.add('main.tex')
         inputs.update('.vita/results/' + filename for step in skipped if step in REPORTS for filename in REPORTS[step])
-        return {"run": record, "files": files, "inputs": sorted(inputs & files.keys())}
+        return {"run": record, "files": files, "inputs": sorted(inputs & files.keys()),
+                "coverPdf": {"runId": ident} if self.cover_pdf_result(ident) else None}
 
     def active_job(self, name):
         with self.lock:
@@ -720,7 +740,7 @@ class Workspace:
             return True
 
     def _run_ai(self, record, context):
-        from .pdf import export_snapshot
+        from .pdf import export_snapshot, compile_document
         stage = self.root / "runs" / record["id"]
         location, source, job = (context[key] for key in ("location", "source", "job"))
         try:
@@ -770,6 +790,19 @@ class Workspace:
                             raise ValueError("Job mismatch")
                     except (ValueError, AttributeError):
                         raise AIRunError("Extraction did not produce matching job metadata. Your CV is unchanged.") from None
+                if step == 'cover':
+                    cover_source = read_text(safe_path(stage, 'cover-letter.tex'))
+                    if parse_document(cover_source)['error'] or not all(marker in cover_source for marker in (r'\documentclass', r'\begin{document}', r'\end{document}')):
+                        raise AIRunError('VITA did not produce a valid cover letter. Your branch is unchanged; inspect the run files.')
+                    if not self._job_update(record, message='Compiling the cover-letter PDF…'):
+                        return
+                    try:
+                        output = safe_path(self.root, 'run-pdfs/' + record['id'])
+                        built = compile_document(stage, 'cover-letter.tex', output=output)
+                        self.diagnostics.record('pdf_compiled', operation='compile_cover', run_id=record['id'], step='cover')
+                        atomic_write(output / 'ready.json', json.dumps({'engine': built['engine'], 'warnings': built['warnings']}))
+                    except (ValueError, OSError, subprocess.SubprocessError) as error:
+                        raise AIRunError('Cover-letter PDF compilation failed. Your branch is unchanged. Check the TeX engine and packages, inspect the retained cover-letter.tex, then retry.') from error
             if not self._job_update(record, step="validating", message=MESSAGES["validating"],
                                     stages=transition(record["stages"], step="validating")):
                 return
@@ -813,7 +846,7 @@ class Workspace:
                     atomic_write(safe_path(location, self.document_path), result)
                 self._job_update(record, status="succeeded", step="completed", finishedAt=time.time(),
                                  message=("Source structure and branch conflicts checked. PDF compilation is separate."
-                                          if context['selected'] == {'validating'} else "Selected steps finished. Open the run to review the results."),
+                                          if context['selected'] == {'validating'} else "Cover-letter PDF ready. Open the run to review and save it." if cover is not None else "Selected steps finished. Open the run to review the results."),
                                  stages=transition(record["stages"], terminal="succeeded"))
         except Exception as error:
             self.diagnostics.error('run_error', error, run_id=record['id'], step=record.get('step'))

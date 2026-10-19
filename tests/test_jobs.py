@@ -23,6 +23,12 @@ class JobTests(unittest.TestCase):
         self.environment.start()
         self.command = patch.object(self.workspace, 'vita_command', return_value=[sys.executable, str(Path(__file__).with_name('fake_ai_process.py'))])
         self.command.start()
+        def fake_compile(folder, entry, engine='auto', output=None):
+            output=output or folder/'__vt_output';output.mkdir(parents=True,exist_ok=True)
+            pdf=output/(Path(entry).stem+'.pdf');pdf.write_bytes(b'%PDF-1.7\nsynthetic cover fixture')
+            return {'pdf':pdf,'engine':'pdflatex','warnings':[]}
+        self.cover_compile=patch('vita_tree.pdf.compile_document',side_effect=fake_compile)
+        self.cover_builder=self.cover_compile.start()
 
     def tearDown(self):
         for label in self.labels:
@@ -31,6 +37,7 @@ class JobTests(unittest.TestCase):
         for thread in list(self.workspace._ai_threads):
             thread.join(timeout=15)
             self.assertFalse(thread.is_alive())
+        self.cover_compile.stop()
         self.command.stop()
         self.environment.stop()
         cleanup_repo(self.temp)
@@ -271,6 +278,48 @@ class JobTests(unittest.TestCase):
             self.assertEqual(self.workspace.read(branch['branch'], 'main.tex'), SOURCE)
             self.assertEqual(self.workspace.snapshot(branch['branch'])['artifacts'], {})
 
+    def test_cover_pdf_is_retained_previewed_and_saved_without_modifying_cv(self):
+        from vita_tree.pdf import PDFCompiler, PDFExistsError
+        self.pipeline_source();branch=self.pipeline_branch('cover-pdf')
+        record=self.start(branch,workflow={'steps':['cover']});self.release('cover-pdf')
+        result=self.finished(record['id']);self.assertEqual(result['status'],'succeeded',result)
+        self.assertIn('PDF ready',result['message'])
+        self.assertEqual(self.workspace.read('cover-pdf','main.tex'),SOURCE)
+        self.assertEqual(self.workspace.job_result(record['id'])['coverPdf'],{'runId':record['id']})
+        compiler=PDFCompiler(self.workspace)
+        with self.assertRaisesRegex(ValueError,'Run Cover letter first'):
+            compiler.compile('master','current','auto','cover')
+        preview=compiler.compile('cover-pdf','current','auto','cover',record['id'])
+        self.assertEqual(preview['filename'],'cover-letter-Jordan_Lee.pdf')
+        saved=compiler.save(preview['id'],'cover-pdf')
+        self.assertTrue(Path(saved['path']).read_bytes().startswith(b'%PDF-'))
+        with self.assertRaises(PDFExistsError):compiler.save(preview['id'],'cover-pdf')
+        other=self.branch('other-cover')
+        with self.assertRaises(ConflictError):compiler.compile(other['branch'],'current','auto','cover',record['id'])
+        current=self.workspace.read('cover-pdf','cover-letter.tex')
+        from vita_tree.workspace import atomic_write
+        atomic_write(Path(branch['worktree'])/'cover-letter.tex',current+'% changed')
+        with self.assertRaises(ConflictError):compiler.save(preview['id'],'cover-pdf')
+        # A retained PDF still opens after restarting the server/workspace.
+        reopened=Workspace(self.root)
+        try:self.assertIsNotNone(reopened.cover_pdf_result(record['id']))
+        finally:reopened.close()
+
+    def test_cover_compilation_failure_preserves_branch_and_source_for_inspection(self):
+        self.pipeline_source();branch=self.pipeline_branch('cover-tex-failure')
+        location=Path(branch['worktree']);(location/'cover-letter.tex').write_text('previous letter')
+        # Recapture source revisions after adding a previous letter.
+        self.cover_builder.side_effect=ValueError('private-provider-canary: missing TeX package')
+        record=self.start(branch,workflow={'steps':['cover']});self.release('cover-tex-failure')
+        result=self.finished(record['id']);self.assertEqual(result['status'],'failed',result)
+        self.assertIn('PDF compilation failed',result['message'])
+        self.assertNotIn('private-provider-canary',str(result))
+        self.assertEqual(self.workspace.read('cover-tex-failure','main.tex'),SOURCE)
+        self.assertEqual((location/'cover-letter.tex').read_text(),'previous letter')
+        self.assertIn('cover-letter.tex',self.workspace.job_result(record['id'])['files'])
+        self.assertIsNone(self.workspace.job_result(record['id'])['coverPdf'])
+        self.assertEqual(next(stage['status'] for stage in result['stages'] if stage['id']=='cover'),'failed')
+
     def test_invalid_cover_and_report_conflict_preserve_local_work(self):
         self.pipeline_source()
         branch = self.pipeline_branch('invalid-cover', invalid_cover=True)
@@ -278,7 +327,8 @@ class JobTests(unittest.TestCase):
         self.release('invalid-cover')
         result = self.finished(record['id'])
         self.assertEqual(result['status'], 'failed', result)
-        self.assertEqual(result['stages'][-1]['status'], 'failed')
+        self.assertEqual(next(stage['status'] for stage in result['stages'] if stage['id']=='cover'), 'failed')
+        self.assertEqual(result['stages'][-1]['status'], 'blocked')
         self.assertEqual(self.workspace.read('invalid-cover', 'main.tex'), SOURCE)
         branch = self.pipeline_branch('report-conflict')
         record = self.start(branch, workflow={'review': True})

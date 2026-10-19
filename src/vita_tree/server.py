@@ -391,7 +391,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             "/api/parse": lambda: self.parse_source(data),
             "/api/lint": lambda: self.parse_source(data, lint_only=True),
             "/api/pdf-save": lambda: self.server.compiler.save(data['id'], data['branch'], data.get('existingRevision')),
-            "/api/pdf": lambda: self.server.compiler.compile(data["branch"], data.get("side", "current"), data.get("engine", "auto")),
+            "/api/pdf": lambda: self.server.compiler.compile(data["branch"], data.get("side", "current"), data.get("engine", "auto"), data.get("document", "cv"), data.get("runId")),
         }
         if path not in actions:
             self.send_json({"error": "Unknown endpoint"}, status=404)
