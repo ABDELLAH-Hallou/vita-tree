@@ -91,7 +91,7 @@ class PersistenceAndPDFTests(unittest.TestCase):
         record={'id':'a'*32,'branch':'master','status':'succeeded','step':'completed','reviewed':False,'stages':[]}
         self.workspace.jobs[record['id']]=record;self.workspace._persist_job(record)
         with patch('vita_tree.workspace.atomic_write',side_effect=PermissionError(13,'private-canary')):
-            with self.assertRaisesRegex(RuntimeError,'remains unreviewed'):self.workspace.review_job(record['id'])
+            with self.assertRaisesRegex(RuntimeError,'remain unreviewed'):self.workspace.review_job(record['id'])
         self.assertFalse(self.workspace.get_job(record['id'])['reviewed'])
         self.assertFalse(json.loads((self.workspace.root/'job-history'/('a'*32+'.json')).read_text())['reviewed'])
         self.assertEqual(self.workspace.diagnostics.snapshot()['events'][0]['error_type'],'PermissionError')
@@ -184,7 +184,7 @@ class PersistenceAndPDFTests(unittest.TestCase):
         with self.assertRaises(ValueError):compiler.save(ident,branch['branch'])
         compiler.previews[ident]['filename']='cv-Jordan_Lee.pdf'
         self.workspace.save(branch['branch'],'main.tex',branch['revision'],SOURCE+'\n% changed')
-        with self.assertRaisesRegex(ConflictError,'changed after PDF'):compiler.save(ident,branch['branch'])
+        with self.assertRaisesRegex(ConflictError,'changed after this PDF'):compiler.save(ident,branch['branch'])
         self.assertFalse((Path(branch['worktree'])/'cv-Jordan_Lee.pdf').exists())
 
     def test_original_export_has_separate_name_and_permission_failure_preserves_pdf(self):

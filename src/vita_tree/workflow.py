@@ -11,12 +11,12 @@ REPORTS = {
 }
 STEPS = ('extract', 'analyze', 'adapt', 'review', 'cover', 'validating')
 MESSAGES = {
-    'extract': 'Extracting the job requirements…',
-    'analyze': 'Evaluating the original CV against the role…',
-    'adapt': 'Adapting the CV…',
-    'review': 'Reviewing the adapted CV against the same requirements…',
+    'extract': 'Identifying job requirements…',
+    'analyze': 'Checking how your CV matches the job…',
+    'adapt': 'Tailoring your CV for this opportunity…',
+    'review': 'Reviewing your current CV…',
     'cover': 'Writing the cover letter…',
-    'validating': 'Checking the generated files and branch conflicts…',
+    'validating': 'Checking the results and protecting your edits…',
 }
 
 

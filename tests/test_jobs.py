@@ -287,7 +287,7 @@ class JobTests(unittest.TestCase):
         self.assertEqual(self.workspace.read('cover-pdf','main.tex'),SOURCE)
         self.assertEqual(self.workspace.job_result(record['id'])['coverPdf'],{'runId':record['id']})
         compiler=PDFCompiler(self.workspace)
-        with self.assertRaisesRegex(ValueError,'Run Cover letter first'):
+        with self.assertRaisesRegex(ValueError,'Start the Cover letter step first'):
             compiler.compile('master','current','auto','cover')
         preview=compiler.compile('cover-pdf','current','auto','cover',record['id'])
         self.assertEqual(preview['filename'],'cover-letter-Jordan_Lee.pdf')
@@ -312,7 +312,7 @@ class JobTests(unittest.TestCase):
         self.cover_builder.side_effect=ValueError('private-provider-canary: missing TeX package')
         record=self.start(branch,workflow={'steps':['cover']});self.release('cover-tex-failure')
         result=self.finished(record['id']);self.assertEqual(result['status'],'failed',result)
-        self.assertIn('PDF compilation failed',result['message'])
+        self.assertIn('cover-letter PDF could not be created',result['message'])
         self.assertNotIn('private-provider-canary',str(result))
         self.assertEqual(self.workspace.read('cover-tex-failure','main.tex'),SOURCE)
         self.assertEqual((location/'cover-letter.tex').read_text(),'previous letter')

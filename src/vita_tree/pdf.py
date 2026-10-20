@@ -28,10 +28,10 @@ def export_snapshot(repository: Path, commit: str, target: Path, working: Path |
             if entry.is_dir() or PurePosixPath(entry.filename).parts[0] in {".git", ".vita"}:
                 continue
             if (entry.external_attr >> 16) & 0o170000 == 0o120000:
-                raise ValueError("Symlink assets are not supported in previews")
+                raise ValueError("PDF previews do not support linked files. Use regular files in the application folder.")
             total += entry.file_size
             if total > 100_000_000:
-                raise ValueError("Repository snapshot exceeds 100 MB")
+                raise ValueError("The CV collection is too large to create a PDF preview (maximum 100 MB)")
             path = safe_path(target, entry.filename)
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(files.read(entry))
@@ -45,7 +45,7 @@ def export_snapshot(repository: Path, commit: str, target: Path, working: Path |
             if origin.is_file():
                 total += origin.stat().st_size
                 if total > 200_000_000:
-                    raise ValueError("Working snapshot exceeds 200 MB")
+                    raise ValueError("The application files are too large to create a PDF preview (maximum 200 MB)")
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(origin, dest)
             elif dest.is_file():
@@ -55,7 +55,7 @@ def export_snapshot(repository: Path, commit: str, target: Path, working: Path |
 def compile_document(folder: Path, document_path: str, engine='auto', output=None):
     """Compile a saved isolated document; never enable shell escape or installers."""
     if engine not in {'auto', 'pdflatex', 'xelatex', 'lualatex'}:
-        raise ValueError('Invalid TeX engine')
+        raise ValueError('Choose a supported PDF engine in Advanced PDF settings')
     entry = safe_path(folder, document_path)
     source = read_text(entry)
     if not source.strip():
@@ -83,19 +83,19 @@ def compile_document(folder: Path, document_path: str, engine='auto', output=Non
                                      capture_output=True, timeout=90)
             log = process.stdout.decode("utf-8", errors="replace") + process.stderr.decode("utf-8", errors="replace")
             if process.returncode:
-                raise ValueError("PDF compilation failed.\n" + log[-6000:])
+                raise ValueError("Couldn’t create the PDF.\n" + log[-6000:])
     except subprocess.TimeoutExpired as error:
-        raise ValueError("PDF compilation timed out after 90 seconds. Check your LaTeX source and installed packages.") from error
+        raise ValueError("Creating the PDF took longer than 90 seconds. Check the source formatting and installed PDF tools.") from error
     pdf = output / (entry.stem + '.pdf')
     if not pdf.is_file() or not pdf.read_bytes().startswith(b'%PDF-'):
-        raise ValueError('The TeX engine did not produce a PDF')
+        raise ValueError('The PDF tool did not produce a document')
     warnings = [line.strip() for line in log.splitlines() if any(x in line for x in ('Overfull','Missing character','LaTeX Warning'))]
     return {'pdf': pdf, 'engine': engine, 'warnings': warnings}
 
 
 class PDFExistsError(ConflictError):
     def __init__(self, filename, revision):
-        super().__init__('A PDF with this name already exists in the worktree. Confirm replacement to continue.')
+        super().__init__('A PDF with this name already exists in the application folder. Confirm replacement to continue.')
         self.filename, self.revision = filename, revision
 
 
@@ -130,9 +130,9 @@ class PDFCompiler:
 
     def _compile(self, name: str, side: str, engine: str, document='cv', run_id=None):
         if engine not in {'auto','pdflatex','xelatex','lualatex'}:
-            raise ValueError('Invalid TeX engine')
+            raise ValueError('Choose a supported PDF engine in Advanced PDF settings')
         if side not in {'original','current'} or document not in {'cv','cover'}:
-            raise ValueError('Invalid PDF document or preview side')
+            raise ValueError('Choose a supported PDF preview')
         if document == 'cover' and side != 'current' or run_id is not None and document != 'cover':
             raise ValueError('Cover letters have one generated version')
         with self.lock:
@@ -142,15 +142,15 @@ class PDFCompiler:
             if run_id is not None:
                 run = self.workspace.get_job(run_id)
                 if run['branch'] != name:
-                    raise ConflictError('This cover-letter PDF belongs to another branch.')
+                    raise ConflictError('This cover-letter PDF belongs to another application.')
                 built = self.workspace.cover_pdf_result(run_id)
                 if not built:
-                    raise ValueError('This run has no compiled cover-letter PDF. Check its status or compile the saved branch source.')
+                    raise ValueError('This preparation has no cover-letter PDF. Check its status or create a preview from the saved cover letter.')
                 source = read_text(safe_path(self.workspace.root / 'runs' / run_id, 'cover-letter.tex'))
                 filename = 'cover-letter' + cv_filename(read_text(safe_path(self.workspace.root / 'runs' / run_id, 'main.tex')))[2:]
             else:
                 if not source.strip():
-                    raise ValueError('No cover-letter.tex exists on this branch. Run Cover letter first.')
+                    raise ValueError('No cover letter has been saved for this application. Start the Cover letter step first.')
                 ident = uuid.uuid4().hex
                 folder = self.workspace.root / 'pdf' / ident
                 working = self.workspace.location(name) if side == 'current' else None
@@ -170,16 +170,16 @@ class PDFCompiler:
             preview = self.previews.get(ident)
             pdf = self.results.get(ident)
             if not preview or not pdf or not pdf.is_file():
-                raise FileNotFoundError('Preview expired. Compile again before saving the PDF.')
+                raise FileNotFoundError('This preview has expired. Create it again before saving the PDF.')
             if preview['branch'] != branch:
-                raise ConflictError('This PDF belongs to another branch. Compile this branch before saving.')
+                raise ConflictError('This PDF belongs to another application. Create a preview for this application before saving.')
             self.workspace.busy(branch)
             snapshot = self.workspace.snapshot(branch)
             if not snapshot['editable']:
-                raise ConflictError('Create a local branch before saving a PDF into a worktree.')
+                raise ConflictError('Create an editable application before saving its PDF.')
             source = snapshot['cover'] if preview.get('document') == 'cover' else snapshot['original'] if preview['side']=='original' else snapshot['content']
             if hashlib.sha256(source.encode()).hexdigest()!=preview['revision'] or snapshot['commit']!=preview['commit']:
-                raise ConflictError('The branch changed after PDF compilation. Compile again before saving.')
+                raise ConflictError('The application changed after this PDF was created. Create a new preview before saving.')
             location = self.workspace.location(branch, create=True)
             target = safe_path(location, preview['filename'])
             current = hashlib.sha256(target.read_bytes()).hexdigest() if target.is_file() else None
@@ -189,7 +189,7 @@ class PDFCompiler:
                 raise ConflictError('The existing PDF changed after confirmation. Save again.')
             content = pdf.read_bytes()
             if not content.startswith(b'%PDF-'):
-                raise ValueError('The retained preview is not a PDF. Compile again.')
+                raise ValueError('This preview is not a valid PDF. Create it again.')
             try:
                 atomic_write_bytes(target, content)
             except OSError as error:

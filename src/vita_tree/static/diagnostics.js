@@ -3,7 +3,15 @@ export function initDiagnostics({api}) {
   const $=selector=>document.querySelector(selector), dialog=$('#diagnostics-dialog');
   let pending=false, snapshot=null;
   const cell=(row,text)=>{const td=document.createElement('td');td.textContent=text ?? '—';row.append(td);};
+  const labels={server_started:'Vita Tree started',server_stopped:'Vita Tree stopped',request_failed:'An action could not finish',history_write_failed:'Couldn’t save preparation history',history_load_failed:'Couldn’t read earlier preparation history',run_started:'Application preparation started',run_error:'Preparation needs attention',run_finished:'Application preparation finished',step_started:'A preparation step started',step_finished:'A preparation step finished',review_saved:'Review saved',provider_failed:'AI service could not finish',pdf_compiled:'PDF preview created',pdf_saved:'PDF saved',pdf_failed:'PDF could not be created',logging_failed:'Support logging is unavailable'};
   function renderEvents(){
+    const summary=$('#activity-summary');summary.replaceChildren();
+    for(const event of (snapshot?.events||[]).filter(item=>labels[item.event]).slice(0,12)){
+      const item=document.createElement('li');const time=document.createElement('time');time.textContent=new Date(event.time).toLocaleTimeString();
+      const label=document.createElement('span');label.textContent=labels[event.event];item.dataset.level=event.level;item.append(time,label);summary.append(item);
+    }
+    if(!summary.children.length){const item=document.createElement('li');item.textContent='No recent activity yet.';summary.append(item);}
+
     const query=$('#diagnostics-search').value.trim().toLowerCase();
     const body=$('#diagnostics-events');body.replaceChildren();
     for(const event of snapshot?.events || []){
@@ -24,9 +32,9 @@ export function initDiagnostics({api}) {
       $('#diagnostics-error').textContent='';
       for(const [id,value] of Object.entries({active:snapshot.history.running,completed:snapshot.history.succeeded,failed:snapshot.history.failed,
         requests:snapshot.requests.total,errors:snapshot.requests.failed,latency:snapshot.requests.meanMs}))$('#metric-'+id).textContent=value;
-      $('#diagnostics-location').textContent=snapshot.logging.path||'Memory only';
-      $('#diagnostics-logging').textContent=snapshot.logging.error||'Rotating JSON logs · Up to 6 MB per server session.';
-      $('#diagnostics-uptime').textContent=`Server uptime: ${Math.floor(snapshot.uptimeSeconds)}s. Request metrics reset on restart; saved run history persists.`;
+      $('#diagnostics-location').textContent=snapshot.logging.path||'Available for this session only';
+      $('#diagnostics-logging').textContent=snapshot.logging.error||'Older support log files are replaced automatically.';
+      $('#diagnostics-uptime').textContent=`Vita Tree has been running for ${Math.floor(snapshot.uptimeSeconds)} seconds. Performance counts reset when it restarts; preparation history is kept.`;
       renderEvents();
     }catch(error){$('#diagnostics-error').textContent=error.message;}
     finally{pending=false;$('#refresh-diagnostics').disabled=false;}
@@ -37,7 +45,7 @@ export function initDiagnostics({api}) {
     if(!snapshot)return;
     const clean={...snapshot,logging:{enabled:snapshot.logging.enabled,error:snapshot.logging.error}};
     const url=URL.createObjectURL(new Blob([JSON.stringify(clean,null,2)],{type:'application/json'}));
-    const link=document.createElement('a');link.href=url;link.download='vita-tree-diagnostics.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    const link=document.createElement('a');link.href=url;link.download='vita-tree-support-report.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
   };
   setInterval(()=>{if(dialog.open)refresh();},3000);
 }

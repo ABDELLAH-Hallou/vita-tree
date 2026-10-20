@@ -142,7 +142,7 @@ def branch_content_payload(
         None,
     )
     if branch is None:
-        raise ValueError(f"Unknown branch: {name}")
+        raise ValueError(f"Application or CV not found: {name}")
 
     try:
         content = run_git(
@@ -322,14 +322,14 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         if path == "/api/pdf-file":
             pdf = self.server.compiler.results.get(query.get("id", [""])[0])
             if not pdf or not pdf.is_file():
-                self.send_json({"error": "Preview expired. Compile again."}, status=404)
+                self.send_json({"error": "This preview has expired. Create it again."}, status=404)
             else:
                 info = self.server.compiler.previews.get(query.get('id', [''])[0], {})
                 self.send_bytes(pdf.read_bytes(), "application/pdf", filename=info.get('filename'),
                                 download=query.get('download', [''])[0]=='1')
             return
         if path == "/api/branches":
-            self.api_call(lambda: branch_payload(self.server.repository))
+            self.api_call(self.server.workspace.applications)
             return
         if path == "/api/branch-content":
             name = query.get('branch', [''])[0]
@@ -352,7 +352,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         allowed = {f"127.0.0.1:{self.server.server_port}", f"localhost:{self.server.server_port}"}
         origin = self.headers.get("Origin")
         if host not in allowed or (origin and origin != "http://" + host):
-            self.send_json({"error": "Only same-origin localhost requests are allowed"}, status=403)
+            self.send_json({"error": "This connection is not allowed. Open Vita Tree using its local address."}, status=403)
             return False
         return True
 
@@ -363,7 +363,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         if not self.check_origin():
             return
         if not secrets.compare_digest(self.headers.get("X-Vita-Token", ""), self.server.token):
-            self.send_json({"error": "Invalid session token. Reload the page."}, status=403)
+            self.send_json({"error": "Your connection needs to be refreshed. Reload the page and try again."}, status=403)
             return
         try:
             size = int(self.headers.get("Content-Length", "0"))
@@ -386,7 +386,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             "/api/save": lambda: workspace.save(data["branch"], data["path"], data["revision"], data.get("content"), data.get("leaf"), data.get("text")),
             "/api/commit-preview": lambda: workspace.commit_preview(data["branch"], data.get("sourceRevision"), data.get("sourceContent"), data.get("jobRevision"), data.get("jobContent")),
             "/api/commit-push": lambda: workspace.commit_and_push(data["branch"], data.get("message"), data.get("review"), data.get("sourceRevision"), data.get("sourceContent"), data.get("jobRevision"), data.get("jobContent")),
-            "/api/create": lambda: workspace.create(data["base"], data["name"], data["job"], data["revision"]),
+            "/api/create": lambda: (workspace.create_application(data["base"], data["applicationName"], data["job"], data["revision"]) if "applicationName" in data else workspace.create(data["base"], data["name"], data["job"], data["revision"])),
             "/api/adapt": lambda: workspace.start_ai(data["branch"], data["revision"], data["jobRevision"], data.get("provider", ""), data.get("language", "en"), data.get("model"), data.get("reasoning", ""), data.get("workflow")),
             "/api/parse": lambda: self.parse_source(data),
             "/api/lint": lambda: self.parse_source(data, lint_only=True),
@@ -410,7 +410,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         self.server.diagnostics.error('request_failed', error, level='ERROR' if status>=500 else 'WARNING',
                                       request_id=reference, route=urlparse(self.path).path)
         if isinstance(error, PermissionError):
-            message = 'Permission denied while writing repository or application files. Stop this server and restart vt run from a normal terminal outside a restricted sandbox. If it persists, check write access to the repository and its .git folder. Your existing work is preserved.'
+            message = 'Vita Tree does not have permission to save these files. Your existing work is safe. Restart Vita Tree from a normal terminal with access to your CV collection.'
         elif isinstance(error, OSError):
             message = 'A local file operation failed. Check disk space and folder permissions.'
         elif unexpected:

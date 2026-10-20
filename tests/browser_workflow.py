@@ -51,7 +51,7 @@ def main():
             page.screenshot(path=str(artifacts / 'workbench-light.png'), full_page=True)
             page.get_by_role('button', name='Open platform-engineer', exact=True).click()
             expect(page.locator('.dag-node')).to_have_count(6)
-            page.get_by_role('tab', name='Job & AI', exact=False).click()
+            page.get_by_role('tab', name='Job details & AI', exact=False).click()
             page.locator('#step-extract').check(); page.locator('#step-cover').check()
             expect(page.locator('#step-review')).to_be_checked()
             page.locator('#step-review').uncheck()  # Run all overrides the subset.
@@ -63,7 +63,7 @@ def main():
             expect(page.locator('.dag-node[data-step=cover]')).to_have_attribute('data-status', 'pending')
             expect(page.locator('#step-cover')).to_be_disabled()
             review.focus();page.keyboard.press('Enter')
-            expect(page.locator('#task-inspector')).to_contain_text('Running')
+            expect(page.locator('#task-inspector')).to_contain_text('In progress')
             expect(page.locator('#task-output')).to_be_disabled()
             expect(page.locator('#mark-run-reviewed')).to_be_hidden()
             expect(page.locator('#task-run')).to_be_disabled()
@@ -77,7 +77,7 @@ def main():
             page.locator('[data-filter=all]').click()
             page.get_by_role('button', name='Open research-engineer', exact=True).click()
             expect(page.locator('#current-label')).to_have_text('research-engineer')
-            page.get_by_role('tab', name='Job & AI', exact=False).click()
+            page.get_by_role('tab', name='Job details & AI', exact=False).click()
             page.locator('#step-extract').check()
             page.locator('#provider').select_option('openai');page.locator('#model').select_option('fixture-model')
             expect(page.locator('#step-extract')).to_be_checked()
@@ -131,7 +131,7 @@ def main():
             page.locator('#pdf-document').select_option('cv')
             expect(page.locator('#comparison')).to_be_visible()
             expect(page.locator('#cover-pdf-pane')).to_be_hidden()
-            page.get_by_role('tab',name='Job & AI',exact=False).click()
+            page.get_by_role('tab',name='Job details & AI',exact=False).click()
 
             page.locator('.dag-node[data-step=review]').click();page.locator('#task-output').click()
             expect(page.locator('#selected-run-files details[data-path=".vita/results/review.md"]')).to_have_attribute('open', '')
@@ -139,7 +139,7 @@ def main():
             expect(page.locator('#mark-run-reviewed')).to_have_text('Reviewed')
             expect(page.locator('#filter-review')).to_have_text('0')
             set_theme(page, 'light')
-            page.get_by_role('tab', name='Structure', exact=True).click()
+            page.get_by_role('tab', name='Edit CV', exact=True).click()
             expect(page.locator('#toast')).to_be_hidden()
             page.evaluate('window.scrollTo(0,0)')
             page.screenshot(path=str(artifacts / 'workflow-complete-light.png'), full_page=True)
@@ -157,11 +157,11 @@ def main():
                   return [['--ink','--panel'],['--muted','--bg'],['--accent','--accent-light'],['--positive','--positive-bg'],['--negative','--negative-bg']].map(([a,b])=>(Math.max(lum(a),lum(b))+.05)/(Math.min(lum(a),lum(b))+.05));
                 }''')
                 assert all(ratio >= 4.5 for ratio in contrasts), (theme, contrasts)
-            page.get_by_role('tab', name='Structure', exact=True).focus();page.keyboard.press('ArrowRight')
-            expect(page.get_by_role('tab',name='LaTeX',exact=True)).to_have_attribute('aria-selected','true')
+            page.get_by_role('tab', name='Edit CV', exact=True).focus();page.keyboard.press('ArrowRight')
+            expect(page.get_by_role('tab',name='Source · Advanced',exact=True)).to_have_attribute('aria-selected','true')
             assert 'view=source' in page.url
             page.keyboard.press('Home')
-            expect(page.get_by_role('tab',name='Structure',exact=True)).to_be_focused()
+            expect(page.get_by_role('tab',name='Edit CV',exact=True)).to_be_focused()
             page.reload()
             expect(page.locator('#workflow-run')).to_have_value(completed_id)
             expect(page.locator('.dag-node[data-status=succeeded]')).to_have_count(6)
@@ -186,7 +186,7 @@ def main():
             # Every node can run independently, including validation without AI.
             page.locator('#back').click()
             page.get_by_role('button', name='Open independent-steps', exact=True).click()
-            page.get_by_role('tab', name='Job & AI', exact=False).click()
+            page.get_by_role('tab', name='Job details & AI', exact=False).click()
             page.locator('#provider').select_option('openai');page.locator('#model').select_option('fixture-model')
             for step in ('extract', 'analyze', 'adapt', 'review', 'cover', 'validating'):
                 node = page.locator(f'.dag-node[data-step={step}]')
@@ -203,7 +203,7 @@ def main():
                 if step in ('extract','analyze'):
                     assert server.workspace.read('independent-steps', 'main.tex') == SOURCE
             # Arbitrary selection: no implicit analysis or adaptation.
-            page.get_by_role('tab', name='Job & AI', exact=False).click()
+            page.get_by_role('tab', name='Job details & AI', exact=False).click()
             for step in ('extract','analyze','adapt','review','cover'):
                 page.locator('#step-' + step).uncheck()
             expect(page.locator('#run-adapt')).to_be_disabled()
@@ -231,12 +231,12 @@ def main():
             assert server.workspace.read('independent-steps', 'main.tex')==before
             page.locator('#back').click()
             page.locator('[data-filter=review]').click()
-            expect(page.locator('#branch-list')).to_contain_text('No completed runs need review.')
+            expect(page.locator('#branch-list')).to_contain_text('No completed preparations need review.')
             page.locator('[data-filter=all]').click()
             page.get_by_role('button', name='Open independent-steps', exact=True).click()
             page.locator('#workflow-run').select_option(oldest['id'])
             page.locator('#view-run').click()
-            expect(page.locator('#selected-run-files')).to_contain_text('job.json')
+            expect(page.locator('#selected-run-files')).to_contain_text('Job requirements')
             expect(page.locator('#mark-run-reviewed')).to_be_disabled()
             expect(page.locator('#run-notifications')).to_have_count(0)
             # Unsaved job edits stop individual launch without losing the edits.
@@ -251,7 +251,7 @@ def main():
             graph = page.locator('#workflow-graph')
             assert graph.evaluate('el=>el.scrollWidth>el.clientWidth'), 'Graph should scroll within its container'
             page.locator('.dag-node[data-step=validating]').focus();page.keyboard.press('Enter')
-            expect(page.locator('#task-title')).to_have_text('Validate')
+            expect(page.locator('#task-title')).to_have_text('Final checks')
             page.screenshot(path=str(artifacts / 'workflow-mobile.png'), full_page=True)
             page.locator('#toggle-workflow').click()
             expect(page.locator('#workflow-body')).to_be_hidden()
