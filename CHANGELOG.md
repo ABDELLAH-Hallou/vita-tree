@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.5.2...v1.6.0) (2026-10-20)
+
+
+### Features
+
+* make application UI language approachable ([36a4aa4](https://github.com/ABDELLAH-Hallou/vita-tree/commit/36a4aa4d09af43894b07f823c94dbdf3caf9e0c2))
+* make application UI language approachable ([8fa77dd](https://github.com/ABDELLAH-Hallou/vita-tree/commit/8fa77dd2b65b2140fbfb28d43656884ee309d510))
+
 ## [1.5.2](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.5.1...v1.5.2) (2026-10-19)
 
 
