@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.7.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.6.0...v1.7.0) (2026-10-20)
+
+
+### Features
+
+* configure AI per workflow step with graph settings popups ([5bdd416](https://github.com/ABDELLAH-Hallou/vita-tree/commit/5bdd416e2dc26f4857fffaa35b62f49e1cd36509))
+* configure AI providers and models per workflow step ([d6d5c35](https://github.com/ABDELLAH-Hallou/vita-tree/commit/d6d5c35aad7f31e7135aa4b516039b600724f8e8))
+
 ## [1.6.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.5.2...v1.6.0) (2026-10-20)
 
 
