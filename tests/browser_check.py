@@ -35,6 +35,7 @@ def main():
     (fake_vita/'vita/__init__.py').write_text('')
     (fake_vita/'vita/helpers').mkdir()
     (fake_vita/'vita/helpers/__init__.py').write_text('')
+    (fake_vita/'vita/helpers/env.py').write_text('def load_env(): return {}\n')
     (fake_vita/'vita/helpers/llm.py').write_text("def load_env(): return {}\ndef _find_codex_cli(): return 'codex-fixture'\n")
     (fake_vita/'vita/__main__.py').write_text('''import sys,time,json,subprocess
 from pathlib import Path
@@ -173,7 +174,7 @@ if step=='adapt':
             page.get_by_role('button',name='↻ Reload',exact=True).click();expect(page.locator('#artifacts')).to_contain_text('Strong Python and SQL experience.',timeout=30000)
             expect(page.locator('#provider')).to_have_value('codex')
             page.locator('#provider').select_option('openai');expect(page.locator('#reasoning')).to_be_disabled()
-            page.locator('#provider').select_option('codex');page.locator('#model').select_option('test-codex')
+            page.locator('#provider').select_option('codex');page.locator('#model').fill('test-codex');page.locator('#model').press('Tab')
             page.locator('#reasoning').select_option('high')
             page.screenshot(path=str(artifacts/'ai-light.png'),full_page=True)
             set_theme(page, 'dark')

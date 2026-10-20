@@ -16,7 +16,7 @@ import uuid
 
 request_context = ContextVar('vita_tree_request_id', default=None)
 
-ROUTES = {'/api/session', '/api/workspace', '/api/providers', '/api/job', '/api/jobs',
+ROUTES = {'/api/session', '/api/workspace', '/api/providers', '/api/job', '/api/jobs', '/api/connections', '/api/connections/remove', '/api/ai-settings',
           '/api/job-result', '/api/pdf-file', '/api/branches', '/api/branch-content', '/health',
           '/api/release-worktree', '/api/job-reviewed', '/api/jobs-reviewed', '/api/save', '/api/commit-preview',
           '/api/commit-push', '/api/create', '/api/adapt', '/api/parse', '/api/lint', '/api/pdf',

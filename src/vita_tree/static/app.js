@@ -5,6 +5,7 @@ import {createRunMonitor, isActiveRun, runLabel, runSteps} from './runs.js';
 import {renderGraph, graphStages, statusNames} from './workflow.js';
 import {reportDetails,fileLabel} from './reports.js';
 import {initDiagnostics} from './diagnostics.js';
+import {createAIConfiguration} from './ai-settings.js';
 state.filter='all';
 state.syncedCommits=new Map();
 const applicationName=name=>state.branches.find(item=>item.name===name)?.displayName||(state.snapshot?.branch===name?state.snapshot.displayName:null)||name;
@@ -56,43 +57,12 @@ const editors = Object.fromEntries(['original', 'current'].map(side => [side, cr
   },
 })]));
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
-const aiChoices = new Map();
-const providerNames = {codex:'Codex',gemini:'Gemini',google:'Google Gemini',openai:'OpenAI',anthropic:'Anthropic'};
-const effortNames = {none:'None',minimal:'Minimal',low:'Low — less thinking',medium:'Medium — balanced',high:'High — more thinking',xhigh:'Extra high',max:'Maximum',ultra:'Ultra'};
-function selectedModel() {return state.catalog?.options.find(o=>o.provider===$('#provider').value && o.model===$('#model').value);}
-function rememberAI() {
-  if(state.snapshot) aiChoices.set(state.snapshot.branch,{provider:$('#provider').value,model:$('#model').value,reasoning:$('#reasoning').value});
-}
-function renderReasoning(preferred='') {
-  const option=selectedModel(), efforts=option?.reasoning || [];
-  $('#reasoning').replaceChildren(new Option('Automatic',''),...efforts.map(e=>new Option(effortNames[e]||e,e)));
-  $('#reasoning').value=efforts.includes(preferred)?preferred:'';
-  $('#reasoning').disabled=!efforts.length || !!state.snapshot?.running;
-  $('#reasoning-hint').textContent=efforts.length?'This thinking level applies to all AI steps. Higher levels may take longer.':
-    option?.provider==='codex'?(state.catalog.reasoningBridge?'Choose an AI model that supports thinking levels.':'Thinking levels require the Vita CV connection. Open AI connection details for setup information.'):
-    'This AI model automatically chooses its thinking level.';
-  $('#provider-hint').textContent=`Choose a model available through your AI account.`;
-  $('#model').title='AI model';$('#model-details').textContent=option?`Model settings from:\n${option.sources.join('\n')}\n\nSetup help: install vita-tree[ai] or start with --vita-source pointing to vita-cv.`:'No AI model settings found.\nSetup: install vita-tree[ai] or start with --vita-source pointing to vita-cv.';
-}
-function renderModels(preferred,reasoning='') {
-  const options=state.catalog.options.filter(o=>o.provider===$('#provider').value);
-  $('#model').replaceChildren(...options.map(o=>new Option(o.model||'Automatic',o.model)));
-  if(options.some(o=>o.model===preferred)) $('#model').value=preferred;
-  else if($('#provider').value===state.catalog.default.provider) $('#model').value=state.catalog.default.model;
-  $('#model').disabled=!!state.snapshot?.running;
-  renderReasoning(reasoning);
-}
+const aiSetup=createAIConfiguration($('#ai-configuration'),{api,onChange:()=>{if(state.snapshot){state.graphRunId='draft';configureWorkflow();renderWorkflow();}}});
 function renderProviders() {
-  const choice=aiChoices.get(state.snapshot.branch)||state.catalog.default;
-  const names=[...new Set(state.catalog.options.filter(o=>o.supported).map(o=>o.provider))];
-  $('#provider').replaceChildren(...names.map(p=>new Option(providerNames[p]||p,p)));
-  if(names.includes(choice.provider)) $('#provider').value=choice.provider;
-  $('#provider').disabled=!!state.snapshot.running;
-  renderModels(choice.model,choice.reasoning);
+  aiSetup.setDisabled(!!state.snapshot?.running||!!state.launching||!state.snapshot?.editable);
+  $('#language').disabled=!!state.snapshot?.running||!!state.launching||!state.snapshot?.editable;
+  $('#model-details').textContent='Model suggestions come from repository settings and your local Codex catalog. You can enter any model ID your provider accepts.\n\nSetup: install vita-tree[ai] or start with --vita-source pointing to vita-cv. Custom reasoning currently uses the Codex connection.';
 }
-$('#provider').onchange=()=>{renderModels();rememberAI();configureWorkflow();renderWorkflow();};
-$('#model').onchange=()=>{renderReasoning();rememberAI();configureWorkflow();renderWorkflow();};
-$('#reasoning').onchange=rememberAI;
 async function api(path, data) {
   const response = await fetch(path, data === undefined ? {cache: 'no-store'} : {method:'POST', headers:{'Content-Type':'application/json','X-Vita-Token':state.session.token}, body:JSON.stringify(data)});
   const result = await response.json();
@@ -166,8 +136,9 @@ async function openBranch(name, force=false) {
   const previous=state.snapshot?.branch;
   const generation=++state.generation;
   state.pdfGeneration++;state.snapshot=null;state.displayedRun=null;state.graphRunId=null;state.selectedTask=null;$('#task-inspector').hidden=true;
+  for(const node of document.querySelectorAll('.dag-node'))node.disabled=true;
   $('#selected-run').hidden=true;
-  for(const id of ['provider','model','reasoning',...aiSteps.map(id=>'step-'+id)]) $('#'+id).disabled=true;
+  aiSetup.setDisabled(true);
   for(const id of aiSteps.map(id=>'step-'+id))$('#'+id).checked=false;
   for(const id of ['save-source','save-job','run-adapt','run-all','task-run','branch-from','compile','commit-push','view-run','mark-run-reviewed']) $('#'+id).disabled=true;
   editors.current.setReadOnly(true);$('#job-description').readOnly=true;
@@ -176,9 +147,10 @@ async function openBranch(name, force=false) {
   try {
     if(previous&&previous!==name)await releaseBranch(previous);
     if(generation!==state.generation)return;
-    const [data,catalog]=await Promise.all([api('/api/workspace?branch='+encodeURIComponent(name)),api('/api/providers?branch='+encodeURIComponent(name))]);
+    const [data,catalog,settings,connections]=await Promise.all([api('/api/workspace?branch='+encodeURIComponent(name)),api('/api/providers?branch='+encodeURIComponent(name)),api('/api/ai-settings?branch='+encodeURIComponent(name)),api('/api/connections')]);
     if(generation!==state.generation) return;
     state.snapshot=data; state.catalog=catalog; state.dirty=false; state.jobDirty=false; state.pdfs={};state.pdfDocument='cv';$('#pdf-document').value='cv';state.pdfGeneration++;
+    aiSetup.load(name,catalog,settings,connections);
     renderProviders();
     history.replaceState(null,'','?branch='+encodeURIComponent(name));
     updateSnapshot(); setView(state.view);
@@ -196,7 +168,7 @@ function updateSnapshot() {
   $('#job-description').value=s.job;$('#job-description').readOnly=!s.editable||!!s.running;$('#job-state').textContent=s.job?'Saved on this computer':'No job description yet';
   $('#save-job').disabled=!s.editable||!!s.running;$('#branch-from').disabled=!!s.running;$('#compile').disabled=false;$('#ai-dot').textContent=Object.keys(s.artifacts).length?'•':'';
   $('#ai-capability').textContent=state.session.vita?'Prepare everything or start only the steps you choose. Your existing edits are checked before results are applied. Save any draft edits first.': 'The Vita CV connection is not available. Open AI connection details for setup instructions.';
-  $('#run-adapt').disabled=!state.session.vita || !s.editable || !!s.running || !selectedModel()?.supported;
+  $('#run-adapt').disabled=!state.session.vita || !s.editable || !!s.running || !!aiSetup.problem(workflowOptions().steps);
   $('#ai-status').textContent=s.running?.message || (s.job?'Ready to prepare this application.':'Add and save a job description first.');
   $('#application-id').textContent=s.branch;$('#worktree-path').textContent=s.worktree || 'An application folder will be created when you save your first draft.';
   $('#diff').replaceChildren();
@@ -344,11 +316,11 @@ async function runAdapt(steps=workflowOptions().steps){
   if(!steps.length){notice('Select at least one step.',true);return;}
   if(state.dirty||state.jobDirty){notice('Save your CV and job description before starting AI.',true);return;}
   state.launching=true;$('#run-adapt').disabled=true;$('#run-all').disabled=true;$('#task-run').disabled=true;editors.current.setReadOnly(true);$('#job-description').readOnly=true;$('#save-job').disabled=true;$('#branch-from').disabled=true;const s=state.snapshot;
-  rememberAI();
+  renderProviders();
   for(const id of aiSteps.map(id=>'step-'+id))$('#'+id).disabled=true;
-  try{const job=await api('/api/adapt',{branch:s.branch,revision:s.revision,jobRevision:s.jobRevision,provider:$('#provider').value,model:$('#model').value,reasoning:$('#reasoning').value,language:$('#language').value,workflow:{steps}});s.running=job;if(state.snapshot===s){state.graphRunId=job.id;renderProviders();configureWorkflow();renderWorkflow();updateSaveState();$('#ai-status').textContent=job.message;}await runMonitor.refresh();}
-  catch(error){if(state.snapshot===s){notice(error.message,true);configureWorkflow();$('#run-adapt').disabled=false;editors.current.setReadOnly(!s.editable);$('#job-description').readOnly=!s.editable;$('#save-job').disabled=!s.editable;$('#branch-from').disabled=false;}}
-  finally{state.launching=false;if(state.snapshot){configureWorkflow();renderWorkflow();}}
+  try{const issue=aiSetup.problem(steps);if(issue)throw new Error(issue);const job=await api('/api/adapt',{branch:s.branch,revision:s.revision,jobRevision:s.jobRevision,aiConfig:aiSetup.value(),language:$('#language').value,workflow:{steps}});s.running=job;if(state.snapshot===s){state.graphRunId=job.id;renderProviders();configureWorkflow();renderWorkflow();updateSaveState();$('#ai-status').textContent=job.message;}await runMonitor.refresh();}
+  catch(error){if(state.snapshot===s){notice(error.message,true);configureWorkflow();editors.current.setReadOnly(!s.editable);$('#job-description').readOnly=!s.editable;$('#save-job').disabled=!s.editable;$('#branch-from').disabled=false;}}
+  finally{state.launching=false;if(state.snapshot){renderProviders();configureWorkflow();renderWorkflow();}}
 }
 async function runsChanged(runs){
   state.runs=runs;renderBranches();
@@ -368,7 +340,7 @@ async function runsChanged(runs){
       editors.current.setReadOnly(!s.editable);$('#job-description').readOnly=!s.editable;
       $('#save-job').disabled=!s.editable;$('#branch-from').disabled=false;
       renderProviders();updateSaveState();
-      $('#run-adapt').disabled=!state.session.vita||!s.editable||!selectedModel()?.supported;
+      configureWorkflow();
       notice('The preparation finished. Your unsaved edits are safe; refresh to review the results.',true);
     }
   }
@@ -381,7 +353,7 @@ async function openRun(run){
   if(!isActiveRun(run)){
     const detail=await api('/api/job-result?id='+encodeURIComponent(run.id));
     if(state.snapshot!==loaded)return;
-    const settings=[providerNames[run.provider]||run.provider,run.model,effortNames[run.reasoning]||run.reasoning,[...$('#language').options].find(option=>option.value===run.language)?.textContent||run.language].filter(Boolean).join(' · ');
+    const settings=[run.provider?aiSetup.summary(run):'', [...$('#language').options].find(option=>option.value===run.language)?.textContent||run.language].filter(Boolean).join(' · ');
     $('#selected-run').hidden=false;$('#selected-run-info').textContent=`${runSteps(run)} · ${runLabel(run)} · ${new Date(run.createdAt*1000).toLocaleString()} · ${run.provider?settings:'Local checks; no AI used'} · ${Math.round(run.elapsedSeconds || 0)}s. Results from this preparation. Your application may contain newer edits.`;
     $('#selected-run-files').replaceChildren();
     for(const [path,content] of Object.entries(detail.files)){
@@ -401,10 +373,14 @@ function configureWorkflow(){
     const input=$('#step-'+id);input.checked=selected.includes(id)&&stepAvailable(id);input.disabled=!stepAvailable(id)||!!s.running||!!state.launching||!s.editable;
     if(!stepAvailable(id)) $('#hint-'+id).textContent='Update Vita CV to use this step.';
   }
-  const blocked=!state.session.vita||!s.editable||!!s.running||!!state.launching||!selectedModel()?.supported;
+  const setupProblem=aiSetup.problem(workflowOptions().steps);
+  const blocked=!state.session.vita||!s.editable||!!s.running||!!state.launching||!!setupProblem;
+  $('#ai-config-validation').textContent=setupProblem;
+  $('#ai-config-validation').hidden=!setupProblem;
   $('#run-adapt').textContent='Start selected steps';
   $('#run-adapt').disabled=blocked||!workflowOptions().steps.length;
-  $('#run-all').disabled=blocked;
+  $('#run-all').disabled=blocked||!!aiSetup.problem(aiSteps.filter(stepAvailable));
+  aiSetup.refresh();
 }
 function renderWorkflow(){
   if(!state.snapshot)return;
@@ -421,22 +397,34 @@ function renderWorkflow(){
   reviewButton.disabled=!!run?.reviewed||!!state.reviewingRunId;
   reviewButton.textContent=run?.reviewed?'Reviewed':state.reviewingRunId===run?.id?'Saving review…':'Mark as reviewed';
   $('#workflow-summary').textContent=run ? run.message : 'Choose the steps for your next preparation. Only selected AI steps will use your AI service.';
-  renderGraph($('#workflow-graph'),{run,options:workflowOptions(),available:state.session.workflow,selected:state.selectedTask,select:selectTask});
+  renderGraph($('#workflow-graph'),{run,options:workflowOptions(),available:state.session.workflow,selected:state.selectedTask,select:selectTask,config:run?.stepConfig||Object.fromEntries(aiSteps.map(step=>[step,aiSetup.route(step)]))});
   if(state.selectedTask)updateInspector();
 }
 function updateInspector(){
   const task=graphStages(state.displayedRun,workflowOptions(),state.session.workflow).find(t=>t.id===state.selectedTask);
   if(!task)return;
   $('#task-inspector').hidden=false;$('#task-title').textContent=task.title;
-  $('#task-description').textContent=task.detail+' This step uses your saved application and the choices in Job details & AI.';
+  const route=state.displayedRun?.stepConfig?.[task.id]||(!state.displayedRun&&task.id!=='validating'?aiSetup.route(task.id):null);
+  $('#task-description').textContent=task.detail+(route?' AI setup: '+aiSetup.summary(route)+'. Connection: '+aiSetup.connectionName(route)+'.':task.id==='validating'?' This step runs locally without an AI model.':'');
   $('#task-status').textContent=`${statusNames[task.status] || task.status} · ${task.output}`;
   $('#task-output').textContent=task.id==='validating'?'Compare current CVs':task.id==='adapt'?'View CV source':'View results';
   $('#task-run').textContent=task.id==='validating'?'Check current changes':'Start this step';
-  $('#task-run').disabled=!state.snapshot.editable||!!state.snapshot.running||!!state.launching||!stepAvailable(task.id)||(task.id!=='validating'&&(!state.session.vita||!selectedModel()?.supported));
+  $('#task-configure').hidden=task.id==='validating';
+  $('#task-configure').textContent=state.displayedRun?'Configure next run':'Configure AI';
+  $('#task-configure').disabled=!!state.snapshot.running||!!state.launching||!state.snapshot.editable;
+  $('#task-run').disabled=!state.snapshot.editable||!!state.snapshot.running||!!state.launching||!stepAvailable(task.id)||(task.id!=='validating'&&(!state.session.vita||!!aiSetup.problem([task.id])));
   $('#task-output').disabled=isActiveRun(state.displayedRun)||!['succeeded','unknown'].includes(task.status);
   if(isActiveRun(state.displayedRun))$('#task-status').textContent+=' · Results open after the preparation finishes.';
 }
-function selectTask(task){state.selectedTask=task.id;renderWorkflow();}
+function selectTask(task){
+  if(!state.snapshot)return;
+  state.selectedTask=task.id;renderWorkflow();
+  if(aiSteps.includes(task.id))aiSetup.openStep(task.id,{
+    history:!!state.displayedRun,recorded:state.displayedRun?.stepConfig?.[task.id],
+    readOnly:!!state.snapshot.running||!!state.launching||!state.snapshot.editable,
+    allowNext:!state.snapshot.running&&!state.launching&&state.snapshot.editable,
+  });
+}
 $('#view-run').onclick=async()=>{
   const run=state.displayedRun;if(!run||isActiveRun(run)||state.openingRunId)return;
   state.openingRunId=run.id;renderWorkflow();
@@ -459,6 +447,7 @@ for(const id of aiSteps)$('#step-'+id).onchange=()=>{
   state.workflowChoices.set(state.snapshot.branch,workflowOptions());state.graphRunId='draft';configureWorkflow();renderWorkflow();
 };
 $('#task-run').onclick=()=>runAdapt([state.selectedTask]);
+$('#task-configure').onclick=()=>aiSetup.openStep(state.selectedTask);
 $('#run-all').onclick=()=>runAdapt(aiSteps.filter(stepAvailable));
 $('#toggle-workflow').onclick=()=>{
   const body=$('#workflow-body');body.hidden=!body.hidden;

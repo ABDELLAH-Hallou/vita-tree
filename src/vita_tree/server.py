@@ -309,6 +309,12 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         if path == "/api/providers":
             self.api_call(lambda: self.server.workspace.providers(query.get("branch", [""])[0]))
             return
+        if path == '/api/connections':
+            self.api_call(self.server.workspace.list_connections)
+            return
+        if path == '/api/ai-settings':
+            self.api_call(lambda: self.server.workspace.ai_settings(query.get('branch', [''])[0]))
+            return
         if path == "/api/job":
             ident = query.get("id", [""])[0]
             self.api_call(lambda: self.server.workspace.get_job(ident))
@@ -380,6 +386,9 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         workspace = self.server.workspace
         path = urlparse(self.path).path
         actions = {
+            '/api/connections': lambda: workspace.add_connection(data.get('name'), data.get('provider'), data.get('apiKey')),
+            '/api/connections/remove': lambda: workspace.remove_connection(data.get('id')),
+            '/api/ai-settings': lambda: workspace.save_ai_settings(data['branch'], data.get('settings')),
             "/api/release-worktree": lambda: workspace.release_worktree(data["branch"]),
             "/api/job-reviewed": lambda: workspace.review_job(data["id"]),
             "/api/jobs-reviewed": lambda: {**workspace.review_jobs(data["ids"]), 'requestId': self.request_id},
@@ -387,7 +396,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             "/api/commit-preview": lambda: workspace.commit_preview(data["branch"], data.get("sourceRevision"), data.get("sourceContent"), data.get("jobRevision"), data.get("jobContent")),
             "/api/commit-push": lambda: workspace.commit_and_push(data["branch"], data.get("message"), data.get("review"), data.get("sourceRevision"), data.get("sourceContent"), data.get("jobRevision"), data.get("jobContent")),
             "/api/create": lambda: (workspace.create_application(data["base"], data["applicationName"], data["job"], data["revision"]) if "applicationName" in data else workspace.create(data["base"], data["name"], data["job"], data["revision"])),
-            "/api/adapt": lambda: workspace.start_ai(data["branch"], data["revision"], data["jobRevision"], data.get("provider", ""), data.get("language", "en"), data.get("model"), data.get("reasoning", ""), data.get("workflow")),
+            "/api/adapt": lambda: workspace.start_ai(data["branch"], data["revision"], data["jobRevision"], data.get("provider", ""), data.get("language", "en"), data.get("model"), data.get("reasoning", ""), data.get("workflow"), data.get('aiConfig')),
             "/api/parse": lambda: self.parse_source(data),
             "/api/lint": lambda: self.parse_source(data, lint_only=True),
             "/api/pdf-save": lambda: self.server.compiler.save(data['id'], data['branch'], data.get('existingRevision')),

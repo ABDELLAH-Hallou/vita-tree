@@ -22,6 +22,7 @@ from .observability import Diagnostics
 from .latex import parse_document, replace_leaf
 from .workflow import REPORTS, MESSAGES, capabilities as workflow_capabilities, plan, transition, clean_stages, reusable_reports
 from .server import branch_payload, run_git
+from .ai_config import Connections, clean_settings, effective_settings, stage_environment
 
 
 class ConflictError(ValueError):
@@ -79,6 +80,7 @@ class Workspace:
         common = Path(run_git(repository, "rev-parse", "--git-common-dir"))
         self.root = (repository / common).resolve() / "vita-tree"
         self.lock = threading.RLock()
+        self.connections = Connections()
         self.jobs: dict[str, dict] = {}
         self._ai_threads = set()
         self._closed = False
@@ -242,7 +244,7 @@ class Workspace:
                 "running": self.active_job(name)}
 
     JOB_FIELDS = ("id", "branch", "opportunity", "status", "step", "message", "provider", "model",
-                  "reasoning", "language", "createdAt", "startedAt", "finishedAt", "reviewed", "stages")
+                  "reasoning", "language", "createdAt", "startedAt", "finishedAt", "reviewed", "stages", "stepConfig")
     ACTIVE_STATUSES = {"queued", "running"}
 
     def _public_job(self, record):
@@ -269,6 +271,11 @@ class Workspace:
                     continue
                 record = {key: record.get(key) for key in self.JOB_FIELDS}
                 record["stages"] = clean_stages(record.get("stages"))
+                # History is public: whitelist route fields even in hand-edited files.
+                routes = record.get('stepConfig')
+                record['stepConfig'] = {step: {key: value for key, value in route.items()
+                                              if key in {'provider', 'model', 'reasoning', 'connection', 'connectionName'} and isinstance(value, str)}
+                                        for step, route in routes.items() if step in REPORTS and isinstance(route, dict)} if isinstance(routes, dict) else {}
                 if any(value is not None and (type(value) not in (int, float) or not 0 <= value < 1e12)
                        for value in (record.get(key) for key in ("createdAt", "startedAt", "finishedAt"))):
                     continue
@@ -383,6 +390,7 @@ class Workspace:
 
     def close(self):
         with self.lock:
+            self.connections.items.clear()
             self._closed = True
             for record in self.jobs.values():
                 if record["status"] in self.ACTIVE_STATUSES:
@@ -675,12 +683,40 @@ class Workspace:
         from .providers import discover
         return discover(self, name)
 
+    def list_connections(self):
+        with self.lock:
+            return {'connections': self.connections.list()}
+
+    def add_connection(self, name, provider, api_key):
+        with self.lock:
+            return self.connections.add(name, provider, api_key)
+
+    def remove_connection(self, ident):
+        with self.lock:
+            self.connections.remove(ident)
+            return self.list_connections()
+
+    def ai_settings(self, name):
+        self.branch(name)
+        path = self.root / 'ai-settings' / (digest(name) + '.json')
+        try:
+            return clean_settings(self, name, json.loads(read_text(path)))
+        except (ValueError, TypeError):
+            return clean_settings(self, name, {})
+
+    def save_ai_settings(self, name, settings):
+        with self.lock:
+            self.branch(name)
+            clean = clean_settings(self, name, settings)
+            atomic_write(self.root / 'ai-settings' / (digest(name) + '.json'), json.dumps(clean))
+            return clean
+
     def capabilities(self):
         return {"vita": bool(self.vita_command()), "documentPath": self.document_path,
                 "workflow": workflow_capabilities(self.vita_source),
                 "engines": [x for x in ("pdflatex", "xelatex", "lualatex") if shutil.which(x)]}
 
-    def start_ai(self, name, revision, job_revision, provider="", language="en", model=None, reasoning="", workflow=None):
+    def start_ai(self, name, revision, job_revision, provider="", language="en", model=None, reasoning="", workflow=None, ai_config=None):
         with self.lock:
             if self._closed:
                 raise ConflictError("Vita Tree is stopping. Restart it before preparing an application.")
@@ -696,11 +732,21 @@ class Workspace:
             for value in (provider, language):
                 if not isinstance(value, str) or (value and not re.fullmatch(r"[a-zA-Z0-9_.-]{1,64}", value)):
                     raise ValueError("Choose a supported AI service and output language")
-            from .providers import resolve
             if uses_ai:
-                provider, model, reasoning = resolve(self, name, provider, model, reasoning)
+                settings = clean_settings(self, name, ai_config if ai_config is not None else {
+                    'default': {'provider': provider, 'model': model, 'reasoning': reasoning}})
+                provider, model, reasoning = (settings['default'][key] for key in ('provider', 'model', 'reasoning'))
+                routes = effective_settings(settings, selected)
+                # Snapshot keys before the worker starts. Removing a connection cannot
+                # change a submitted run, and one step's key never replaces another's.
+                keys = {step: self.connections.get(route['connection'], route['provider'])
+                        for step, route in routes.items() if route['connection']}
+                names = {item['id']: item['name'] for item in self.connections.list()}
+                for route in routes.values():
+                    route['connectionName'] = names.get(route['connection']) or ('Local Codex login' if route['provider'] == 'codex' else 'Existing local credentials')
             else:
                 provider, model, reasoning = '', None, ''
+                routes, keys = {}, {}
             location = self.location(name, create=True)
             source, job = self.read(name, self.document_path), self.read(name, "job.md")
             if digest(source) != revision or digest(job) != job_revision:
@@ -711,8 +757,9 @@ class Workspace:
             record = {"id": ident, "branch": name, "opportunity": name, "status": "running", "step": "preparing",
                       "message": "Preparing this branch's AI workspace.", "createdAt": time.time(), "startedAt": time.time(),
                       "finishedAt": None, "reviewed": False, "provider": provider, "model": model,
-                      "reasoning": reasoning, "language": language, "stages": stages}
+                      "reasoning": reasoning, "language": language, "stages": stages, "stepConfig": routes}
             context = self._ai_context(location, source, job, command, provider, model, reasoning)
+            context['stepConfig'], context['keys'] = routes, keys
             config = json.loads(context["config"].get("config.json", "{}"))
             if not isinstance(config, dict):
                 raise ValueError("Your AI settings could not be read. Check the configuration in AI connection details.")
@@ -720,12 +767,6 @@ class Workspace:
                 raise ValueError("This CV collection needs to use main.tex as its CV source. Check its Vita CV settings.")
             if 'cover' in selected and config.get("cover_tex_entry", "cover-letter.tex") != "cover-letter.tex":
                 raise ValueError("This CV collection needs to use cover-letter.tex for cover letters. Check its Vita CV settings.")
-            # The UI's explicit choice wins over auto-extraction and stage routing
-            # inherited from an exported .env. No credentials are written here.
-            context["env"]["ENABLE_JD_EXTRACTION"] = "false"
-            for prefix in ("EXTRACTION", "ANALYSIS", "ADAPT", "REVIEW", "COVER"):
-                context["env"][prefix + "_PROVIDER"] = provider
-                context["env"][prefix + "_MODEL"] = model or ""
             context["baseCommit"] = self.head(name)
             captured = {p: read_text(safe_path(location, p)) for p in (*self.report_paths(), "cover-letter.tex")}
             context["reports"] = {p: digest(content) for p, content in captured.items()}
@@ -825,9 +866,13 @@ class Workspace:
                 if not self._job_update(record, step=step, message=MESSAGES[step],
                                         stages=transition(record["stages"], step=step)):
                     return
-                args = context["command"] + [step, "--auto"]
-                if record["provider"]:
-                    args += ["--provider", record["provider"]]
+                route = context['stepConfig'][step]
+                env = stage_environment(context['env'], route, context['keys'].get(step))
+                # Same provider may use different models in consecutive steps.
+                extensions = json.loads(context['config'].get('extensions.json', '{}'))
+                extensions.setdefault('llm_providers', {})[route['provider']] = {'model': route['model']}
+                atomic_write(stage / '.vita/extensions.json', json.dumps(extensions))
+                args = context["command"] + [step, "--auto", "--provider", route['provider']]
                 if step in ("adapt", "cover"):
                     args += ["--language", record["language"]]
                 if step == "cover":
@@ -838,7 +883,7 @@ class Workspace:
                 if step == 'analyze':
                     for filename in ('delta.md', 'delta.json'):
                         safe_path(stage, '.vita/results/' + filename).unlink(missing_ok=True)
-                process = subprocess.run(args, cwd=stage, env=context["env"], stdin=subprocess.DEVNULL, capture_output=True, timeout=600)
+                process = subprocess.run(args, cwd=stage, env=env, stdin=subprocess.DEVNULL, capture_output=True, timeout=600)
                 reports = [read_text(safe_path(stage, ".vita/results/" + name)).strip() for name in REPORTS[step]]
                 if process.returncode:
                     self.diagnostics.record('provider_failed', 'ERROR', run_id=record['id'], step=step, exit_code=process.returncode)
@@ -919,6 +964,7 @@ class Workspace:
             self._job_update(record, status="failed", step="failed", finishedAt=time.time(), message=message,
                              stages=transition(record.get("stages"), terminal="failed"))
         finally:
+            context.get('keys', {}).clear()
             with self.lock:
                 self._ai_threads.discard(threading.current_thread())
                 if record["branch"] in self._release_requested:

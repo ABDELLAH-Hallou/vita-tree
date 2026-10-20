@@ -83,6 +83,7 @@ jobs:
       - run: python tests/browser_check.py --browser chromium
       - run: python tests/browser_jobs.py --browser chromium
       - run: python tests/browser_workflow.py --browser chromium
+      - run: python tests/browser_ai_settings.py --browser chromium
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
