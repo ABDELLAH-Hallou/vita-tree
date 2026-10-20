@@ -3,9 +3,11 @@ const state = {branches: [], session: null, snapshot: null, view: 'structure', g
 import {createLatexEditor} from './vendor/editor.mjs';
 import {createRunMonitor, isActiveRun, runLabel, runSteps} from './runs.js';
 import {renderGraph, graphStages, statusNames} from './workflow.js';
-import {reportDetails} from './reports.js';
+import {reportDetails,fileLabel} from './reports.js';
 import {initDiagnostics} from './diagnostics.js';
 state.filter='all';
+state.syncedCommits=new Map();
+const applicationName=name=>state.branches.find(item=>item.name===name)?.displayName||(state.snapshot?.branch===name?state.snapshot.displayName:null)||name;
 state.workflowChoices=new Map();
 const aiSteps=['extract','analyze','adapt','review','cover'];
 const stepAvailable=id=>!['extract','review','cover'].includes(id)||!!state.session?.workflow?.[id];
@@ -18,8 +20,8 @@ const reviewableRuns = branch => state.runs.filter(run=>run.branch===branch&&!is
 function updateBulkReview(){
   const count=state.runs.filter(run=>state.reviewSelection.has(run.branch)&&!isActiveRun(run)&&!run.reviewed).length;
   $('#bulk-review').disabled=state.reviewing||!count;
-  $('#bulk-review').textContent=state.reviewing?'Saving review state…':'Mark selected as reviewed';
-  $('#bulk-review-count').textContent=count?`${count} ${count===1?'run':'runs'} selected`:'';
+  $('#bulk-review').textContent=state.reviewing?'Saving review…':'Mark selected as reviewed';
+  $('#bulk-review-count').textContent=count?`${count} ${count===1?'result':'results'} selected`:'';
   const selected=visibleReviewBranches.filter(branch=>state.reviewSelection.has(branch)).length;
   const all=$('#select-review-visible');all.checked=!!selected&&selected===visibleReviewBranches.length;
   all.indeterminate=!!selected&&selected<visibleReviewBranches.length;all.disabled=state.reviewing||!visibleReviewBranches.length;
@@ -31,50 +33,50 @@ $('#select-review-visible').onchange=event=>{
 $('#bulk-review').onclick=async()=>{
   const ids=state.runs.filter(run=>state.reviewSelection.has(run.branch)&&!isActiveRun(run)&&!run.reviewed).map(run=>run.id);
   if(state.reviewing||!ids.length)return;
-  if(ids.length>500){$('#bulk-review-status').hidden=false;$('#bulk-review-status').textContent='Select fewer branches: up to 500 runs can be reviewed at once.';return;}
-  state.reviewing=true;renderBranches();const status=$('#bulk-review-status');status.hidden=false;status.textContent=`Saving review state for ${ids.length} runs…`;
+  if(ids.length>500){$('#bulk-review-status').hidden=false;$('#bulk-review-status').textContent='Select fewer applications: up to 500 results can be reviewed at once.';return;}
+  state.reviewing=true;renderBranches();const status=$('#bulk-review-status');status.hidden=false;status.textContent=`Marking ${ids.length} results as reviewed…`;
   try{
     const result=await api('/api/jobs-reviewed',{ids});
     const saved=new Set(result.reviewed);
     for(const run of state.runs)if(saved.has(run.id))run.reviewed=true;
-    status.textContent=`${result.reviewed.length} ${result.reviewed.length===1?"run":"runs"} marked as reviewed.`+(result.failed.length?` ${result.failed.length} could not be saved and remain selected. ${result.failed[0].error} Reference: ${result.requestId}`:'');
+    status.textContent=`${result.reviewed.length} ${result.reviewed.length===1?"result":"results"} marked as reviewed.`+(result.failed.length?` ${result.failed.length} could not be saved and remain selected. ${result.failed[0].error} Reference: ${result.requestId}`:'');
     await runMonitor.refresh();
   }catch(error){status.textContent=error.message;}
   finally{state.reviewing=false;renderBranches();}
 };
 let runMonitor;
 const editors = Object.fromEntries(['original', 'current'].map(side => [side, createLatexEditor($(`#${side}-source`), {
-  label: side === 'original' ? 'Original LaTeX' : 'New version LaTeX', readOnly: true,
+  label: side === 'original' ? 'Before · CV source' : 'Current CV source', readOnly: true,
   onChange: value => {if(side === 'current' && state.snapshot) {state.dirty = value !== state.snapshot.content; updateSaveState();}},
   lint: async (content, signal) => {
     const response = await fetch('/api/lint', {method:'POST', signal, headers:{'Content-Type':'application/json','X-Vita-Token':state.session.token}, body:JSON.stringify({content})});
     const result = await response.json();
-    if(!response.ok) throw new Error(result.error || 'Syntax check failed');
+    if(!response.ok) throw new Error(result.error || 'Couldn’t check the document formatting');
     return result;
   },
 })]));
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const aiChoices = new Map();
 const providerNames = {codex:'Codex',gemini:'Gemini',google:'Google Gemini',openai:'OpenAI',anthropic:'Anthropic'};
-const effortNames = {none:'None',minimal:'Minimal',low:'Low',medium:'Medium',high:'High',xhigh:'Extra high',max:'Maximum',ultra:'Ultra'};
+const effortNames = {none:'None',minimal:'Minimal',low:'Low — less thinking',medium:'Medium — balanced',high:'High — more thinking',xhigh:'Extra high',max:'Maximum',ultra:'Ultra'};
 function selectedModel() {return state.catalog?.options.find(o=>o.provider===$('#provider').value && o.model===$('#model').value);}
 function rememberAI() {
   if(state.snapshot) aiChoices.set(state.snapshot.branch,{provider:$('#provider').value,model:$('#model').value,reasoning:$('#reasoning').value});
 }
 function renderReasoning(preferred='') {
   const option=selectedModel(), efforts=option?.reasoning || [];
-  $('#reasoning').replaceChildren(new Option('Provider default',''),...efforts.map(e=>new Option(effortNames[e]||e,e)));
+  $('#reasoning').replaceChildren(new Option('Automatic',''),...efforts.map(e=>new Option(effortNames[e]||e,e)));
   $('#reasoning').value=efforts.includes(preferred)?preferred:'';
   $('#reasoning').disabled=!efforts.length || !!state.snapshot?.running;
-  $('#reasoning-hint').textContent=efforts.length?'Reasoning applies to all AI steps. Higher levels can take longer.':
-    option?.provider==='codex'?(state.catalog.reasoningBridge?'Select a model with reasoning levels in your local Codex catalog.':'Reasoning requires the AI integration. Install vita-tree[ai] or use --vita-source.'):
-    'This provider/model uses its default reasoning; the current VITA integration has no effort control for it.';
-  $('#provider-hint').textContent=`Models from your repository and local settings. Your provider account determines access.`;
-  $('#model').title=option?`Found in:\n${option.sources.join('\n')}`:'';
+  $('#reasoning-hint').textContent=efforts.length?'This thinking level applies to all AI steps. Higher levels may take longer.':
+    option?.provider==='codex'?(state.catalog.reasoningBridge?'Choose an AI model that supports thinking levels.':'Thinking levels require the Vita CV connection. Open AI connection details for setup information.'):
+    'This AI model automatically chooses its thinking level.';
+  $('#provider-hint').textContent=`Choose a model available through your AI account.`;
+  $('#model').title='AI model';$('#model-details').textContent=option?`Model settings from:\n${option.sources.join('\n')}\n\nSetup help: install vita-tree[ai] or start with --vita-source pointing to vita-cv.`:'No AI model settings found.\nSetup: install vita-tree[ai] or start with --vita-source pointing to vita-cv.';
 }
 function renderModels(preferred,reasoning='') {
   const options=state.catalog.options.filter(o=>o.provider===$('#provider').value);
-  $('#model').replaceChildren(...options.map(o=>new Option(o.model||'CLI / provider default',o.model)));
+  $('#model').replaceChildren(...options.map(o=>new Option(o.model||'Automatic',o.model)));
   if(options.some(o=>o.model===preferred)) $('#model').value=preferred;
   else if($('#provider').value===state.catalog.default.provider) $('#model').value=state.catalog.default.model;
   $('#model').disabled=!!state.snapshot?.running;
@@ -97,7 +99,12 @@ async function api(path, data) {
   if (!response.ok) throw Object.assign(new Error(result.error || `Request failed (${response.status})`), result);
   return result;
 }
-function notice(text = '', error = false) { $('#notice').textContent = text; $('#notice').hidden = !text; $('#notice').classList.toggle('error', error); }
+function notice(text = '', error = false) {
+  const technical=(error&&text.includes('\n'))||/Cannot parse this LaTeX|Environment .+:|Math is shown as text|use PDF for exact rendering/.test(text);
+  $('#message-details').hidden=!technical;$('#message-technical').textContent=technical?text:'';
+  $('#notice').textContent=technical?(error?(text.startsWith('Cannot parse this LaTeX')?'The CV has a formatting problem. Open Technical details.':text.split('\n')[0]):'Some formatting may look different here. Use PDF preview to check the final layout.'):text;
+  $('#notice').hidden=!text;$('#notice').classList.toggle('error',error);
+}
 function toast(text) { $('#toast').textContent = text; $('#toast').hidden = false; clearTimeout(state.toast); state.toast = setTimeout(() => $('#toast').hidden = true, 4000); }
 function relative(timestamp) {
   const age = Math.max(0, Date.now()/1000-timestamp);
@@ -113,20 +120,20 @@ function renderBranches() {
       (filter==='failed' && latest && ['failed','interrupted'].includes(latest.status));
   };
   for(const filter of ['all','running','review','failed']) $('#filter-'+filter).textContent=state.branches.filter(b=>matchesFilter(b,filter)).length;
-  const branches = state.branches.filter(b => matchesFilter(b,state.filter) && `${b.name} ${b.subject} ${b.author}`.toLowerCase().includes(query));
+  const branches = state.branches.filter(b => matchesFilter(b,state.filter) && `${b.displayName||b.name} ${b.name} ${b.subject} ${b.author}`.toLowerCase().includes(query));
   for(const branch of state.reviewSelection)if(!reviewableRuns(branch).length)state.reviewSelection.delete(branch);
   visibleReviewBranches=branches.filter(branch=>reviewableRuns(branch.name).length).map(branch=>branch.name);
   $('#branch-list').replaceChildren();
   for (const b of branches) {
-    const row = document.createElement('button'); row.className='branch-row'; row.setAttribute('aria-label', `Open ${b.name}`);
-    row.innerHTML=`<span class="branch-cell"><span class="branch-icon" aria-hidden="true">⑂</span><span class="branch-info"><span class="branch-name">${esc(b.name)}</span><span class="branch-detail">${b.current?'Current branch':b.local?'Local branch':`Remote · ${esc(b.remote)}`}</span></span></span><span class="commit-cell"><span class="commit-subject">${esc(b.subject)}</span><span class="commit-meta">${esc(b.commit)} · ${esc(b.author)}</span></span><time class="branch-date" datetime="${esc(b.modifiedAt)}" title="${esc(new Date(b.modifiedAt).toLocaleString())}">${relative(b.timestamp)}</time>`;
+    const row = document.createElement('button'); row.className='branch-row'; row.setAttribute('aria-label', `Open ${b.displayName||b.name}`);
+    row.innerHTML=`<span class="branch-cell"><span class="branch-icon" aria-hidden="true">⑂</span><span class="branch-info"><span class="branch-name">${esc(b.displayName||b.name)}</span><span class="branch-detail">${b.local?'Editable CV':'View only CV'}</span></span></span><span class="commit-cell"><span class="commit-subject">${esc(b.subject)}</span><span class="commit-meta">${esc(b.author)}</span></span><time class="branch-date" datetime="${esc(b.modifiedAt)}" title="${esc(new Date(b.modifiedAt).toLocaleString())}">${relative(b.timestamp)}</time>`;
     row.onclick=() => {
       const pending=state.filter==='review'&&state.runs.find(run=>run.branch===b.name&&run.status==='succeeded'&&!run.reviewed);
       if(pending)openRun(pending).catch(error=>notice(error.message,true));else openBranch(b.name);
     };
     const entry=document.createElement('div');entry.className='branch-entry';
     const select=document.createElement('input');select.type='checkbox';select.className='select-branch-review';
-    select.setAttribute('aria-label',`Select unreviewed runs for ${b.name}`);select.disabled=state.reviewing||!reviewableRuns(b.name).length;
+    select.setAttribute('aria-label',`Select unreviewed results for ${b.displayName||b.name}`);select.disabled=state.reviewing||!reviewableRuns(b.name).length;
     select.checked=state.reviewSelection.has(b.name);select.onchange=()=>{select.checked?state.reviewSelection.add(b.name):state.reviewSelection.delete(b.name);updateBulkReview();};
     entry.append(select,row);$('#branch-list').append(entry);
     const branchRuns=state.runs.filter(run=>run.branch===b.name);
@@ -136,23 +143,23 @@ function renderBranches() {
       badge.textContent=runLabel(run)+(!isActiveRun(run)&&!run.reviewed?' · To review':'');row.querySelector('.branch-info').append(badge);
     }
   }
-  if(!branches.length) $('#branch-list').innerHTML=state.filter==='review'&&!query ? '<p class="empty">No completed runs need review.</p>' : '<p class="empty">No branches here. Try another filter or create a branch for your next application.</p>';
-  $('#result-count').textContent=`${branches.length} ${branches.length===1?'branch':'branches'}`;
+  if(!branches.length) $('#branch-list').innerHTML=state.filter==='review'&&!query ? '<p class="empty">No completed preparations need review.</p>' : '<p class="empty">No applications found. Try another filter or create a new application.</p>';
+  $('#result-count').textContent=`${branches.length} ${branches.length===1?'application':'applications'}`;
   $('#total-count').textContent=state.branches.length;
   updateBulkReview();
 }
 async function loadBranches() {
-  $('#refresh').disabled=true;
+  $('#refresh').disabled=true;$('#new-branch').disabled=true;
   try {const result=await api('/api/branches');state.branches=result.branches;$('#repository').textContent=result.repository;renderBranches();}
   catch(error) {$('#branch-list').innerHTML=`<p class="empty">${esc(error.message)}</p>`;}
-  finally {$('#refresh').disabled=false;}
+  finally {$('#refresh').disabled=false;$('#new-branch').disabled=!state.branches.length;}
 }
 function canLeave() {return !(state.dirty || state.jobDirty) || window.confirm('Discard your unsaved editor changes?');}
 async function releaseBranch(name){
   try{
     const result=await api('/api/release-worktree',{branch:name});
-    if(result.released||['dirty','locked'].includes(result.reason))toast(`${name}: ${result.message}`);
-  }catch(error){toast(`Could not release ${name}: ${error.message}`);}
+    if(result.released)toast('Application closed. You can reopen it at any time.');else if(result.reason==='locked')toast('Some files are still in use. Your application files are safe.');
+  }catch(error){toast(`Couldn’t close the application folder for ${applicationName(name)}: ${error.message}`);}
 }
 async function openBranch(name, force=false) {
   if(!force && !canLeave()) return;
@@ -165,7 +172,7 @@ async function openBranch(name, force=false) {
   for(const id of ['save-source','save-job','run-adapt','run-all','task-run','branch-from','compile','commit-push','view-run','mark-run-reviewed']) $('#'+id).disabled=true;
   editors.current.setReadOnly(true);$('#job-description').readOnly=true;
   $('#board').hidden=true;$('#workspace').hidden=false;document.body.classList.add('in-workspace');
-  $('#branch-title').textContent=name; notice('Loading the branch…');
+  $('#branch-title').textContent=applicationName(name); notice('Loading the application…');
   try {
     if(previous&&previous!==name)await releaseBranch(previous);
     if(generation!==state.generation)return;
@@ -181,17 +188,17 @@ async function openBranch(name, force=false) {
 }
 function updateSnapshot() {
   const s=state.snapshot;
-  $('#branch-title').textContent=s.branch;$('#workspace-caption').textContent=s.editable?'Changes stay on this branch. Compare the result, then commit when you’re ready.':'Remote branch. Create a local branch to edit or run AI.';
-  $('#original-label').textContent=s.baseBranch;$('#current-label').textContent=s.branch;
-  $('#version-label').textContent=s.editable?'Editable':'Remote';
+  $('#branch-title').textContent=s.displayName||s.branch;$('#workspace-caption').textContent=s.editable?'Review your CV and results, then save your application.':'This CV is view only. Use it to create a new application before editing.';
+  $('#original-label').textContent='';$('#current-label').textContent=s.displayName||s.branch;
+  $('#version-label').textContent=s.editable?'Editable':'View only';
   editors.original.setDocument(s.original,s.branch);editors.current.setDocument(s.content,s.branch);editors.current.setReadOnly(!s.editable||!!s.running);
   renderDocument('original',s.originalDocument);renderDocument('current',s.document);
-  $('#job-description').value=s.job;$('#job-description').readOnly=!s.editable||!!s.running;$('#job-state').textContent=s.job?'Saved as job.md':'No job description yet';
+  $('#job-description').value=s.job;$('#job-description').readOnly=!s.editable||!!s.running;$('#job-state').textContent=s.job?'Saved on this computer':'No job description yet';
   $('#save-job').disabled=!s.editable||!!s.running;$('#branch-from').disabled=!!s.running;$('#compile').disabled=false;$('#ai-dot').textContent=Object.keys(s.artifacts).length?'•':'';
-  $('#ai-capability').textContent=state.session.vita?'Run only what you select, or Run all available steps. Validation always checks results before applying them. Save editor changes first.': 'VITA CLI is unavailable. Install vita-tree[ai] or restart with --vita-source pointing to vita-cv.';
+  $('#ai-capability').textContent=state.session.vita?'Prepare everything or start only the steps you choose. Your existing edits are checked before results are applied. Save any draft edits first.': 'The Vita CV connection is not available. Open AI connection details for setup instructions.';
   $('#run-adapt').disabled=!state.session.vita || !s.editable || !!s.running || !selectedModel()?.supported;
-  $('#ai-status').textContent=s.running?.message || (s.job?'Ready to run on this branch.':'Add and save a job description first.');
-  $('#worktree-path').textContent=s.worktree || 'A separate worktree will be created on first save.';
+  $('#ai-status').textContent=s.running?.message || (s.job?'Ready to prepare this application.':'Add and save a job description first.');
+  $('#application-id').textContent=s.branch;$('#worktree-path').textContent=s.worktree || 'An application folder will be created when you save your first draft.';
   $('#diff').replaceChildren();
   if(!s.diff) $('#diff').textContent='No changes from the original.';
   else for(const line of s.diff.split('\n')) {const item=document.createElement('span');item.textContent=line+'\n';if(line.startsWith('+')&&!line.startsWith('+++'))item.className='added';else if(line.startsWith('-')&&!line.startsWith('---'))item.className='removed';$('#diff').append(item);}
@@ -199,7 +206,7 @@ function updateSnapshot() {
   const removed=s.diff.split('\n').filter(x=>x.startsWith('-')&&!x.startsWith('---')).length;
   $('#change-count').textContent=added||removed?`+${added} −${removed}`:'';
   $('#artifacts').replaceChildren();
-  if(!Object.keys(s.artifacts).length) $('#artifacts').innerHTML='<p class="helper">No reports yet. Run the workflow to see the job analysis and proposed changes here.</p>';
+  if(!Object.keys(s.artifacts).length) $('#artifacts').innerHTML='<p class="helper">No results yet. Choose the steps you want to prepare your application.</p>';
   for(const [key,artifact] of Object.entries(s.artifacts)) $('#artifacts').append(reportDetails(artifact.path,artifact.content,{open:key==='analyze'}));
   configureWorkflow();renderWorkflow();
   if(s.cover){
@@ -211,10 +218,10 @@ function updateSnapshot() {
 function renderDocument(side, data) {
   const target=$(`#${side}-document .cv-document`);
   // HTML is produced by the source-mapped renderer; every source string is escaped there.
-  target.innerHTML=data.error?`<p class="empty">${esc(data.error)}<br>Use LaTeX to repair the source.</p>`:data.html;
+  target.innerHTML=data.error?`<p class="empty">The CV has a formatting problem. Open Source · Advanced to fix it.</p><details class="technical-details"><summary>Formatting details</summary><pre>${esc(data.error)}</pre></details>`:data.html;
 }
 function updateSaveState(){
-  $('#save-state').textContent=state.dirty?'Unsaved edits':state.snapshot?.dirty?'Saved locally · uncommitted':'Saved';
+  const s=state.snapshot;$('#save-state').textContent=state.dirty||state.jobDirty?'Unsaved changes':s?.saveState?.draft?'Draft saved on this computer':s&&state.syncedCommits.get(s.branch)===s.commit?'Saved and synced':s?.saveState?.ahead!==0?'Saved on this computer · sync pending':'Saved';
   $('#save-source').disabled=!state.dirty || !state.snapshot?.editable || !!state.snapshot?.running;
   $('#commit-push').disabled=!state.snapshot?.editable || !!state.snapshot?.running || state.publishing;
 }
@@ -222,29 +229,29 @@ function setView(view){
   state.view=view;
   document.querySelectorAll('[data-view]').forEach(b=>{b.setAttribute('aria-selected',String(b.dataset.view===view));b.tabIndex=b.dataset.view===view?0:-1;});
   if(state.snapshot)history.replaceState(null,'','?'+new URLSearchParams({branch:state.snapshot.branch,view}));
-  $('#comparison').hidden=!['structure','source','pdf'].includes(view)||(view==='pdf'&&state.pdfDocument==='cover');$('#cover-pdf-pane').hidden=view!=='pdf'||state.pdfDocument!=='cover';$('#compile').textContent=state.pdfDocument==='cover'?'Compile cover letter':'Compile both PDFs';$('#structure-hint').hidden=view!=='structure';$('#pdf-toolbar').hidden=view!=='pdf';$('#changes-panel').hidden=view!=='changes';$('#ai-panel').hidden=view!=='ai';$('#document-actions').hidden=false;$('#save-source').hidden=['ai','pdf'].includes(view);
+  $('#comparison').hidden=!['structure','source','pdf'].includes(view)||(view==='pdf'&&state.pdfDocument==='cover');$('#cover-pdf-pane').hidden=view!=='pdf'||state.pdfDocument!=='cover';$('#compile').textContent=state.pdfDocument==='cover'?'Create cover-letter PDF':'Create PDF previews';$('#structure-hint').hidden=view!=='structure';$('#pdf-toolbar').hidden=view!=='pdf';$('#changes-panel').hidden=view!=='changes';$('#ai-panel').hidden=view!=='ai';$('#document-actions').hidden=false;$('#save-source').hidden=['ai','pdf'].includes(view);
   for(const side of ['original','current']) {$(`#${side}-document`).hidden=view!=='structure';$(`#${side}-source`).hidden=view!=='source';$(`#${side}-pdf`).hidden=view!=='pdf';}
   if(view==='source') for(const editor of Object.values(editors)) editor.refresh();
   if(!state.snapshot)return;
   if(view==='structure'){
     const warnings=[...new Set([...state.snapshot.document.warnings,...state.snapshot.originalDocument.warnings])];
-    notice(state.dirty?'The reading view shows the saved version. Save your LaTeX edits to update it.':warnings.join('\n'));
+    notice(state.dirty?'The reading view shows the saved version. Save your draft to update this view.':warnings.join('\n'));
   } else if(view==='pdf') {
-    notice(state.dirty?'PDF preview uses the saved version. Save your LaTeX changes first.':'');
-    for(const side of state.pdfDocument==='cover'?['cover']:['original','current']) if(!state.pdfs[side]) $(`#${side}-pdf`).innerHTML='<p class="pdf-message">Compile to see the exact PDF layout.<br>Text will remain selectable.</p>';
+    notice(state.dirty?'PDF previews use your saved draft. Save your changes first.':'');
+    for(const side of state.pdfDocument==='cover'?['cover']:['original','current']) if(!state.pdfs[side]) $(`#${side}-pdf`).innerHTML='<p class="pdf-message">Create a PDF preview to see the final layout.<br>Text will remain selectable.</p>';
   } else notice();
 }
 async function saveSource(){
   if(!state.dirty||!state.snapshot)return;
-  if(state.jobDirty){notice('Save job.md before saving your LaTeX edits.',true);return;}
+  if(state.jobDirty){notice('Save the job description draft first.',true);return;}
   const s=state.snapshot, value=editors.current.value;$('#save-source').disabled=true;editors.current.setReadOnly(true);$('#job-description').readOnly=true;$('#save-job').disabled=true;
-  try {await api('/api/save',{branch:s.branch,path:s.path,revision:s.revision,content:value});await openBranch(s.branch,true);toast('Saved to '+s.path);}
+  try {await api('/api/save',{branch:s.branch,path:s.path,revision:s.revision,content:value});await openBranch(s.branch,true);toast('CV draft saved on this computer');}
   catch(error){notice(error.message,true);editors.current.setReadOnly(!s.editable);$('#job-description').readOnly=false;$('#save-job').disabled=false;updateSaveState();}
 }
 async function saveJob(){
   if(!state.snapshot)return;
   const s=state.snapshot;$('#save-job').disabled=true;
-  try{const result=await api('/api/save',{branch:s.branch,path:'job.md',revision:s.jobRevision,content:$('#job-description').value});s.job=result.content;s.jobRevision=result.revision;state.jobDirty=false;$('#job-state').textContent='Saved as job.md';toast('Job description saved');}
+  try{const result=await api('/api/save',{branch:s.branch,path:'job.md',revision:s.jobRevision,content:$('#job-description').value});s.job=result.content;s.jobRevision=result.revision;state.jobDirty=false;$('#job-state').textContent='Saved on this computer';s.saveState=result.saveState||{...s.saveState,draft:true};updateSaveState();toast('Job description draft saved');}
   catch(error){notice(error.message,true);}finally{$('#save-job').disabled=!s.editable;}
 }
 function commitPayload(){
@@ -256,53 +263,53 @@ function commitPayload(){
 }
 function renderCommitReview(review,{retry=false}={}){
   state.commitReview=review;
-  $('#commit-branch').textContent=review.branch;
-  $('#commit-destination').textContent=review.destination||'No remote configured';
+  $('#commit-branch').textContent=applicationName(review.branch);
+  $('#commit-destination').textContent=review.destinationLabel||(review.remote?'Connected destination':'No sync destination connected');$('#sync-details').textContent=review.destination||'Not connected';
   $('#commit-files').replaceChildren(...review.files.map(file=>{
     const item=document.createElement('li');
-    item.innerHTML=`<span>${esc(file.path)}</span><span class="commit-file-status">${esc(file.status)}</span>`;
+    item.innerHTML=`<div>${esc(fileLabel(file.path))}<details class="technical-details"><summary>File details</summary><code>${esc(file.path)}</code></details></div><span class="commit-file-status">${({Added:'New',Modified:'Updated',Deleted:'Removed',Untracked:'New'})[file.status]||file.status}</span>`;
     return item;
   }));
   $('#commit-files').hidden=!review.files.length;$('#commit-empty').hidden=!!review.files.length;
-  $('#commit-empty').textContent=review.ahead>0?`${review.ahead} existing local ${review.ahead===1?'commit':'commits'} will be pushed.`:
-    review.ahead===0?'No file changes or unpushed commits were found. Push will verify the selected branch.':
-    'No new file changes. The selected branch will be published and its upstream configured.';
+  $('#commit-empty').textContent=review.ahead>0?`${review.ahead} saved ${review.ahead===1?'version':'versions'} will be synced.`:
+    review.ahead===0?'No new edits or versions are waiting to sync. Save will check the connection.':
+    'No new edits. This application will be synced to the connected destination.';
   $('#commit-excluded').hidden=!review.excludedChanges;
-  $('#commit-excluded').textContent=review.excludedChanges?`${review.excludedChanges} unrelated ${review.excludedChanges===1?'change is':'changes are'} excluded from this commit.`:'';
+  $('#commit-excluded').textContent=review.excludedChanges?`${review.excludedChanges} other ${review.excludedChanges===1?'file will':'files will'} remain unchanged.`:'';
   $('#commit-message').disabled=!review.files.length;$('#commit-message').required=!!review.files.length;
-  if(review.files.length&&!$('#commit-message').value)$('#commit-message').value=`Update CV for ${review.branch}`;
-  $('#confirm-commit').textContent=retry?'Retry push':review.files.length?'Commit & push':'Push branch';
+  if(review.files.length&&!$('#commit-message').value)$('#commit-message').value=`Update CV for ${applicationName(review.branch)}`;
+  $('#confirm-commit').textContent=retry?'Retry sync':'Save';
   $('#confirm-commit').disabled=!review.remote;
-  if(!review.remote)$('#commit-error').textContent='No Git remote is configured. Add a remote, then review again.';
+  if(!review.remote)$('#commit-error').textContent='No sync destination is connected. Check your connection setup before saving.';
 }
 async function refreshCommitReview(options={}){
   const review=await api('/api/commit-preview',commitPayload());renderCommitReview(review,options);return review;
 }
 async function showCommit(){
   if(!state.snapshot||state.snapshot.running)return;
-  $('#commit-push').disabled=true;$('#commit-error').textContent='';$('#commit-progress').textContent='Reviewing the branch…';$('#commit-message').value='';
+  $('#commit-push').disabled=true;$('#commit-error').textContent='';$('#commit-progress').textContent='Checking your changes…';$('#commit-message').value='';
   try{
-    await refreshCommitReview();$('#commit-progress').textContent='Review these files before publishing.';$('#commit-dialog').showModal();
+    await refreshCommitReview();$('#commit-progress').textContent='Review these changes before saving and syncing.';$('#commit-dialog').showModal();
     if(state.commitReview.files.length)$('#commit-message').focus();
   }catch(error){notice(error.message,true);}finally{updateSaveState();}
 }
 $('#commit-form').onsubmit=async event=>{
   event.preventDefault();if(state.publishing)return;
   state.publishing=true;const button=event.submitter||$('#confirm-commit');button.disabled=true;$('#commit-error').textContent='';
-  $('#commit-progress').textContent=state.commitReview.files.length?'Saving, committing, and pushing…':'Pushing existing commits…';
+  $('#commit-progress').textContent=state.commitReview.files.length?'Saving and syncing…':'Syncing saved versions…';
   document.querySelectorAll('#commit-dialog .close-dialog').forEach(item=>item.disabled=true);updateSaveState();
   try{
     const result=await api('/api/commit-push',{...commitPayload(),message:$('#commit-message').value,review:state.commitReview.review});
-    $('#commit-dialog').close();state.dirty=false;state.jobDirty=false;await openBranch(result.branch,true);await loadBranches();
-    toast(`${result.commitCreated?'Committed and pushed':'Pushed'} to ${result.destination}`);
+    state.syncedCommits.set(result.branch,result.commit);$('#commit-dialog').close();state.dirty=false;state.jobDirty=false;await openBranch(result.branch,true);await loadBranches();
+    toast('Application saved and synced.');
   }catch(error){
-    $('#commit-error').textContent=(error.commitCreated&&error.commit?`Commit ${String(error.commit).slice(0,7)} was created locally. `:'')+error.message;
+    $('#commit-error').textContent=(error.commitCreated&&error.commit?`Your changes were saved on this computer. `:'')+error.message;
     if(error.canRetry){
       try{
         await openBranch(state.snapshot.branch,true);await refreshCommitReview({retry:true});
-        $('#commit-progress').textContent='The local commit is safe. Fix the push problem, then retry.';
+        $('#commit-progress').textContent='Your saved version is safe. Check the connection and retry syncing.';
       }catch(refreshError){$('#commit-error').textContent+='\n'+refreshError.message;}
-    }else $('#commit-progress').textContent='Nothing was pushed.';
+    }else $('#commit-progress').textContent='Nothing was synced.';
   }finally{
     state.publishing=false;document.querySelectorAll('#commit-dialog .close-dialog').forEach(item=>item.disabled=false);
     button.disabled=!state.commitReview?.remote;updateSaveState();
@@ -311,24 +318,25 @@ $('#commit-form').onsubmit=async event=>{
 $('#commit-dialog').addEventListener('cancel',event=>{if(state.publishing)event.preventDefault();});
 async function showCreate(){
   if(!canLeave())return;
-  $('#base-branch').innerHTML=state.branches.map(b=>`<option value="${esc(b.name)}">${esc(b.name)}</option>`).join('');
+  if(!state.branches.length){toast('Wait for your saved CVs to load, then try again.');return;}
+  $('#base-branch').innerHTML=state.branches.map(b=>`<option value="${esc(b.name)}">${esc(b.displayName||b.name)}</option>`).join('');
   $('#base-branch').value=state.snapshot?.branch||state.branches.find(b=>b.current)?.name||state.branches[0]?.name||'';
   $('#create-error').textContent='';$('#create-dialog').showModal();$('#branch-name').focus();
 }
 $('#create-form').onsubmit=async event=>{
   event.preventDefault();const button=event.submitter;button.disabled=true;
-  try{const base=$('#base-branch').value;const original=await api('/api/workspace?branch='+encodeURIComponent(base));const s=await api('/api/create',{base,name:$('#branch-name').value.trim(),job:$('#new-job').value,revision:original.revision});$('#create-dialog').close();state.dirty=false;state.jobDirty=false;await loadBranches();state.view='structure';await openBranch(s.branch,true);toast('Branch created with main.tex and job.md');$('#create-form').reset();}
+  try{const base=$('#base-branch').value;const original=await api('/api/workspace?branch='+encodeURIComponent(base));const s=await api('/api/create',{base,applicationName:$('#branch-name').value.trim(),job:$('#new-job').value,revision:original.revision});$('#create-dialog').close();state.dirty=false;state.jobDirty=false;await loadBranches();state.view='structure';await openBranch(s.branch,true);toast('Application created with your CV and job description');$('#create-form').reset();}
   catch(error){$('#create-error').textContent=error.message;}finally{button.disabled=false;}
 };
 $('#current-document').ondblclick=event=>{
   const leaf=event.target.closest('[data-leaf]');if(!leaf||!state.snapshot?.editable)return;
-  if(state.dirty||state.jobDirty){notice('Save your LaTeX and job edits before editing the reading view.',true);return;}
-  if(state.snapshot.running){notice('Wait for the AI run to finish before editing.',true);return;}
+  if(state.dirty||state.jobDirty){notice('Save your CV and job description drafts before editing this view.',true);return;}
+  if(state.snapshot.running){notice('Wait for this preparation to finish before editing.',true);return;}
   state.leaf=leaf.dataset.leaf;$('#edit-text').value=state.snapshot.document.leaves[state.leaf].text;$('#edit-error').textContent='';$('#edit-dialog').showModal();$('#edit-text').focus();
 };
 $('#edit-form').onsubmit=async event=>{
   event.preventDefault();event.submitter.disabled=true;const s=state.snapshot;
-  try{await api('/api/save',{branch:s.branch,path:s.path,revision:s.revision,leaf:state.leaf,text:$('#edit-text').value});$('#edit-dialog').close();await openBranch(s.branch,true);toast('Text updated in '+s.path);}
+  try{await api('/api/save',{branch:s.branch,path:s.path,revision:s.revision,leaf:state.leaf,text:$('#edit-text').value});$('#edit-dialog').close();await openBranch(s.branch,true);toast('CV draft updated on this computer');}
   catch(error){$('#edit-error').textContent=error.message;}finally{event.submitter.disabled=false;}
 };
 async function runAdapt(steps=workflowOptions().steps){
@@ -361,7 +369,7 @@ async function runsChanged(runs){
       $('#save-job').disabled=!s.editable;$('#branch-from').disabled=false;
       renderProviders();updateSaveState();
       $('#run-adapt').disabled=!state.session.vita||!s.editable||!selectedModel()?.supported;
-      notice('The AI run finished. Your unsaved edits are preserved; reload to review the result.',true);
+      notice('The preparation finished. Your unsaved edits are safe; refresh to review the results.',true);
     }
   }
 }
@@ -373,13 +381,13 @@ async function openRun(run){
   if(!isActiveRun(run)){
     const detail=await api('/api/job-result?id='+encodeURIComponent(run.id));
     if(state.snapshot!==loaded)return;
-    const settings=[run.provider,run.model,run.reasoning,run.language].filter(Boolean).join(' · ');
-    $('#selected-run').hidden=false;$('#selected-run-info').textContent=`${runSteps(run)} · ${runLabel(run)} · ${new Date(run.createdAt*1000).toLocaleString()} · ${run.provider?settings:'Local checks; no AI calls'} · ${Math.round(run.elapsedSeconds || 0)}s. Retained files for this run. The branch above may contain newer edits.`;
+    const settings=[providerNames[run.provider]||run.provider,run.model,effortNames[run.reasoning]||run.reasoning,[...$('#language').options].find(option=>option.value===run.language)?.textContent||run.language].filter(Boolean).join(' · ');
+    $('#selected-run').hidden=false;$('#selected-run-info').textContent=`${runSteps(run)} · ${runLabel(run)} · ${new Date(run.createdAt*1000).toLocaleString()} · ${run.provider?settings:'Local checks; no AI used'} · ${Math.round(run.elapsedSeconds || 0)}s. Results from this preparation. Your application may contain newer edits.`;
     $('#selected-run-files').replaceChildren();
     for(const [path,content] of Object.entries(detail.files)){
-      $('#selected-run-files').append(reportDetails(path,content,{open:/analy(sis|ze)\.md$/.test(path),label:detail.inputs?.includes(path)?`Input · ${path}`:path}));
+      $('#selected-run-files').append(reportDetails(path,content,{open:/analy(sis|ze)\.md$/.test(path),label:detail.inputs?.includes(path)?`Starting material · ${fileLabel(path)}`:fileLabel(path)}));
     }
-    if(!Object.keys(detail.files).length)$('#selected-run-files').textContent='No result files were produced by this run.';
+    if(!Object.keys(detail.files).length)$('#selected-run-files').textContent='This preparation did not produce any results.';
     if(detail.coverPdf){const button=document.createElement('button');button.id='open-run-cover-pdf';button.textContent='Open generated cover-letter PDF';button.onclick=()=>openCoverPDF(detail.coverPdf.runId);$('#selected-run-files').prepend(button);}
 
   }
@@ -391,10 +399,10 @@ function configureWorkflow(){
   const selected=s.running?.stages?.length ? s.running.stages.filter(stage=>stage.status!=='skipped').map(stage=>stage.id) : state.workflowChoices.get(s.branch)?.steps || ['analyze','adapt',...(available.review?['review']:[])];
   for(const id of aiSteps){
     const input=$('#step-'+id);input.checked=selected.includes(id)&&stepAvailable(id);input.disabled=!stepAvailable(id)||!!s.running||!!state.launching||!s.editable;
-    if(!stepAvailable(id)) $('#hint-'+id).textContent='Unavailable in the connected Vita CV. Upgrade to enable.';
+    if(!stepAvailable(id)) $('#hint-'+id).textContent='Update Vita CV to use this step.';
   }
   const blocked=!state.session.vita||!s.editable||!!s.running||!!state.launching||!selectedModel()?.supported;
-  $('#run-adapt').textContent='Run selected';
+  $('#run-adapt').textContent='Start selected steps';
   $('#run-adapt').disabled=blocked||!workflowOptions().steps.length;
   $('#run-all').disabled=blocked;
 }
@@ -403,16 +411,16 @@ function renderWorkflow(){
   const runs=state.runs.filter(run=>run.branch===state.snapshot.branch);
   const selected=state.graphRunId || state.snapshot.running?.id || runs[0]?.id || 'draft';
   const select=$('#workflow-run');
-  select.replaceChildren(new Option('Next run','draft'),...runs.map(run=>new Option(`${new Date(run.createdAt*1000).toLocaleString()} — ${runSteps(run)} · ${runLabel(run)}${isActiveRun(run)?'':run.reviewed?' · Reviewed':' · Unreviewed'}`,run.id)));
+  select.replaceChildren(new Option('New preparation','draft'),...runs.map(run=>new Option(`${new Date(run.createdAt*1000).toLocaleString()} — ${runSteps(run)} · ${runLabel(run)}${isActiveRun(run)?'':run.reviewed?' · Reviewed':' · Needs review'}`,run.id)));
   const run=runs.find(run=>run.id===selected) || (state.snapshot.running?.id===selected?state.snapshot.running:null);
-  if(run&&!runs.some(item=>item.id===run.id))select.add(new Option('Current run',run.id));
+  if(run&&!runs.some(item=>item.id===run.id))select.add(new Option('Current preparation',run.id));
   select.value=run?run.id:'draft';state.displayedRun=run;
   const finished=run&&!isActiveRun(run);
   $('#view-run').hidden=!finished;$('#view-run').disabled=!!state.openingRunId;
   const reviewButton=$('#mark-run-reviewed');reviewButton.hidden=!finished;
   reviewButton.disabled=!!run?.reviewed||!!state.reviewingRunId;
-  reviewButton.textContent=run?.reviewed?'Reviewed':state.reviewingRunId===run?.id?'Marking…':'Mark as reviewed';
-  $('#workflow-summary').textContent=run ? run.message : 'Plan your next run. Skipped steps make no AI calls.';
+  reviewButton.textContent=run?.reviewed?'Reviewed':state.reviewingRunId===run?.id?'Saving review…':'Mark as reviewed';
+  $('#workflow-summary').textContent=run ? run.message : 'Choose the steps for your next preparation. Only selected AI steps will use your AI service.';
   renderGraph($('#workflow-graph'),{run,options:workflowOptions(),available:state.session.workflow,selected:state.selectedTask,select:selectTask});
   if(state.selectedTask)updateInspector();
 }
@@ -420,13 +428,13 @@ function updateInspector(){
   const task=graphStages(state.displayedRun,workflowOptions(),state.session.workflow).find(t=>t.id===state.selectedTask);
   if(!task)return;
   $('#task-inspector').hidden=false;$('#task-title').textContent=task.title;
-  $('#task-description').textContent=task.detail+' Run actions use the current saved branch files and settings in Job & AI.';
+  $('#task-description').textContent=task.detail+' This step uses your saved application and the choices in Job details & AI.';
   $('#task-status').textContent=`${statusNames[task.status] || task.status} · ${task.output}`;
-  $('#task-output').textContent=task.id==='validating'?'Compare current CVs':task.id==='adapt'?'Open run source':'Open report';
-  $('#task-run').textContent=task.id==='validating'?'Validate current CV':`Run ${task.title} only`;
+  $('#task-output').textContent=task.id==='validating'?'Compare current CVs':task.id==='adapt'?'View CV source':'View results';
+  $('#task-run').textContent=task.id==='validating'?'Check current changes':'Start this step';
   $('#task-run').disabled=!state.snapshot.editable||!!state.snapshot.running||!!state.launching||!stepAvailable(task.id)||(task.id!=='validating'&&(!state.session.vita||!selectedModel()?.supported));
   $('#task-output').disabled=isActiveRun(state.displayedRun)||!['succeeded','unknown'].includes(task.status);
-  if(isActiveRun(state.displayedRun))$('#task-status').textContent+=' · Outputs open after the run finishes.';
+  if(isActiveRun(state.displayedRun))$('#task-status').textContent+=' · Results open after the preparation finishes.';
 }
 function selectTask(task){state.selectedTask=task.id;renderWorkflow();}
 $('#view-run').onclick=async()=>{
@@ -454,7 +462,7 @@ $('#task-run').onclick=()=>runAdapt([state.selectedTask]);
 $('#run-all').onclick=()=>runAdapt(aiSteps.filter(stepAvailable));
 $('#toggle-workflow').onclick=()=>{
   const body=$('#workflow-body');body.hidden=!body.hidden;
-  $('#toggle-workflow').textContent=body.hidden?'Show graph':'Collapse graph';
+  $('#toggle-workflow').textContent=body.hidden?'Show steps':'Hide steps';
   $('#toggle-workflow').setAttribute('aria-expanded',String(!body.hidden));
 };
 $('#task-output').onclick=async()=>{
@@ -465,27 +473,27 @@ $('#task-output').onclick=async()=>{
     if(run&&!isActiveRun(run))await openRun(run);else setView('ai');
     const match={extract:'job.json',analyze:'analy',review:'review.',cover:'cover',adapt:'main.tex'}[task];
     const area=run&&!isActiveRun(run)?$('#selected-run-files'):$('#artifacts');
-    const item=[...area.querySelectorAll('details')].find(el=>el.dataset.path.includes(match));
+    const item=[...area.querySelectorAll('details[data-path]')].find(el=>el.dataset.path.includes(match));
     if(item){item.open=true;item.scrollIntoView({block:'center'});item.querySelector('summary').focus();}
-    else notice('This run has no saved output for that task. Check the run status.');
+    else notice('This step has no saved results. Check the preparation status.');
   }catch(error){notice(error.message,true);}
 };
 let pdfjs;
 async function pdfLibrary(){if(!pdfjs){pdfjs=await import('./vendor/pdf.mjs');pdfjs.GlobalWorkerOptions.workerSrc='/vendor/pdf.worker.mjs';}return pdfjs;}
 async function savePDF(side, info, button){
   const snapshot=state.snapshot;if(!snapshot)return;
-  if(side==='current'&&state.dirty){notice('Save your LaTeX edits and compile again before saving the PDF.',true);return;}
+  if(side==='current'&&state.dirty){notice('Save your CV draft and recreate the preview before saving the PDF.',true);return;}
   button.disabled=true;
   try{
     let saved;
     try{saved=await api('/api/pdf-save',{id:info.id,branch:snapshot.branch});}
     catch(error){
-      if(!error.existingRevision||!window.confirm(`${error.filename} already exists in this worktree. Replace it with this preview?`)){
+      if(!error.existingRevision||!window.confirm(`${error.filename} already exists in this application folder. Replace it with this preview?`)){
         if(!error.existingRevision)throw error;return;
       }
       saved=await api('/api/pdf-save',{id:info.id,branch:snapshot.branch,existingRevision:error.existingRevision});
     }
-    if(state.snapshot===snapshot)notice(`Saved ${saved.filename} in ${saved.path}`);
+    if(state.snapshot===snapshot)notice(`Saved ${saved.filename} in this application’s folder.`);
   }catch(error){if(state.snapshot===snapshot)notice(error.message,true);}
   finally{button.disabled=false;}
 }
@@ -494,7 +502,7 @@ async function renderPDF(side, info, generation){
   const loadingTask=library.getDocument({url:info.url,cMapUrl:'/vendor/cmaps/',cMapPacked:true,standardFontDataUrl:'/vendor/standard_fonts/',wasmUrl:'/vendor/wasm/'});
   const pdf=await loadingTask.promise;
   if(generation!==state.pdfGeneration){await loadingTask.destroy();return;}
-  container.replaceChildren();const actions=document.createElement('div');actions.className='pdf-actions';const link=document.createElement('a');link.className='pdf-download';link.href=info.url;link.target='_blank';link.rel='noopener';link.textContent='Open PDF ↗';const save=document.createElement('button');save.className='save-pdf';save.textContent='Save PDF to worktree';save.title=info.filename||'Save this PDF';save.disabled=!state.snapshot?.editable;save.onclick=()=>savePDF(side,info,save);actions.append(link,save);container.append(actions);
+  container.replaceChildren();const actions=document.createElement('div');actions.className='pdf-actions';const link=document.createElement('a');link.className='pdf-download';link.href=info.url;link.target='_blank';link.rel='noopener';link.textContent='Open PDF ↗';const save=document.createElement('button');save.className='save-pdf';save.textContent='Save PDF to application folder';save.title=info.filename||'Save this PDF';save.disabled=!state.snapshot?.editable;save.onclick=()=>savePDF(side,info,save);actions.append(link,save);container.append(actions);
   for(let pageNumber=1;pageNumber<=pdf.numPages;pageNumber++){
     const page=await pdf.getPage(pageNumber);if(generation!==state.pdfGeneration){await loadingTask.destroy();return;}
     const natural=page.getViewport({scale:1});const available=Math.max(200,container.clientWidth-30);const zoom=$('#zoom').value;const scale=zoom==='fit'?available/natural.width:Number(zoom);const viewport=page.getViewport({scale});
@@ -514,17 +522,17 @@ $('#pdf-document').onchange=async()=>{
   try{for(const side of state.pdfDocument==='cover'?['cover']:['original','current'])if(state.pdfs[side])await renderPDF(side,state.pdfs[side],generation);}catch(error){notice(error.message,true);}
 };
 async function compilePDFs(runId=null){
-  if(state.dirty&&state.pdfDocument==='cv'){notice('Save your LaTeX edits before compiling.',true);return;}
+  if(state.dirty&&state.pdfDocument==='cv'){notice('Save your CV draft before creating PDF previews.',true);return;}
   if(!state.snapshot)return;
-  const document=state.pdfDocument, generation=++state.pdfGeneration, branch=state.snapshot.branch;$('#compile').disabled=true;notice('Compiling the saved versions with the real TeX engine…');
+  const document=state.pdfDocument, generation=++state.pdfGeneration, branch=state.snapshot.branch;$('#compile').disabled=true;notice('Creating your PDF preview…');
   try{
     const results=await Promise.allSettled((document==='cover'?['cover']:['original','current']).map(async side=>{
-      delete state.pdfs[side];$(`#${side}-pdf`).innerHTML='<p class="pdf-message">Compiling PDF…</p>';
-      try{const result=await api('/api/pdf',{branch,side:side==='cover'?'current':side,engine:$('#engine').value,document,runId:document==='cover'?runId:null});if(generation!==state.pdfGeneration)return;state.pdfs[side]=result;if(side==='cover')$('#cover-pdf-label').textContent=runId?'Generated PDF from selected run':branch;await renderPDF(side,result,generation);return result;}
+      delete state.pdfs[side];$(`#${side}-pdf`).innerHTML='<p class="pdf-message">Creating PDF preview…</p>';
+      try{const result=await api('/api/pdf',{branch,side:side==='cover'?'current':side,engine:$('#engine').value,document,runId:document==='cover'?runId:null});if(generation!==state.pdfGeneration)return;state.pdfs[side]=result;if(side==='cover')$('#cover-pdf-label').textContent=runId?'PDF from this preparation':applicationName(branch);await renderPDF(side,result,generation);return result;}
       catch(error){if(generation===state.pdfGeneration)$(`#${side}-pdf`).innerHTML=`<p class="pdf-message">${esc(error.message)}</p>`;throw error;}
     }));
     if(generation!==state.pdfGeneration)return;
-    const warnings=results.flatMap(r=>r.status==='fulfilled'?r.value?.warnings||[]:[r.reason.message]);notice(warnings.length?warnings.join('\n'):(document==='cover'?'Cover-letter PDF ready. Text is selectable.':'Both PDFs compiled. Select text directly on either page.'),results.some(r=>r.status==='rejected'));
+    const warnings=results.flatMap(r=>r.status==='fulfilled'?r.value?.warnings||[]:[r.reason.message]);notice(warnings.length?warnings.join('\n'):(document==='cover'?'Cover-letter PDF ready. Text is selectable.':'PDF previews are ready. Select and copy text from either page.'),results.some(r=>r.status==='rejected'));
   }finally{$('#compile').disabled=!state.snapshot;}
 }
 $('#zoom').onchange=async()=>{const generation=++state.pdfGeneration;try{for(const side of state.pdfDocument==='cover'?['cover']:['original','current'])if(state.pdfs[side])await renderPDF(side,state.pdfs[side],generation);}catch(error){notice(error.message,true);}};
@@ -540,7 +548,7 @@ $('.tabs').onkeydown=event=>{
   event.preventDefault();setView(tabs[next].dataset.view);tabs[next].focus();
 };
 document.querySelectorAll('.close-dialog').forEach(button=>button.onclick=()=>button.closest('dialog').close());
-$('#job-description').oninput=()=>{state.jobDirty=$('#job-description').value!==state.snapshot.job;$('#job-state').textContent=state.jobDirty?'Unsaved changes':'Saved as job.md';};
+$('#job-description').oninput=()=>{state.jobDirty=$('#job-description').value!==state.snapshot.job;$('#job-state').textContent=state.jobDirty?'Unsaved changes':'Saved on this computer';updateSaveState();};
 $('#save-source').onclick=saveSource;$('#save-job').onclick=saveJob;$('#commit-push').onclick=showCommit;$('#run-adapt').onclick=()=>runAdapt();$('#compile').onclick=()=>compilePDFs();
 window.addEventListener('beforeunload',event=>{if(state.dirty||state.jobDirty){event.preventDefault();event.returnValue='';}});
 window.addEventListener('pagehide',()=>{

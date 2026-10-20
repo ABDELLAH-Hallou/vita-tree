@@ -44,5 +44,5 @@ class CoverCompilerTests(TestCase):
                 compile_document(self.root,'cover-letter.tex')
         calls=[subprocess.CompletedProcess([],0,b'engine',b''),subprocess.TimeoutExpired('fixture',90)]
         with patch('vita_tree.pdf.shutil.which',return_value='fixture-engine'),patch('vita_tree.pdf.subprocess.run',side_effect=calls):
-            with self.assertRaisesRegex(ValueError,'timed out after 90 seconds'):
+            with self.assertRaisesRegex(ValueError,'longer than 90 seconds'):
                 compile_document(self.root,'cover-letter.tex')

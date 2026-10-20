@@ -97,7 +97,7 @@ def discover(workspace, branch):
 
 def resolve(workspace, branch, provider, model, reasoning):
     if (model is not None and not isinstance(model, str)) or not isinstance(reasoning, str):
-        raise ValueError('Invalid model or reasoning selection.')
+        raise ValueError('Choose a supported AI model and thinking level.')
     catalog = discover(workspace, branch)
     provider = provider or catalog['default']['provider']
     if model is None:
@@ -106,7 +106,7 @@ def resolve(workspace, branch, provider, model, reasoning):
             model = catalog['default']['model']
     option = next((o for o in catalog['options'] if o['provider'] == provider and o['model'] == model), None)
     if not option or not option['supported']:
-        raise ValueError('Choose a supported provider and model from the repository list.')
+        raise ValueError('Choose an available AI service and model from the list.')
     if reasoning and reasoning not in option['reasoning']:
-        raise ValueError('This reasoning level is not supported by the selected provider/model and VITA integration.')
+        raise ValueError('This thinking level is not available for the selected AI model.')
     return provider, model, reasoning

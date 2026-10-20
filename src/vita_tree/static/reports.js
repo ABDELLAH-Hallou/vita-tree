@@ -50,10 +50,15 @@ export function markdown(content) {
   }
   return article;
 }
-export function reportDetails(path,content,{open=false,label=path}={}) {
+export function fileLabel(path){
+  const name=path.split('/').pop();
+  const labels={'analysis.md':'CV match analysis','analyze.md':'CV match analysis','adapt.md':'Tailoring summary','review.md':'AI review','delta.md':'Changes since the previous review','cover.md':'Cover-letter summary','main.tex':'CV source','cover-letter.tex':'Cover-letter source','job.md':'Job description','job.json':'Job requirements · data','job.toon':'Job requirements · data','analysis.json':'CV match scores · data','review.json':'Review scores · data','delta.json':'Score changes · data'};
+  return labels[name]||name;
+}
+export function reportDetails(path,content,{open=false,label=null}={}) {
   const item=document.createElement('details');item.open=open;item.dataset.path=path;
-  const summary=document.createElement('summary');summary.textContent=label;
-  item.append(summary);
+  const summary=document.createElement('summary');summary.textContent=label||fileLabel(path);
+  item.append(summary);const details=document.createElement("details");details.className="technical-details";const caption=document.createElement("summary");caption.textContent="File details";const code=document.createElement("code");code.textContent=path;details.append(caption,code);item.append(details);
   if(path.endsWith('.md')) item.append(markdown(content));
   else {const pre=document.createElement('pre');pre.textContent=content;item.append(pre);}
   return item;

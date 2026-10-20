@@ -1,12 +1,12 @@
 export const tasks = [
-  {id:'extract', title:'Extract', detail:'Turn the job description into reusable requirements.', output:'job.json + job.toon'},
-  {id:'analyze', title:'Analyze', detail:'Find the evidence and gaps in your original CV.', output:'analysis.md'},
-  {id:'adapt', title:'Adapt', detail:'Tailor the CV to the role and selected language.', output:'main.tex + adapt.md'},
-  {id:'review', title:'AI review', detail:'Evaluate the current CV. A matching analysis enables a before/after score comparison; otherwise this is a standalone evaluation.', output:'review.md · delta when comparable'},
-  {id:'cover', title:'Cover letter', detail:'Write a letter using the current CV and job context. Compiles a PDF before finishing. Adaptation is not required.', output:'cover-letter.tex + PDF'},
-  {id:'validating', title:'Validate', detail:'Check LaTeX structure and file conflicts before applying results. PDF compilation is separate.', output:'Branch files'},
+  {id:'extract', title:'Identify job requirements', detail:'Identify the skills and experience the employer wants.', output:'Job requirements'},
+  {id:'analyze', title:'Check CV match', detail:'Compare your CV with the job requirements.', output:'CV match analysis'},
+  {id:'adapt', title:'Tailor CV', detail:'Tailor the CV to the role and selected language.', output:'Tailored CV and summary'},
+  {id:'review', title:'Review CV with AI', detail:'Get feedback on your current CV. When an earlier matching analysis is available, compare the scores.', output:'Feedback and score comparison'},
+  {id:'cover', title:'Cover letter', detail:'Write a letter using the current CV and job context. Compiles a PDF before finishing. Adaptation is not required.', output:'Cover letter and PDF'},
+  {id:'validating', title:'Final checks', detail:'Check the document files and protect your existing edits. CV PDF previews are created separately.', output:'Application files'},
 ];
-export const statusNames = {pending:'Not started', running:'Running', succeeded:'Done', failed:'Failed', blocked:'Blocked', interrupted:'Interrupted', skipped:'Skipped', unavailable:'Unavailable', unknown:'Not recorded'};
+export const statusNames = {pending:'Not started', running:'In progress', succeeded:'Done', failed:'Couldn’t finish', blocked:'Waiting for an earlier step', interrupted:'Stopped before finishing', skipped:'Skipped', unavailable:'Not available', unknown:'No earlier details'};
 const symbols = {pending:'○', running:'◉', succeeded:'✓', failed:'!', blocked:'−', interrupted:'!', skipped:'−', unavailable:'−', unknown:'?'};
 export function graphStages(run, options={}, available={}) {
   return tasks.map(task => {

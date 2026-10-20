@@ -1661,3 +1661,19 @@ dialog textarea {
 @media(max-width:600px){.bulk-review-toolbar {align-items:flex-start;gap:8px}.bulk-review-toolbar label {max-width:100%}.bulk-review-toolbar button {white-space:normal}.branch-entry {padding-left:12px}}
 
 .cover-pdf-pane {max-width:960px;margin:0 auto}.cover-pdf-pane .pdf-scroll {min-height:520px}#open-cover-pdf,#open-run-cover-pdf {margin:0 0 16px}
+
+.technical-details {font-size:12px;color:var(--muted);min-width:0}
+.technical-details summary,.pdf-settings summary {cursor:pointer;color:var(--muted);padding:6px 0}
+.technical-details code,.technical-details pre {white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word}
+.technical-details[open] {padding-bottom:8px}
+.workspace-footer>.technical-details {max-width:55%}
+.pdf-settings {font-size:12px}.pdf-settings label {margin-top:8px}
+.activity-summary {padding:0;list-style:none;max-height:260px;overflow:auto;margin:16px 0}
+.activity-summary li {display:flex;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}
+.activity-summary time {color:var(--muted);flex-shrink:0}
+.activity-summary li[data-level=ERROR] {color:var(--negative)}
+#diagnostics-dialog>.technical-details {margin-top:12px}
+#message-details {padding:0 12px 10px}
+@media(max-width:900px){.workspace-footer>.technical-details {max-width:100%}.activity-summary li {flex-wrap:wrap;gap:5px}}
+
+.tabs {min-width:0;max-width:100%;overflow-x:auto;scrollbar-width:thin}.tabs button {flex-shrink:0}.page-heading {flex-wrap:wrap;gap:16px}.commit-files li>div {min-width:0}

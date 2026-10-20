@@ -56,13 +56,13 @@ def main():
                 page.locator('#new-job').fill(json.dumps({'label': label, 'mode': mode}))
                 page.locator('#create-form button[type=submit]').click()
                 expect(page.locator('#current-label')).to_have_text(label, timeout=30000)
-                page.get_by_role('tab', name='Job & AI', exact=False).click()
+                page.get_by_role('tab', name='Job details & AI', exact=False).click()
                 page.locator('#provider').select_option('openai')
                 page.locator('#model').select_option('fixture-model')
                 page.locator('#run-adapt').click()
                 expect(page.locator('#job-description')).to_have_attribute('readonly', '')
                 page.locator('#back').click()
-                expect(page.get_by_role('button', name='Open '+label, exact=True).locator('.branch-run')).to_contain_text('Analyzing', timeout=30000)
+                expect(page.get_by_role('button', name='Open '+label, exact=True).locator('.branch-run')).to_contain_text('Checking CV match', timeout=30000)
             page.locator('[data-filter=running]').click()
             expect(page.locator('#branch-list .branch-row')).to_have_count(3)
             expect(page.locator('#filter-running')).to_have_text('3')
@@ -83,7 +83,7 @@ def main():
             public = page.request.get(f'http://127.0.0.1:{server.server_port}/api/jobs').text()
             for secret in ('private-ui-fixture-value', 'VITA_TEST_SECRET', 'provider-fail', 'main.tex', 'env', 'stdout'):
                 assert secret not in public, 'Private run details leaked into the global API'
-            expect(page.get_by_role('button', name='Open gamma', exact=True).locator('.branch-run')).to_contain_text('Analyzing', timeout=30000)
+            expect(page.get_by_role('button', name='Open gamma', exact=True).locator('.branch-run')).to_contain_text('Checking CV match', timeout=30000)
             (control/'alpha.release').touch()
             expect(page.locator('#filter-review')).to_have_text('1', timeout=30000)
             page.locator('[data-filter=review]').click()
@@ -102,7 +102,7 @@ def main():
                 with page.expect_response(lambda response: response.url.endswith('/api/job-reviewed')) as pending:
                     page.locator('#mark-run-reviewed').click()
                 failure=pending.value.json()
-                expect(page.locator('#notice')).to_contain_text('Review state could not be saved')
+                expect(page.locator('#notice')).to_contain_text('Your review could not be saved')
                 expect(page.locator('#mark-run-reviewed')).to_have_text('Mark as reviewed')
                 expect(page.locator('#mark-run-reviewed')).to_be_enabled()
                 assert not server.workspace.get_job(alpha['id'])['reviewed']
@@ -111,6 +111,7 @@ def main():
             expect(page.locator('#filter-review')).to_have_text('1')
             page.locator('#workspace [data-open-diagnostics]').click()
             expect(page.locator('#diagnostics-dialog')).to_be_visible()
+            page.locator('#diagnostics-dialog').get_by_text('Technical details',exact=True).click()
             page.locator('#diagnostics-search').fill(failure['requestId'])
             expect(page.locator('#diagnostics-events')).to_contain_text('PermissionError')
             expect(page.locator('#diagnostics-events')).to_contain_text('errno 13')
@@ -123,7 +124,7 @@ def main():
             assert 'path' not in json.loads(bundle)['logging']
             page.locator('#diagnostics-search').fill('')
             page.screenshot(path=str(artifacts/'activity-errors-dark.png'),full_page=True)
-            page.get_by_role('button',name='Close activity and logs').click()
+            page.get_by_role('button',name='Close activity and support').click()
             page.locator('#mark-run-reviewed').click()
             expect(page.locator('#mark-run-reviewed')).to_have_text('Reviewed')
             expect(page.locator('#mark-run-reviewed')).to_be_disabled()
@@ -151,18 +152,18 @@ def main():
             expect(page.locator('#metric-failed')).to_have_text('1')
             assert page.locator('#diagnostics-dialog').evaluate('el=>el.scrollWidth<=el.clientWidth'), 'Activity panel overflows mobile'
             page.screenshot(path=str(artifacts/'activity-mobile.png'),full_page=True)
-            page.get_by_role('button',name='Close activity and logs').click()
+            page.get_by_role('button',name='Close activity and support').click()
             page.locator('[data-filter=failed]').click()
             page.get_by_role('button', name='Open beta', exact=True).click()
             page.locator('#view-run').click()
             expect(page.locator('#current-label')).to_have_text('beta', timeout=30000)
-            expect(page.locator('#selected-run-info')).to_contain_text('Failed')
+            expect(page.locator('#selected-run-info')).to_contain_text('Couldn’t finish')
             expect(page.locator('#filter-review')).to_have_text('1')
             # Commit the fixture locally, then leaving releases only this clean worktree.
             location = server.workspace.location('beta')
             git(location, 'add', 'job.md', 'main.tex'); git(location, 'commit', '-m', 'Saved fixture')
             page.locator('#back').click()
-            expect(page.locator('#toast')).to_contain_text('Clean worktree released', timeout=30000)
+            expect(page.locator('#toast')).to_contain_text('Application closed', timeout=30000)
             assert not location.exists()
             git(root, 'checkout', 'beta')  # No longer blocked by Vita Tree's worktree.
             git(root, 'checkout', 'master')
@@ -173,10 +174,10 @@ def main():
             page.locator('[data-filter=all]').click()
             page.locator('#search').fill('gamma')
             page.locator('#select-review-visible').check()
-            expect(page.locator('#bulk-review-count')).to_have_text('1 run selected')
+            expect(page.locator('#bulk-review-count')).to_have_text('1 result selected')
             page.locator('#search').fill('')
-            page.get_by_role('checkbox',name='Select unreviewed runs for beta',exact=True).check()
-            expect(page.locator('#bulk-review-count')).to_have_text('2 runs selected')
+            page.get_by_role('checkbox',name='Select unreviewed results for beta',exact=True).check()
+            expect(page.locator('#bulk-review-count')).to_have_text('2 results selected')
             from vita_tree.workspace import atomic_write as original_write
             beta=next(run for run in server.workspace.list_jobs()['runs'] if run['branch']=='beta')
             def deny_beta(path,content):
@@ -185,12 +186,12 @@ def main():
             with patch('vita_tree.workspace.atomic_write',side_effect=deny_beta):
                 page.locator('#bulk-review').click()
                 expect(page.locator('#bulk-review-status')).to_contain_text('1 could not be saved')
-            expect(page.locator('#bulk-review-count')).to_have_text('1 run selected')
-            expect(page.get_by_role('checkbox',name='Select unreviewed runs for beta',exact=True)).to_be_checked()
-            expect(page.get_by_role('checkbox',name='Select unreviewed runs for gamma',exact=True)).to_be_disabled()
+            expect(page.locator('#bulk-review-count')).to_have_text('1 result selected')
+            expect(page.get_by_role('checkbox',name='Select unreviewed results for beta',exact=True)).to_be_checked()
+            expect(page.get_by_role('checkbox',name='Select unreviewed results for gamma',exact=True)).to_be_disabled()
             assert not server.workspace.get_job(beta['id'])['reviewed']
             page.locator('#bulk-review').click()
-            expect(page.locator('#bulk-review-status')).to_have_text('1 run marked as reviewed.')
+            expect(page.locator('#bulk-review-status')).to_have_text('1 result marked as reviewed.')
             expect(page.locator('#bulk-review')).to_be_disabled()
             expect(page.locator('#filter-review')).to_have_text('0')
             page.reload()

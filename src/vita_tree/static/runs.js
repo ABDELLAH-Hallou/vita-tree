@@ -1,11 +1,11 @@
 import {tasks} from './workflow.js';
 // Global background run monitor. Polling is independent of branch navigation.
 export const isActiveRun = run => run && ['queued', 'running'].includes(run.status);
-export const runLabel = run => ({queued:'Queued', preparing:'Preparing', extract:'Extracting', review:'Reviewing', cover:'Writing cover letter', analyze:'Analyzing', adapt:'Adapting',
-  validating:'Validating', completed:'Completed', failed:'Failed', interrupted:'Interrupted'}[run.step] || run.status);
+export const runLabel = run => ({queued:'Queued', preparing:'Preparing', extract:'Identifying requirements', review:'Reviewing CV', cover:'Writing cover letter', analyze:'Checking CV match', adapt:'Tailoring CV',
+  validating:'Checking results', completed:'Completed', failed:'Couldn’t finish', interrupted:'Stopped before finishing'}[run.step] || run.status);
 export const runSteps = run => {
   const selected=(run.stages || []).filter(stage=>stage.status!=='skipped'&&stage.id!=='validating');
-  return selected.map(stage=>tasks.find(task=>task.id===stage.id)?.title).join(' → ') || (run.stages?.length?'Validation':'Workflow');
+  return selected.map(stage=>tasks.find(task=>task.id===stage.id)?.title).join(' → ') || (run.stages?.length?'Final checks':'Preparation');
 };
 
 export function createRunMonitor({api, changed}) {
@@ -20,7 +20,7 @@ export function createRunMonitor({api, changed}) {
       const next = JSON.stringify(runs.map(({elapsedSeconds, ...run}) => run));
       $('#runs-error').textContent = '';
       if(next !== signature) {signature = next; await changed(runs);}
-    } catch(error) {$('#runs-error').textContent = 'Run status is unavailable. Reconnecting…';}
+    } catch(error) {$('#runs-error').textContent = 'Preparation updates are unavailable. Reconnecting…';}
     finally {pending = false;}
   }
   async function poll() {await refresh(); setTimeout(poll, 1500);}
