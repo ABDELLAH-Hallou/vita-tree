@@ -58,7 +58,7 @@ def main():
                 expect(page.locator('#current-label')).to_have_text(label, timeout=30000)
                 page.get_by_role('tab', name='Job details & AI', exact=False).click()
                 page.locator('#provider').select_option('openai')
-                page.locator('#model').select_option('fixture-model')
+                page.locator('#model').fill('fixture-model');page.locator('#model').press('Tab')
                 page.locator('#run-adapt').click()
                 expect(page.locator('#job-description')).to_have_attribute('readonly', '')
                 page.locator('#back').click()

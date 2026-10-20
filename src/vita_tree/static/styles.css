@@ -1677,3 +1677,55 @@ dialog textarea {
 @media(max-width:900px){.workspace-footer>.technical-details {max-width:100%}.activity-summary li {flex-wrap:wrap;gap:5px}}
 
 .tabs {min-width:0;max-width:100%;overflow-x:auto;scrollbar-width:thin}.tabs button {flex-shrink:0}.page-heading {flex-wrap:wrap;gap:16px}.commit-files li>div {min-width:0}
+
+/* Shared configuration, with optional node-level overrides. */
+.ai-shared {margin:0 20px 16px;padding:16px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.ai-setup-heading {display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:14px}
+.ai-setup-heading h3 {margin:0;font-size:14px}
+.ai-setup-heading .pill {flex:none;font-size:10px}
+.ai-grid .ai-shared .helper,.ai-grid .ai-advanced .helper {padding:0;margin:6px 0}
+.ai-route-fields .ai-controls {padding:0;gap:12px}
+.ai-route-fields input:not([type=checkbox]),.ai-route-fields select {width:100%;min-width:0;font-size:13px}
+.ai-route-fields label {font-size:12px}
+.connection-actions {display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px}
+.connection-actions>.helper {flex:1 1 180px;min-width:0;overflow-wrap:anywhere}
+.connection-actions button {padding:5px 9px;font-size:11px}
+.ai-advanced {margin:0 20px 14px;border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.ai-advanced>summary {cursor:pointer;font-weight:600;font-size:12px;list-style-position:inside}
+.ai-advanced>summary .pill {font-weight:400;font-size:10px;margin-left:6px}
+.ai-advanced[open]>summary {margin-bottom:12px}
+.ai-step-setting {border-top:1px solid var(--line);padding:12px 0}
+.ai-step-setting>summary {cursor:pointer;display:flex;flex-direction:column;gap:2px;font-size:12px}
+.ai-step-setting>summary strong::before {content:'› ';color:var(--accent)}
+.ai-step-setting[open]>summary strong::before {content:'⌄ '}
+.ai-step-setting>summary .helper {overflow-wrap:anywhere;font-size:11px}
+.ai-override-toggle {display:flex;flex-direction:row;align-items:center;gap:8px;margin:12px 0;font-size:12px}
+.ai-override-toggle input {width:16px;height:16px;margin:0;accent-color:var(--accent)}
+.ai-save-bar {display:flex;align-items:center;gap:10px;margin:0 20px 16px}
+.ai-save-bar button {flex:none;font-size:12px}
+.ai-grid .ai-save-bar .helper {padding:0;margin:0}
+.ai-setup-error {color:var(--negative);font-size:12px;padding:0 24px;overflow-wrap:anywhere}
+.ai-language {padding:0 24px 10px;max-width:270px}
+.ai-language select {width:100%}
+.workflow-options .step-ai-summary {color:var(--accent);font-size:10px}
+.dag-model {grid-column:1/-1;display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:10px var(--mono);color:var(--accent)}
+#connection-dialog {width:min(490px,calc(100% - 32px))}
+.ai-grid #connection-dialog .helper {padding:0}
+#connection-dialog .ai-setup-error {padding:0}
+#connection-dialog .show-key {display:flex;flex-direction:row;gap:8px;align-items:center;margin:10px 0}
+#connection-dialog .show-key input {width:16px;height:16px;margin:0}
+#step-ai-dialog {width:min(660px,calc(100% - 32px));max-height:90vh;overflow:auto}
+#step-ai-dialog .dialog-heading {margin-bottom:12px;align-items:flex-start}
+#step-ai-dialog .dialog-heading h2 {font-size:21px;margin-top:8px}
+#step-ai-dialog .helper {padding:0;margin:8px 0;overflow-wrap:anywhere}
+#step-ai-dialog .ai-setup-error {padding:0}
+#step-ai-dialog .ai-route-fields label {margin-bottom:0}
+#step-ai-dialog .ai-controls {padding:0;gap:14px}
+.step-ai-mode {border:1px solid var(--line);border-radius:8px;margin:18px 0;padding:12px 14px}
+.step-ai-mode legend {font-size:12px;color:var(--muted);padding:0 5px}
+#step-ai-dialog .step-ai-mode label {display:flex;flex-direction:row;align-items:flex-start;gap:10px;margin:8px 0;font-size:13px}
+.step-ai-mode input {flex:none;width:16px;height:16px;margin:3px 0 0;accent-color:var(--accent)}
+.step-ai-mode small {display:block;color:var(--muted);font-weight:400;font-size:12px}
+#step-ai-save-hint {border-top:1px solid var(--line);padding-top:12px!important;margin-top:16px!important}
+@media(max-width:600px){#step-ai-dialog {padding:18px;max-height:92vh}#step-ai-dialog .ai-controls {grid-template-columns:1fr}#step-ai-dialog .dialog-footer {flex-wrap:wrap}}
+@media(max-width:600px){.ai-shared,.ai-advanced {margin-left:12px;margin-right:12px;padding:12px}.ai-setup-heading {flex-wrap:wrap}.ai-route-fields .ai-controls {grid-template-columns:1fr}.ai-save-bar {margin:0 12px 14px;flex-wrap:wrap}.ai-step-setting>summary .helper {white-space:normal}}

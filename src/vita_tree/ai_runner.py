@@ -34,14 +34,16 @@ def configure(llm):
     original_load = llm.load_env
     # VITA normally returns only .vita/.env entries. Keys supplied by the parent
     # process must also be visible, without writing a second credentials file.
-    llm.load_env = lambda: {**os.environ, **original_load()}
+    llm.load_env = lambda: {**original_load(), **os.environ}
     reasoning = os.environ.get('VITA_TREE_REASONING', '')
     if reasoning:
         llm._call_codex_cli = lambda system, user, model='': call_codex(llm, system, user, model, reasoning)
 
 
 def main():
-    from vita.helpers import llm
+    from vita.helpers import env, llm
+    original_load = env.load_env
+    env.load_env = lambda: {**original_load(), **os.environ}
     configure(llm)
     runpy.run_module('vita', run_name='__main__')
 

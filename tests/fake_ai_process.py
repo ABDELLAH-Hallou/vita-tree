@@ -10,6 +10,18 @@ step = sys.argv[1]
 job = json.loads(Path('job.md').read_text())
 control = Path(os.environ['VITA_TEST_CONTROL'])
 label = job['label']
+expected_ai = control / (label + '.' + step + '.expected-ai.json')
+if expected_ai.exists():
+    expected = json.loads(expected_ai.read_text())
+    assert sys.argv[sys.argv.index('--provider') + 1] == expected['provider']
+    config = json.loads(Path('.vita/extensions.json').read_text())
+    assert config['llm_providers'][expected['provider']]['model'] == expected['model']
+    assert os.environ['VITA_TREE_REASONING'] == expected.get('reasoning', '')
+    assert os.environ[expected['provider'].upper() + '_API_KEY'] == expected['key']
+    for prefix in ('EXTRACTION', 'ANALYSIS', 'ADAPT', 'REVIEW', 'COVER'):
+        assert os.environ[prefix + '_PROVIDER'] == expected['provider']
+        assert os.environ[prefix + '_MODEL'] == expected['model']
+    (control / (label + '.' + step + '.verified-ai')).touch()
 if job.get('pipeline'):
     (control / (label + '.' + step + '.started')).write_text(str(time.time()))
     if job.get('hold') == step:

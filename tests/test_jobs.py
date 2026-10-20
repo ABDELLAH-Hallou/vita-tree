@@ -229,6 +229,50 @@ class JobTests(unittest.TestCase):
         self.workspace.save(label, 'job.md', branch['jobRevision'], json.dumps({'label': label, 'pipeline': True, **options}))
         return self.workspace.snapshot(label)
 
+    def test_per_step_models_providers_and_keys_reach_independent_processes(self):
+        self.pipeline_source()
+        branch = self.pipeline_branch('mixed-models', extraction=True)
+        first = self.workspace.add_connection('First account', 'openai', 'test-first-session-key')
+        second = self.workspace.add_connection('Second account', 'openai', 'test-second-session-key')
+        gemini = self.workspace.add_connection('Gemini account', 'gemini', 'test-gemini-session-key')
+        settings = {'default': {'provider': 'openai', 'model': 'unlisted-shared', 'connection': first['id']},
+                    'steps': {'analyze': {'provider': 'gemini', 'model': 'unlisted-analysis', 'connection': gemini['id']},
+                              'adapt': {'model': 'unlisted-writer', 'connection': second['id']}}}
+        expected = {'extract': ('openai', 'unlisted-shared', 'test-first-session-key'),
+                    'analyze': ('gemini', 'unlisted-analysis', 'test-gemini-session-key'),
+                    'adapt': ('openai', 'unlisted-writer', 'test-second-session-key')}
+        for step, (provider, model, key) in expected.items():
+            (self.control / ('mixed-models.' + step + '.expected-ai.json')).write_text(json.dumps(dict(provider=provider, model=model, key=key)))
+        # Hold analysis so we can prove that a submitted run captures its own keys.
+        record = self.start(branch, ai_config=settings, workflow={'steps': ['extract', 'analyze', 'adapt']})
+        self.wait(lambda: (self.control/'mixed-models.started').exists())
+        self.workspace.remove_connection(second['id'])
+        self.release('mixed-models')
+        result = self.finished(record['id'])
+        self.assertEqual(result['status'], 'succeeded', result)
+        for step, (_, model, _) in expected.items():
+            self.assertTrue((self.control / ('mixed-models.' + step + '.verified-ai')).exists())
+            self.assertEqual(result['stepConfig'][step]['model'], model)
+        self.assertEqual(result['stepConfig']['adapt']['connectionName'], 'Second account')
+        run_folder = self.workspace.root/'runs'/record['id']
+        public = json.dumps(self.workspace.list_jobs())
+        retained = ''.join(p.read_text(errors='replace') for p in run_folder.rglob('*') if p.is_file())
+        for _, _, key in expected.values():
+            self.assertNotIn(key, public)
+            self.assertNotIn(key, retained)
+        self.assertEqual(Workspace(self.root).get_job(record['id'])['stepConfig'], result['stepConfig'])
+
+    def test_expired_connection_blocks_only_selected_steps_before_run_creation(self):
+        branch = self.branch('expired-connection')
+        settings = {'default': {'provider': 'openai', 'model': 'custom'},
+                    'steps': {'adapt': {'connection': 'f' * 32}}}
+        with self.assertRaisesRegex(ValueError, 'connection is unavailable'):
+            self.start(branch, ai_config=settings, workflow={'steps': ['adapt']})
+        self.assertEqual(self.workspace.list_jobs()['runs'], [])
+        record = self.start(branch, ai_config=settings, workflow={'steps': ['analyze']})
+        self.release('expired-connection')
+        self.assertEqual(self.finished(record['id'])['status'], 'succeeded')
+
     def test_full_pipeline_retains_reports_states_and_selected_routing(self):
         self.pipeline_source()
         branch = self.pipeline_branch('pipeline', extraction=True)

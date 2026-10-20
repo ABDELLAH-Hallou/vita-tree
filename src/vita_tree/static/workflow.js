@@ -20,7 +20,7 @@ export function graphStages(run, options={}, available={}) {
     return {...task, ...stage};
   });
 }
-export function renderGraph(container, {run, options, available, selected, select}) {
+export function renderGraph(container, {run, options, available, selected, select, config={}}) {
   const stages = graphStages(run, options, available);
   // Keep keyboard focus stable while a poll updates status text.
   const focused = container.contains(document.activeElement) ? document.activeElement.dataset.step : null;
@@ -33,6 +33,10 @@ export function renderGraph(container, {run, options, available, selected, selec
     const button = document.createElement('button'); button.type='button'; button.className='dag-node';
     button.dataset.step=task.id; button.dataset.status=task.status;
     button.setAttribute('aria-pressed',String(selected === task.id));
+    if(task.id!=='validating'){
+      button.setAttribute('aria-haspopup','dialog');
+      button.title=run?'View the AI settings captured for this step':'Configure the AI for this step';
+    }
     button.setAttribute('aria-label',`${task.title}: ${statusNames[task.status] || task.status}. ${task.detail}`);
     const icon=document.createElement('span'); icon.className='dag-symbol'; icon.textContent=symbols[task.status] || '?'; icon.setAttribute('aria-hidden','true');
     const title=document.createElement('strong'); title.textContent=task.title;
@@ -41,6 +45,10 @@ export function renderGraph(container, {run, options, available, selected, selec
     if(task.startedAt&&!task.finishedAt&&task.status==='running')time.dataset.startedAt=task.startedAt;
     time.textContent=task.startedAt ? `${Math.max(0,Math.floor((task.finishedAt || Date.now()/1000)-task.startedAt))}s` : task.output;
     button.append(icon,title,state,time); button.onclick=()=>select(task); container.append(button);
+    if(config[task.id]) {
+      const route=config[task.id], model=document.createElement('span');model.className='dag-model';
+      model.textContent=route.model||route.provider+' default';model.title=`${route.provider} · ${route.reasoning||'Automatic reasoning'}`;button.append(model);
+    }
   }
   if(focused) container.querySelector(`[data-step="${focused}"]`)?.focus({preventScroll:true});
 }
