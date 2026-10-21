@@ -71,3 +71,17 @@ def set_theme(page, theme):
     if page.locator('html').get_attribute('data-theme') != theme:
         page.get_by_role('button', name=f'Switch to {theme} mode', exact=True).click()
     expect(page.locator('html')).to_have_attribute('data-theme', theme)
+
+
+# Sanitized minimal reproduction from issue #37; no optional TeX packages.
+CUSTOM_ENVIRONMENT_SOURCE = r"""\documentclass{article}
+\newenvironment{indentsection}[1]%
+{\begin{list}{}%
+{\setlength{\leftmargin}{#1}}%
+     \item[]
+}
+{\end{list}}
+\begin{document}
+\begin{indentsection}{1em}Sample experience.\end{indentsection}
+\end{document}
+"""

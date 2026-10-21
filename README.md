@@ -126,6 +126,8 @@ For a pipx editable installation, source changes take effect when you restart `v
 | Guaranteed perfect PDF reading order for arbitrary templates/fonts | Not possible; depends on the PDF's text encoding and layout |
 | Successful AI generation for every provider | Depends on VITA credentials/provider availability; provider, validation, and conflict failures preserve the CV; inspect files after disk-write failures |
 
+Custom command and environment definitions keep their original source ranges. Their bodies are read as token lists rather than executed: an environment may open in one definition argument and close in another. Structure shows supported body text with an approximate-layout notice; use PDF preview for the actual expanded layout.
+
 Structure preserves unsupported source and explicitly reports unknown commands/environments. It is a reading/editing aid, not a TeX engine. Source edits can temporarily be invalid; the UI reports parse/compile failures instead of pretending a stale PDF is current. AI results are syntax-checked but still require PDF compilation and factual review.
 
 PDF previews and AI snapshots are stored under the repository Git common directory's `vita-tree/pdf/` and `vita-tree/runs/`. AI input text is retained in `vita-tree/run-inputs/`, cover-letter PDFs in `vita-tree/run-pdfs/`, and run status and review state in `vita-tree/job-history/`. These can accumulate; keep the server stopped before manually cleaning old cache folders. Do not delete `worktrees/` directly; use Git's worktree commands.
