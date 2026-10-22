@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import patch
 
 from vita_tree.workspace import Workspace, ConflictError, digest
-from support import SOURCE, cleanup_repo, init_repo, git
+from support import SOURCE, cleanup_repo, init_repo, git, CUSTOM_ENVIRONMENT_SOURCE
 
 
 class JobTests(unittest.TestCase):
@@ -473,6 +473,19 @@ class JobTests(unittest.TestCase):
         (self.control / 'single-conflict.review.release').touch()
         self.assertEqual(self.finished(record['id'])['status'], 'failed')
         self.assertTrue(self.workspace.read('single-conflict', 'main.tex').endswith('% external edit'))
+
+    def test_validation_only_accepts_custom_environment_and_preserves_source(self):
+        branch = self.workspace.snapshot('master')
+        self.workspace.save('master', 'main.tex', branch['revision'], CUSTOM_ENVIRONMENT_SOURCE)
+        branch = self.workspace.snapshot('master')
+        self.assertIsNone(branch['document']['error'])
+        self.assertIn('Sample experience.', branch['document']['html'])
+        with patch.object(self.workspace, 'vita_command', side_effect=AssertionError('No AI required')):
+            record = self.start(branch, workflow={'steps': ['validating']})
+            result = self.finished(record['id'])
+        self.assertEqual(result['status'], 'succeeded', result)
+        self.assertEqual(self.workspace.read('master', 'main.tex'), CUSTOM_ENVIRONMENT_SOURCE)
+        self.assertEqual(next(stage for stage in result['stages'] if stage['id'] == 'validating')['status'], 'succeeded')
 
     def test_validate_requires_neither_cli_nor_job_and_ai_requires_saved_inputs(self):
         branch = self.workspace.snapshot('master')

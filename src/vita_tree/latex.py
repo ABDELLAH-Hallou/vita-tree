@@ -7,15 +7,60 @@ import re
 from pylatexenc.latexwalker import (
     LatexWalker, LatexCharsNode, LatexMacroNode, LatexGroupNode,
     LatexEnvironmentNode, LatexCommentNode, LatexMathNode, LatexSpecialsNode,
-    get_default_latex_context_db, LatexWalkerError,
+    get_default_latex_context_db, LatexWalkerError, LatexWalkerParseError,
+    LatexWalkerEndOfStream,
 )
-from pylatexenc.macrospec import MacroSpec, EnvironmentSpec
+from pylatexenc.macrospec import MacroSpec, EnvironmentSpec, MacroStandardArgsParser, ParsedMacroArgs
 from pylatexenc.latex2text import LatexNodes2Text
+
+
+# Definition bodies are token lists, not independently balanced environments or
+# math expressions. In particular, newenvironment splits begin/end across two
+# arguments. Read balanced braces without expanding or interpreting those tokens.
+DEFINITIONS = {"newenvironment": 2, "renewenvironment": 2, "provideenvironment": 2,
+               "newcommand": 1, "renewcommand": 1, "providecommand": 1,
+               "DeclareRobustCommand": 1}
+
+
+class DefinitionArgsParser(MacroStandardArgsParser):
+    def __init__(self, bodies):
+        super().__init__("*{[[")
+        self.bodies = bodies
+
+    def parse_args(self, w, pos, parsing_state=None):
+        prefix, _, length = super().parse_args(w, pos, parsing_state=parsing_state)
+        end = pos + length
+        args = list(prefix.argnlist)
+        for _ in range(self.bodies):
+            start = end
+            depth = 0
+            try:
+                while True:
+                    token = w.get_token(end, environments=False, parsing_state=parsing_state)
+                    end = token.pos + token.len
+                    if token.tok == 'comment':
+                        continue
+                    if token.tok == 'brace_open':
+                        depth += 1
+                    elif token.tok == 'brace_close':
+                        depth -= 1
+                        if depth < 0:
+                            raise LatexWalkerParseError('Unexpected closing brace in definition', s=w.s, pos=token.pos)
+                    if depth == 0:
+                        break
+            except LatexWalkerEndOfStream:
+                raise LatexWalkerParseError('Incomplete command or environment definition', s=w.s, pos=start) from None
+            # An opaque node retains the exact source range, including comments.
+            # It is never rendered or exposed as an editable Structure leaf.
+            args.append(w.make_node(LatexGroupNode, pos=start, len=end-start,
+                                    nodelist=[], delimiters=('{', '}'), parsing_state=parsing_state))
+        return ParsedMacroArgs(argspec=self.argspec + '{' * self.bodies, argnlist=args), pos, end-pos
 
 
 def context():
     db = get_default_latex_context_db()
     db.add_context_category("vita", macros=[
+        *(MacroSpec(name, DefinitionArgsParser(bodies)) for name, bodies in DEFINITIONS.items()),
         MacroSpec("name", "{"), MacroSpec("address", "{"),
         MacroSpec("href", "[{{"), MacroSpec("url", "{"),
         MacroSpec("resumeItem", "{"), MacroSpec("resumeSubheading", "{{{{"),
@@ -139,6 +184,9 @@ class Renderer:
             return body
         if isinstance(node, LatexMacroNode):
             name, args = node.macroname, self.args(node)
+            if name in DEFINITIONS:
+                self.warnings.add("Custom definitions are preserved, not expanded in Structure. Use PDF for exact rendering.")
+                return ""
             value = lambda: self.node(args[-1]) if args else ""
             if name in {"name", "title"}:
                 return '<h1 class="cv-name">' + value() + '</h1>'
@@ -180,6 +228,7 @@ class Renderer:
 def lint_source(source: str) -> list[dict]:
     """Report the first syntax problem; ranges use browser UTF-16 offsets.
 
+    Definition bodies are balanced token lists, not expanded document content.
     This does not expand arbitrary macros or validate installed TeX packages.
     """
     try:
