@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.7.1](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.7.0...v1.7.1) (2026-10-22)
+
+
+### Bug Fixes
+
+* accept custom LaTeX environment definitions ([f46c2a6](https://github.com/ABDELLAH-Hallou/vita-tree/commit/f46c2a683c53c4c9323917f9f12d4704b793c117))
+* accept valid custom LaTeX environment definitions ([20ea548](https://github.com/ABDELLAH-Hallou/vita-tree/commit/20ea5480c31ce817ec8ace442f2d3e97d03b57da))
+
 ## [1.7.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.6.0...v1.7.0) (2026-10-20)
 
 
