@@ -148,7 +148,9 @@ Verified checkpoints live in the Git common directory under `vita-tree/checkpoin
 
 ## Activity, errors, and logs
 
-Open **Activity & support** in the sidebar or workspace footer for running/completed/failed run counts, request metrics, and recent events. Errors include a reference ID; paste it into the activity search to find the operation, error type, OS error code, and code location. **Download diagnostics** exports a sanitized snapshot without local log paths.
+Open **Activity & support** for preparation history, request metrics, and recent events. Select a preparation or use **Execution details** in its workflow to inspect phases, attempts, requested/effective AI routing, capture availability, and safe provider errors. The inspector's **Retry preparation** preserves captured routing and reviews verified checkpoint reuse before starting another attempt.
+
+Execution traces live in the application project's .vita/logs/traces/ directory, independently of disposable workspaces and checkpoint cleanup. Older backends show limited diagnostics. See [Execution inspector](docs/EXECUTION_INSPECTOR.md) for trace locations, alternative destinations, capture policies, retention, compatibility, and inspectable support exports. Errors also include request references that can be found in the existing event search.
 
 `vt run` prints the log filename and metrics URL at startup. Rotating JSON logs live outside the repository, under `%LOCALAPPDATA%\vita-tree\logs\<repository-id>` on Windows or `$XDG_STATE_HOME/vita-tree/logs/<repository-id>` on other platforms (default `~/.local/state`). Each server session keeps up to six 1 MB files. Logs exclude CV/job contents, prompts, credentials, request payloads, and raw provider output. If file logging cannot write, the UI retains the latest 200 events in memory and reports the logging failure.
 

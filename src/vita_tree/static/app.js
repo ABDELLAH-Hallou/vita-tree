@@ -1,4 +1,4 @@
-﻿const $ = selector => document.querySelector(selector);
+const $ = selector => document.querySelector(selector);
 const state = {branches: [], session: null, snapshot: null, view: 'structure', generation: 0, pdfs: {}, pdfGeneration: 0, dirty: false, jobDirty: false, leaf: null, publishing: false, commitReview: null};
 import {createLatexEditor} from './vendor/editor.mjs';
 import {createRunMonitor, isActiveRun, runLabel, runSteps} from './runs.js';
@@ -393,6 +393,7 @@ function renderWorkflow(){
   if(run&&!runs.some(item=>item.id===run.id))select.add(new Option('Current preparation',run.id));
   select.value=run?run.id:'draft';state.displayedRun=run;
   const finished=run&&!isActiveRun(run);
+  $('#inspect-run').hidden=!run;$('#inspect-step').hidden=!run;$('#inspect-step-dialog').hidden=!run;
   $('#resume-run').hidden=!run?.resumeAvailable;$('#resume-run').disabled=!!state.snapshot.running||!!state.launching||!!state.retryPlanning||!state.snapshot.editable;
   $('#view-run').hidden=!finished;$('#view-run').disabled=!!state.openingRunId;
   const reviewButton=$('#mark-run-reviewed');reviewButton.hidden=!finished;
@@ -452,23 +453,36 @@ function renderAttemptHistory(detail){
     area.append(row);
   }
 }
-$('#resume-run').onclick=async()=>{
+async function reviewResume(){
   const run=state.displayedRun,s=state.snapshot;
   if(!run?.resumeAvailable||state.retryPlanning||state.launching)return;
   if(state.dirty||state.jobDirty){notice('Save your CV and job description drafts before retrying.',true);return;}
-  state.retryPlanning=true;renderWorkflow();
+  state.retryPlanning=true;$('#confirm-resume').disabled=true;$('#resume-current-config').disabled=true;renderWorkflow();
   try{
-    const request={id:run.id,revision:s.revision,jobRevision:s.jobRevision,aiConfig:aiSetup.value(),language:$('#language').value};
+    const captured=state.resumeCaptured&&!$('#resume-current-config').checked;
+    const request={id:run.id,revision:s.revision,jobRevision:s.jobRevision,...(captured?{}:{aiConfig:aiSetup.value(),language:$('#language').value})};
     const plan=await api('/api/resume-preview',request);
     if(state.snapshot!==s)return;
     state.resumeReview={request,plan,snapshot:s};
-    $('#resume-summary').textContent=`Attempt ${plan.attempt}, continuing attempt ${run.attempt||1}. Output language: ${$('#language').selectedOptions[0].textContent}. Uses the AI setup currently shown for this application.`;
+    $('#resume-summary').textContent=`Attempt ${plan.attempt}, continuing attempt ${run.attempt||1}. Output language: ${[...$('#language').options].find(item=>item.value===(captured?run.language:$('#language').value))?.textContent||run.language}. ${captured?'Preserves the AI setup and language captured for this preparation.':'Uses the AI setup currently shown for this application.'}`;
+    $('#resume-config-choice').hidden=!state.resumeCaptured;
     $('#resume-reuse').textContent=plan.reuse.length?plan.reuse.map(stepTitle).join(', '):'None. Start again with the current inputs and setup.';
     $('#resume-rerun').textContent=[...plan.rerun.map(stepTitle),'Final checks'].join(', ');
     $('#resume-adapted').hidden=!plan.reuse.includes('adapt');$('#resume-error').textContent='';$('#confirm-resume').disabled=false;
-    $('#resume-dialog').showModal();
-  }catch(error){notice(error.message,true);}finally{state.retryPlanning=false;renderWorkflow();}
-};
+    if(!$('#resume-dialog').open)$('#resume-dialog').showModal();
+  }catch(error){
+    state.resumeReview=null;$('#confirm-resume').disabled=true;$('#resume-error').textContent=error.message;notice(error.message,true);
+    if(state.resumeCaptured){
+      $('#resume-config-choice').hidden=false;
+      $('#resume-summary').textContent='The captured setup could not be checked. Reconnect the account in this application, then explicitly choose its current setup, or cancel and review the error.';
+      $('#resume-reuse').textContent='Not verified. A valid retry plan is required before starting.';
+      $('#resume-rerun').textContent='Not planned yet.';$('#resume-adapted').hidden=true;
+      if(!$('#resume-dialog').open)$('#resume-dialog').showModal();
+    }
+  }finally{state.retryPlanning=false;$('#resume-current-config').disabled=false;renderWorkflow();}
+}
+$('#resume-run').onclick=()=>{state.resumeCaptured=false;$('#resume-current-config').checked=false;reviewResume();};
+$('#resume-current-config').onchange=()=>reviewResume();
 $('#resume-form').onsubmit=async event=>{
   event.preventDefault();const review=state.resumeReview;if(!review||state.launching)return;
   state.launching=true;$('#confirm-resume').disabled=true;renderWorkflow();configureWorkflow();
@@ -600,7 +614,18 @@ window.addEventListener('pagehide',()=>{
     body:JSON.stringify({branch:state.snapshot.branch})}).catch(()=>{});
 });
 document.addEventListener('keydown',event=>{if(event.key==='/'&&!event.target.closest('input,textarea,select,[contenteditable]')&&!$('#board').hidden){event.preventDefault();$('#search').focus();}if((event.ctrlKey||event.metaKey)&&event.key==='s'&&state.snapshot){event.preventDefault();state.view==='ai'?saveJob():saveSource();}});
-initDiagnostics({api});
+const executionInspector=initDiagnostics({api,retry:async(id,close)=>{
+  if(state.dirty||state.jobDirty)throw new Error('Save your CV and job description drafts before retrying.');
+  const run=await api('/api/job?id='+encodeURIComponent(id));
+  close();await openRun(run);
+  if(state.snapshot?.branch!==run.branch)throw new Error('Open this application before retrying.');
+  state.resumeCaptured=true;$('#resume-current-config').checked=false;await reviewResume();
+}});
+$('#inspect-run').onclick=()=>executionInspector.open(state.displayedRun?.id);
+$('#inspect-step').onclick=()=>executionInspector.open(state.displayedRun?.id,state.selectedTask);
+$('#inspect-step-dialog').onclick=()=>{
+  $('#step-ai-dialog').close();executionInspector.open(state.displayedRun?.id,state.selectedTask);
+};
 try{state.session=await api('/api/session');await loadBranches();const params=new URLSearchParams(location.search), branch=params.get('branch');if(['structure','source','pdf','changes','ai'].includes(params.get('view')))state.view=params.get('view');if(branch)await openBranch(branch);runMonitor=createRunMonitor({api,changed:runsChanged});runMonitor.start();}catch(error){$('#branch-list').innerHTML=`<p class="empty">${esc(error.message)}</p>`;}
 
 setInterval(()=>{document.querySelectorAll(".dag-time[data-started-at]").forEach(el=>{el.textContent=`${Math.max(0,Math.floor(Date.now()/1000-Number(el.dataset.startedAt)))}s`;});},1000);

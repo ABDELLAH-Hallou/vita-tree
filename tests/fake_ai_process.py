@@ -14,6 +14,9 @@ label = job['label']
 success = False
 
 def outcome():
+    if job.get('diagnostics') and os.environ.get('VITA_TRACEPARENT'):
+        from diagnostic_fixtures import from_environment
+        from_environment(step, 'success' if success else job['diagnostics'])
     if job.get('legacy_cli') or not os.environ.get('VITA_TREE_EXECUTION_ID'):
         return
     results = Path('.vita/results'); results.mkdir(parents=True, exist_ok=True)
