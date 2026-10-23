@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.8.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.7.1...v1.8.0) (2026-10-23)
+
+
+### Features
+
+* resume failed preparations from verified checkpoints ([b9aff5a](https://github.com/ABDELLAH-Hallou/vita-tree/commit/b9aff5ab75913f56ca03ac304883c47a66306a82))
+* resume preparations from verified checkpoints ([1040283](https://github.com/ABDELLAH-Hallou/vita-tree/commit/1040283a3f5635fd3b0a9424317614c55198f7a8))
+
 ## [1.7.1](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.7.0...v1.7.1) (2026-10-22)
 
 
