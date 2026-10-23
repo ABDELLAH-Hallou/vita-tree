@@ -1729,3 +1729,5 @@ dialog textarea {
 #step-ai-save-hint {border-top:1px solid var(--line);padding-top:12px!important;margin-top:16px!important}
 @media(max-width:600px){#step-ai-dialog {padding:18px;max-height:92vh}#step-ai-dialog .ai-controls {grid-template-columns:1fr}#step-ai-dialog .dialog-footer {flex-wrap:wrap}}
 @media(max-width:600px){.ai-shared,.ai-advanced {margin-left:12px;margin-right:12px;padding:12px}.ai-setup-heading {flex-wrap:wrap}.ai-route-fields .ai-controls {grid-template-columns:1fr}.ai-save-bar {margin:0 12px 14px;flex-wrap:wrap}.ai-step-setting>summary .helper {white-space:normal}}
+
+.attempt-history{margin:1rem 0}.attempt-row{border-top:1px solid var(--border);padding:.75rem 0}.attempt-row>span{margin-left:.75rem}.attempt-row p{margin:.35rem 0}#resume-dialog h3{margin:1rem 0 .35rem}#resume-reuse,#resume-rerun{overflow-wrap:anywhere}

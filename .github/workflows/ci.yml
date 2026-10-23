@@ -41,7 +41,7 @@ jobs:
   tests:
     name: Python ${{ matrix.python }} / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -85,6 +85,7 @@ jobs:
       - run: python tests/browser_workflow.py --browser chromium
       - run: python tests/browser_ai_settings.py --browser chromium
       - run: python tests/browser_custom_environment.py --browser chromium
+      - run: python tests/browser_resume.py --browser chromium
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
