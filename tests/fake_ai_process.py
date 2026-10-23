@@ -1,4 +1,5 @@
 """Controlled local AI CLI fixture; never calls a provider or the network."""
+import atexit
 import json
 import hashlib
 import os
@@ -10,6 +11,28 @@ step = sys.argv[1]
 job = json.loads(Path('job.md').read_text())
 control = Path(os.environ['VITA_TEST_CONTROL'])
 label = job['label']
+success = False
+
+def outcome():
+    if job.get('legacy_cli') or not os.environ.get('VITA_TREE_EXECUTION_ID'):
+        return
+    results = Path('.vita/results'); results.mkdir(parents=True, exist_ok=True)
+    native = {'schema_version': 1, 'run_id': 'a'*32, 'step': step,
+              'status': 'success' if success else 'failed',
+              'attempts': [{'number': 1, 'category': 'valid' if success else 'provider_error', 'mode': 'validated_prompt'}],
+              'error': None if success else {'code': 'provider_error'}}
+    backend = {'status': native['status'], 'backendRunId': native['run_id'], 'attempts': native['attempts'],
+               'errorCode': None if success else 'provider_error'} if step in {'extract','analyze','review'} else None
+    (results/(step+'.outcome.json')).write_text(json.dumps(native))
+    (results/('tree-'+step+'.outcome.json')).write_text(json.dumps({
+        'schemaVersion': 1, 'adapter': 'vita-python-api-v1', 'executionId': os.environ['VITA_TREE_EXECUTION_ID'],
+        'step': step, 'status': native['status'], 'verified': success, 'backend': backend}))
+
+atexit.register(outcome)
+with (control/(label+'.'+step+'.calls')).open('a') as calls:
+    calls.write(hashlib.sha256(Path('main.tex').read_text(encoding='utf-8').encode()).hexdigest()+'\n')
+if (control/(label+'.'+step+'.fail')).exists():
+    raise SystemExit(1)
 expected_ai = control / (label + '.' + step + '.expected-ai.json')
 if expected_ai.exists():
     expected = json.loads(expected_ai.read_text())
@@ -75,3 +98,5 @@ if step == 'adapt':
     source = Path('main.tex').read_text()
     Path('main.tex').write_text('invalid source' if job.get('mode') == 'invalid' else source.replace('reliable', label))
     (control / (label + '.finished')).write_text(str(time.time()))
+
+success = True

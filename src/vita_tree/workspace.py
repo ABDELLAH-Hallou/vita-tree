@@ -22,6 +22,10 @@ from .observability import Diagnostics
 from .latex import parse_document, replace_leaf
 from .workflow import REPORTS, MESSAGES, capabilities as workflow_capabilities, plan, transition, clean_stages, reusable_reports
 from .server import branch_payload, run_git
+from . import checkpoints
+from .outcomes import read_outcome
+from .resume_inputs import capture as capture_resume_inputs
+from .publication import publish, recover as recover_publications
 from .ai_config import Connections, clean_settings, effective_settings, stage_environment
 
 
@@ -88,7 +92,13 @@ class Workspace:
         self._previewing = {}
         self._release_requested = set()
         self._publish_locks = {}
+        self._pending_publications = set()
+        recover_publications(self)
         self._load_jobs()
+        try:
+            self.cleanup_checkpoints()
+        except OSError as error:
+            self.diagnostics.error('checkpoint_cleanup_failed', error, operation='checkpoints')
         self.vita_source = vita_source
         if self.vita_source is None:
             try:
@@ -244,14 +254,36 @@ class Workspace:
                 "running": self.active_job(name)}
 
     JOB_FIELDS = ("id", "branch", "opportunity", "status", "step", "message", "provider", "model",
-                  "reasoning", "language", "createdAt", "startedAt", "finishedAt", "reviewed", "stages", "stepConfig")
+                  "reasoning", "language", "createdAt", "startedAt", "finishedAt", "reviewed", "stages", "stepConfig", "parentRunId", "rootRunId", "attempt", "checkpointSteps", "outcomes")
     ACTIVE_STATUSES = {"queued", "running"}
 
     def _public_job(self, record):
         result = {key: record.get(key) for key in self.JOB_FIELDS}
         start = record.get("startedAt")
         result["elapsedSeconds"] = max(0, (record.get("finishedAt") or time.time()) - start) if start else 0
+        result['resumeAvailable'] = record.get('status') in {'failed', 'interrupted'} and bool(record.get('attempt'))
+        result['checkpointSteps'] = [step for step in record.get('checkpointSteps') or []
+                                     if (self.root/'checkpoints'/record['id']/step/'manifest.json').is_file()]
         return result
+
+    def cleanup_checkpoints(self):
+        with self.lock:
+            return checkpoints.cleanup(self.root/'checkpoints', self.jobs)
+
+    def resume_ai(self, ident, revision, job_revision, ai_config=None, language=None, token=None, preview=False):
+        with self.lock:
+            parent = self.jobs.get(ident)
+            if not parent or parent.get('status') not in {'failed', 'interrupted'} or not parent.get('attempt'):
+                raise ConflictError('Select a failed or interrupted preparation to retry.')
+            steps = [stage['id'] for stage in parent['stages'] if stage['status'] != 'skipped']
+            if ai_config is None:
+                routes = parent.get('stepConfig') or {}
+                clean = {step: {key: value for key, value in route.items() if key in {'provider','model','reasoning','connection'}}
+                         for step, route in routes.items()}
+                ai_config = {'default': next(iter(clean.values()), {}), 'steps': clean}
+            return self.start_ai(parent['branch'], revision, job_revision, language=language or parent['language'],
+                                 workflow={'steps': steps}, ai_config=ai_config, resume_from=ident,
+                                 resume_token=token, preview_only=preview)
 
     def _persist_job(self, record):
         try:
@@ -276,6 +308,13 @@ class Workspace:
                 record['stepConfig'] = {step: {key: value for key, value in route.items()
                                               if key in {'provider', 'model', 'reasoning', 'connection', 'connectionName'} and isinstance(value, str)}
                                         for step, route in routes.items() if step in REPORTS and isinstance(route, dict)} if isinstance(routes, dict) else {}
+                for field in ('parentRunId', 'rootRunId'):
+                    value = record.get(field)
+                    record[field] = value if isinstance(value, str) and re.fullmatch(r'[a-f0-9]{32}', value) else None
+                attempt = record.get('attempt')
+                record['attempt'] = attempt if type(attempt) is int and 1 <= attempt <= 100 else None
+                record['checkpointSteps'] = [step for step in record.get('checkpointSteps') or [] if step in REPORTS]
+                record['outcomes'] = self._safe_outcomes(record.get('outcomes'))
                 if any(value is not None and (type(value) not in (int, float) or not 0 <= value < 1e12)
                        for value in (record.get(key) for key in ("createdAt", "startedAt", "finishedAt"))):
                     continue
@@ -293,6 +332,25 @@ class Workspace:
             except (OSError, ValueError, TypeError, AttributeError) as error:
                 self.diagnostics.error('history_load_failed', error, operation='job_history')
                 continue  # A damaged history entry must not prevent opening the CV.
+
+    @staticmethod
+    def _safe_outcomes(values):
+        from .outcomes import safe_outcome
+        result = {}
+        if isinstance(values, dict):
+            for step, value in values.items():
+                if step not in REPORTS or not isinstance(value, dict):
+                    continue
+                native = value.get('backend')
+                if not isinstance(native, dict):
+                    native = None
+                if isinstance(native, dict):
+                    native = safe_outcome({'schema_version': 1, 'status': native.get('status'),
+                                           'attempts': native.get('attempts'), 'run_id': native.get('backendRunId'),
+                                           'error': {'code': native.get('errorCode')}})
+                result[step] = {'status': value.get('status') if value.get('status') in {'success','failed'} else 'failed',
+                                'verified': value.get('verified') is True, 'backend': native}
+        return result
 
     def list_jobs(self):
         with self.lock:
@@ -380,7 +438,10 @@ class Workspace:
         if 'adapt' in skipped:
             inputs.add('main.tex')
         inputs.update('.vita/results/' + filename for step in skipped if step in REPORTS for filename in REPORTS[step])
-        return {"run": record, "files": files, "inputs": sorted(inputs & files.keys()),
+        root_id = record.get('rootRunId') or ident
+        attempts = [self._public_job(item) for item in self.jobs.values()
+                    if (item.get('rootRunId') or item['id']) == root_id]
+        return {"run": record, "files": files, "attemptHistory": sorted(attempts, key=lambda item: item.get('createdAt') or 0), "inputs": sorted(inputs & files.keys()),
                 "coverPdf": {"runId": ident} if self.cover_pdf_result(ident) else None}
 
     def active_job(self, name):
@@ -405,6 +466,8 @@ class Workspace:
                     self.diagnostics.workflow(record, previous)
 
     def busy(self, name):
+        if name in self._pending_publications:
+            raise ConflictError('Publication recovery is pending for this application. Check folder access and restart Vita Tree before editing or retrying.')
         if self.active_job(name):
             raise ConflictError("This application is being prepared. Wait before changing its files.")
         if name in self._publishing:
@@ -716,11 +779,12 @@ class Workspace:
                 "workflow": workflow_capabilities(self.vita_source),
                 "engines": [x for x in ("pdflatex", "xelatex", "lualatex") if shutil.which(x)]}
 
-    def start_ai(self, name, revision, job_revision, provider="", language="en", model=None, reasoning="", workflow=None, ai_config=None):
+    def start_ai(self, name, revision, job_revision, provider="", language="en", model=None, reasoning="", workflow=None, ai_config=None, resume_from=None, resume_token=None, preview_only=False):
         with self.lock:
             if self._closed:
                 raise ConflictError("Vita Tree is stopping. Restart it before preparing an application.")
             self.busy(name)
+            self.cleanup_checkpoints()
             stages = plan(workflow, workflow_capabilities(self.vita_source))
             selected = {task['id'] for task in stages if task['status'] != 'skipped'}
             uses_ai = bool(selected - {'validating'})
@@ -757,7 +821,12 @@ class Workspace:
             record = {"id": ident, "branch": name, "opportunity": name, "status": "running", "step": "preparing",
                       "message": "Preparing this branch's AI workspace.", "createdAt": time.time(), "startedAt": time.time(),
                       "finishedAt": None, "reviewed": False, "provider": provider, "model": model,
-                      "reasoning": reasoning, "language": language, "stages": stages, "stepConfig": routes}
+                      "reasoning": reasoning, "language": language, "stages": stages, "stepConfig": routes,
+                      "parentRunId": resume_from, "rootRunId": self.jobs[resume_from].get('rootRunId') or resume_from if resume_from else ident,
+                      "attempt": (self.jobs[resume_from].get('attempt') or 1) + 1 if resume_from else 1,
+                      "checkpointSteps": [], "outcomes": {}}
+            if resume_from:
+                record['attempt'] = max((item.get('attempt') or 1 for item in self.jobs.values() if item.get('rootRunId') == record['rootRunId']), default=0) + 1
             context = self._ai_context(location, source, job, command, provider, model, reasoning)
             context['stepConfig'], context['keys'] = routes, keys
             config = json.loads(context["config"].get("config.json", "{}"))
@@ -772,6 +841,24 @@ class Workspace:
             context["reports"] = {p: digest(content) for p, content in captured.items()}
             context["dependencies"] = reusable_reports(captured, digest(job))
             context["selected"] = selected
+            if record['attempt'] > 100:
+                raise ValueError('This preparation has reached 100 attempts. Start a new preparation.')
+            capture_resume_inputs(self, context, record)
+            context['resume'] = checkpoints.resume_plan(self.root/'checkpoints', resume_from, context) if resume_from else {'reuse': [], 'rerun': [], 'checkpoints': {}}
+            if resume_from:
+                preview = {key: context['resume'][key] for key in ('reuse', 'rerun')}
+                preview.update(parentRunId=resume_from, attempt=record['attempt'],
+                               token=checkpoints.fingerprint({'inputs': context['checkpointInputs'],
+                                    'credentials': context['credentialHashes'], 'routes': routes, 'skills': context['stepSkills'],
+                                    'parentRunId': resume_from, 'attempt': record['attempt'],
+                                    'initial': context['initialArtifacts'], 'resume': preview,
+                                    'baseCommit': context['baseCommit'], 'reports': context['reports']}))
+                if preview_only:
+                    context['keys'].clear()
+                    return preview
+                if not resume_token or resume_token != preview['token']:
+                    raise ConflictError('The resume plan changed. Review the retry plan again before starting.')
+
             # Preserve each run's inputs before its independent process starts.
             inputs = self.root / "run-inputs" / ident
             atomic_write(inputs / "main.tex", source)
@@ -799,7 +886,7 @@ class Workspace:
             env["PYTHONPATH"] = str(self.vita_source) + os.pathsep + env.get("PYTHONPATH", "")
         config, skills = {}, {}
         for origin in (self.repository, location):
-            for filename in ("config.json", "extensions.json", "cv.yaml"):
+            for filename in ("config.json", "extensions.json", "cv.yaml", "cv-verified.json", "requirements-state.json"):
                 path = safe_path(origin, ".vita/" + filename)
                 if path.is_file():
                     config[filename] = read_text(path)
@@ -815,7 +902,7 @@ class Workspace:
                 for line in read_text(secret).splitlines():
                     if "=" in line and not line.lstrip().startswith("#"):
                         key, value = line.split("=", 1)
-                        if re.fullmatch(r"[A-Z][A-Z0-9_]*(?:KEY|TOKEN)", key.strip()):
+                        if re.fullmatch(r"[A-Z][A-Z0-9_]*(?:KEY|TOKEN|BASE_URL|ENDPOINT)", key.strip()) or key.strip() == "VITA_REQUIREMENTS_DIR":
                             env[key.strip()] = value.strip().strip("\"'")
         try:
             extensions = json.loads(config.get("extensions.json", "{}"))
@@ -847,6 +934,10 @@ class Workspace:
         location, source, job = (context[key] for key in ("location", "source", "job"))
         try:
             export_snapshot(self.repository, context["baseCommit"], stage, location)
+            for name, expected in context['checkpointInputs']['assets'].items():
+                path = safe_path(stage, name)
+                if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != expected:
+                    raise AIRunError('Your application inputs changed while preparing the workspace. Your edits were preserved.')
             atomic_write(stage / "main.tex", source)
             atomic_write(stage / "job.md", job)
             for filename, content in context["skills"].items():
@@ -859,18 +950,47 @@ class Workspace:
             safe_path(stage, "cover-letter.tex").unlink(missing_ok=True)
             for path, content in context['dependencies'].items():
                 atomic_write(safe_path(stage, path), content)
+            for name, content in context['criteria'].items():
+                atomic_write(safe_path(stage / '.vita/criteria-snapshot', name), content)
             for task in record["stages"]:
                 step = task["id"]
                 if task["status"] == "skipped" or step == "validating":
                     continue
+                before = checkpoints.artifacts(stage)
+                key = checkpoints.signature(context, step, before)
+                saved = context['resume']['checkpoints'].get(step)
+                if saved:
+                    checkpoints.restore(stage, saved[1])
+                    reused_pdf = None
+                    if step == 'cover':
+                        output = safe_path(self.root, 'run-pdfs/' + record['id'])
+                        prior_pdf = self.root/'checkpoints'/record['parentRunId']/step/'cover-letter.pdf'
+                        atomic_write_bytes(output/'cover-letter.pdf', prior_pdf.read_bytes())
+                        atomic_write(output/'ready.json', json.dumps({key: saved[0]['pdf'][key] for key in ('engine','warnings')}))
+                        reused_pdf = dict(path=output/'cover-letter.pdf', **{key: saved[0]['pdf'][key] for key in ('engine','warnings')})
+                    saved_child = checkpoints.write_checkpoint(self.root/'checkpoints', record['id'], step, key, saved[1], saved[0]['outcome'], reused_pdf)
+                    reused_stages = [dict(item, status='succeeded', startedAt=time.time(), finishedAt=time.time(), reusedFrom=record['parentRunId']) if item['id'] == step else dict(item) for item in record['stages']]
+                    saved_outcome = self._safe_outcomes({step: saved[0]['outcome']})[step]
+                    if not self._job_update(record, step=step, message='Reused verified ' + step + ' results.',
+                                            stages=reused_stages,
+                                            checkpointSteps=[*record['checkpointSteps'], *([step] if saved_child else [])],
+                                            outcomes={**record['outcomes'], step: saved_outcome}):
+                        return
+                    continue
                 if not self._job_update(record, step=step, message=MESSAGES[step],
                                         stages=transition(record["stages"], step=step)):
                     return
+                step_pdf = None
                 route = context['stepConfig'][step]
                 env = stage_environment(context['env'], route, context['keys'].get(step))
+                execution_id = uuid.uuid4().hex
+                env['VITA_TREE_EXECUTION_ID'] = execution_id
+                env['VITA_REQUIREMENTS_DIR'] = str(stage / '.vita/criteria-snapshot')
+                safe_path(stage, '.vita/results/tree-' + step + '.outcome.json').unlink(missing_ok=True)
+                safe_path(stage, '.vita/results/' + step + '.outcome.json').unlink(missing_ok=True)
                 # Same provider may use different models in consecutive steps.
                 extensions = json.loads(context['config'].get('extensions.json', '{}'))
-                extensions.setdefault('llm_providers', {})[route['provider']] = {'model': route['model']}
+                extensions.setdefault('llm_providers', {})[route['provider']] = {'model': route['model'], **({'reasoning_effort': route['reasoning']} if route['reasoning'] else {})}
                 atomic_write(stage / '.vita/extensions.json', json.dumps(extensions))
                 args = context["command"] + [step, "--auto", "--provider", route['provider']]
                 if step in ("adapt", "cover"):
@@ -887,7 +1007,11 @@ class Workspace:
                 reports = [read_text(safe_path(stage, ".vita/results/" + name)).strip() for name in REPORTS[step]]
                 if process.returncode:
                     self.diagnostics.record('provider_failed', 'ERROR', run_id=record['id'], step=step, exit_code=process.returncode)
-                if process.returncode or not any(reports):
+                outcome = read_outcome(stage, step, execution_id)
+                if outcome:
+                    if not self._job_update(record, outcomes={**record['outcomes'], step: outcome}):
+                        return
+                if process.returncode or not any(reports) or (outcome and outcome['status'] != 'success'):
                     raise AIRunError(f"Your AI service did not return the expected results. Check the AI connection and try again. Your CV is unchanged.")
                 if step == "extract":
                     try:
@@ -896,6 +1020,13 @@ class Workspace:
                             raise ValueError("Job mismatch")
                     except (ValueError, AttributeError):
                         raise AIRunError("The job requirements could not be verified against this job description. Your CV is unchanged.") from None
+                if read_text(stage / 'job.md') != job:
+                    raise AIRunError('The preparation unexpectedly changed its job description. Your application is unchanged.')
+                step_source = read_text(stage / 'main.tex')
+                if step != 'adapt' and step_source != before['main.tex']:
+                    raise AIRunError('This feedback step unexpectedly changed the CV. Your application is unchanged; inspect the preparation results.')
+                if step == 'adapt' and (parse_document(step_source)['error'] or r'\begin{document}' not in step_source):
+                    raise AIRunError('main.tex is not parseable. Your branch is unchanged; inspect the source in the LaTeX editor.')
                 if step == 'cover':
                     cover_source = read_text(safe_path(stage, 'cover-letter.tex'))
                     if parse_document(cover_source)['error'] or not all(marker in cover_source for marker in (r'\documentclass', r'\begin{document}', r'\end{document}')):
@@ -907,8 +1038,14 @@ class Workspace:
                         built = compile_document(stage, 'cover-letter.tex', output=output)
                         self.diagnostics.record('pdf_compiled', operation='compile_cover', run_id=record['id'], step='cover')
                         atomic_write(output / 'ready.json', json.dumps({'engine': built['engine'], 'warnings': built['warnings']}))
+                        step_pdf = {'path': built['pdf'], 'engine': built['engine'], 'warnings': built['warnings']}
                     except (ValueError, OSError, subprocess.SubprocessError) as error:
                         raise AIRunError('The cover-letter PDF could not be created. Your application is unchanged. Check the PDF tools and packages, inspect the cover-letter source in the preparation results, then retry.') from error
+                if outcome and outcome['verified'] and outcome['status'] == 'success':
+                    saved = checkpoints.write_checkpoint(self.root/'checkpoints', record['id'], step, key,
+                                                         checkpoints.artifacts(stage), outcome, step_pdf)
+                    if saved and not self._job_update(record, checkpointSteps=[*record['checkpointSteps'], step]):
+                        return
             if not self._job_update(record, step="validating", message=MESSAGES["validating"],
                                     stages=transition(record["stages"], step="validating")):
                 return
@@ -933,27 +1070,36 @@ class Workspace:
                         or self.read(record["branch"], "job.md") != job
                         or any(digest(read_text(safe_path(location, p))) != value for p, value in context["reports"].items())):
                     raise AIRunError("Your application changed during preparation. The results were kept separately and your edits were preserved.")
-                # Store the exact before-AI version for comparison, including prior manual edits.
+                # Include files and approved criteria are application evidence, too.
+                # AI setup/skills remain the immutable submitted choice for this
+                # attempt; changing them invalidates checkpoints on the next retry.
+                fresh = self._ai_context(location, source, job, context['command'], record['provider'], record['model'], record['reasoning'])
+                fresh.update(stepConfig=context['stepConfig'], keys=context['keys'], dependencies=context['dependencies'])
+                capture_resume_inputs(self, fresh, record)
+                if any(fresh['checkpointInputs'][key] != context['checkpointInputs'][key]
+                       for key in ('assets', 'criteria', 'backend')):
+                    raise AIRunError('Your application inputs or AI configuration changed during preparation. Results were retained separately and your edits were preserved.')
+                updates = {}
                 if adapting and result != source:
-                    meta = self.metadata(record["branch"])
-                    meta.update(baseCommit=self.head(record["branch"]), baseBranch=record["branch"] + " · before AI", original=source)
-                    atomic_write(self.metadata_path(record["branch"]), json.dumps(meta))
+                    meta = self.metadata(record['branch'])
+                    meta.update(baseCommit=self.head(record['branch']), baseBranch=record['branch'] + ' · before AI', original=source)
+                    updates['@metadata'] = json.dumps(meta)
                 outputs = {'.vita/results/' + filename for step in context['selected'] if step in REPORTS for filename in REPORTS[step]}
                 if 'analyze' in context['selected']:
                     outputs.update(('.vita/results/delta.md', '.vita/results/delta.json'))
                 for path in outputs:
-                    if safe_path(stage, path).is_file():
-                        atomic_write(safe_path(location, path), read_text(safe_path(stage, path)))
-                    else:
-                        safe_path(location, path).unlink(missing_ok=True)
+                    target = safe_path(stage, path)
+                    updates[path] = read_text(target) if target.is_file() else None
                 if cover is not None:
-                    atomic_write(safe_path(location, "cover-letter.tex"), cover)
+                    updates['cover-letter.tex'] = cover
                 if adapting and result != source:
-                    atomic_write(safe_path(location, self.document_path), result)
-                self._job_update(record, status="succeeded", step="completed", finishedAt=time.time(),
-                                 message=("Your changes were checked. Create a PDF preview to check the final layout."
-                                          if context['selected'] == {'validating'} else "Cover-letter PDF ready. Open the run to review and save it." if cover is not None else "Selected steps finished. Open the run to review the results."),
-                                 stages=transition(record["stages"], terminal="succeeded"))
+                    updates[self.document_path] = result
+                with publish(self, record['id'], record['branch'], updates):
+                    if not self._job_update(record, status="succeeded", step="completed", finishedAt=time.time(),
+                                            message=("Your changes were checked. Create a PDF preview to check the final layout."
+                                                     if context['selected'] == {'validating'} else "Cover-letter PDF ready. Open the run to review and save it." if cover is not None else "Selected steps finished. Open the run to review the results."),
+                                            stages=transition(record['stages'], terminal='succeeded')):
+                        raise AIRunError('The preparation was interrupted before publication completed.')
         except Exception as error:
             self.diagnostics.error('run_error', error, run_id=record['id'], step=record.get('step'))
             # Never persist exception text or provider stdout: either can contain
@@ -965,6 +1111,11 @@ class Workspace:
                              stages=transition(record.get("stages"), terminal="failed"))
         finally:
             context.get('keys', {}).clear()
+            try:
+                if not self._closed:
+                    self.cleanup_checkpoints()
+            except OSError as error:
+                self.diagnostics.error('checkpoint_cleanup_failed', error, operation='checkpoints')
             with self.lock:
                 self._ai_threads.discard(threading.current_thread())
                 if record["branch"] in self._release_requested:

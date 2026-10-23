@@ -57,7 +57,7 @@ const editors = Object.fromEntries(['original', 'current'].map(side => [side, cr
   },
 })]));
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
-const aiSetup=createAIConfiguration($('#ai-configuration'),{api,onChange:()=>{if(state.snapshot){state.graphRunId='draft';configureWorkflow();renderWorkflow();}}});
+const aiSetup=createAIConfiguration($('#ai-configuration'),{api,onChange:()=>{if(state.snapshot){if(!state.displayedRun?.resumeAvailable)state.graphRunId='draft';configureWorkflow();renderWorkflow();}}});
 function renderProviders() {
   aiSetup.setDisabled(!!state.snapshot?.running||!!state.launching||!state.snapshot?.editable);
   $('#language').disabled=!!state.snapshot?.running||!!state.launching||!state.snapshot?.editable;
@@ -137,7 +137,7 @@ async function openBranch(name, force=false) {
   const generation=++state.generation;
   state.pdfGeneration++;state.snapshot=null;state.displayedRun=null;state.graphRunId=null;state.selectedTask=null;$('#task-inspector').hidden=true;
   for(const node of document.querySelectorAll('.dag-node'))node.disabled=true;
-  $('#selected-run').hidden=true;
+  $('#selected-run').hidden=true;$('#attempt-history').replaceChildren();
   aiSetup.setDisabled(true);
   for(const id of aiSteps.map(id=>'step-'+id))$('#'+id).checked=false;
   for(const id of ['save-source','save-job','run-adapt','run-all','task-run','branch-from','compile','commit-push','view-run','mark-run-reviewed']) $('#'+id).disabled=true;
@@ -355,6 +355,7 @@ async function openRun(run){
     if(state.snapshot!==loaded)return;
     const settings=[run.provider?aiSetup.summary(run):'', [...$('#language').options].find(option=>option.value===run.language)?.textContent||run.language].filter(Boolean).join(' · ');
     $('#selected-run').hidden=false;$('#selected-run-info').textContent=`${runSteps(run)} · ${runLabel(run)} · ${new Date(run.createdAt*1000).toLocaleString()} · ${run.provider?settings:'Local checks; no AI used'} · ${Math.round(run.elapsedSeconds || 0)}s. Results from this preparation. Your application may contain newer edits.`;
+    renderAttemptHistory(detail);
     $('#selected-run-files').replaceChildren();
     for(const [path,content] of Object.entries(detail.files)){
       $('#selected-run-files').append(reportDetails(path,content,{open:/analy(sis|ze)\.md$/.test(path),label:detail.inputs?.includes(path)?`Starting material · ${fileLabel(path)}`:fileLabel(path)}));
@@ -387,11 +388,12 @@ function renderWorkflow(){
   const runs=state.runs.filter(run=>run.branch===state.snapshot.branch);
   const selected=state.graphRunId || state.snapshot.running?.id || runs[0]?.id || 'draft';
   const select=$('#workflow-run');
-  select.replaceChildren(new Option('New preparation','draft'),...runs.map(run=>new Option(`${new Date(run.createdAt*1000).toLocaleString()} — ${runSteps(run)} · ${runLabel(run)}${isActiveRun(run)?'':run.reviewed?' · Reviewed':' · Needs review'}`,run.id)));
+  select.replaceChildren(new Option('New preparation','draft'),...runs.map(run=>new Option(`${run.attempt?'Attempt '+run.attempt+' · ':''}${new Date(run.createdAt*1000).toLocaleString()} — ${runSteps(run)} · ${runLabel(run)}${isActiveRun(run)?'':run.reviewed?' · Reviewed':' · Needs review'}`,run.id)));
   const run=runs.find(run=>run.id===selected) || (state.snapshot.running?.id===selected?state.snapshot.running:null);
   if(run&&!runs.some(item=>item.id===run.id))select.add(new Option('Current preparation',run.id));
   select.value=run?run.id:'draft';state.displayedRun=run;
   const finished=run&&!isActiveRun(run);
+  $('#resume-run').hidden=!run?.resumeAvailable;$('#resume-run').disabled=!!state.snapshot.running||!!state.launching||!!state.retryPlanning||!state.snapshot.editable;
   $('#view-run').hidden=!finished;$('#view-run').disabled=!!state.openingRunId;
   const reviewButton=$('#mark-run-reviewed');reviewButton.hidden=!finished;
   reviewButton.disabled=!!run?.reviewed||!!state.reviewingRunId;
@@ -430,6 +432,58 @@ $('#view-run').onclick=async()=>{
   state.openingRunId=run.id;renderWorkflow();
   try{await openRun(run);}catch(error){notice(error.message,true);}
   finally{state.openingRunId=null;renderWorkflow();}
+};
+function stepTitle(id){return graphStages(null,{},{}).find(task=>task.id===id)?.title||id;}
+function renderAttemptHistory(detail){
+  const area=$('#attempt-history');area.replaceChildren();
+  const heading=document.createElement('h3');heading.textContent='Attempt history';area.append(heading);
+  const checkpoints=document.createElement('p');checkpoints.className='helper';
+  checkpoints.textContent=detail.run.checkpointSteps?.length?'Verified results retained: '+detail.run.checkpointSteps.map(stepTitle).join(', ')+'.':'No verified checkpoints retained. A retry will run every selected step again.';area.append(checkpoints);
+  for(const attempt of detail.attemptHistory||[detail.run]){
+    const row=document.createElement('div');row.className='attempt-row';
+    const button=document.createElement('button');button.type='button';button.className='quiet';
+    button.textContent=`Attempt ${attempt.attempt||1} · ${runLabel(attempt)}${attempt.id===detail.run.id?' · Viewing':''}`;
+    button.disabled=attempt.id===detail.run.id;button.onclick=()=>openRun(attempt).catch(error=>notice(error.message,true));row.append(button);
+    if(attempt.parentRunId){const parent=document.createElement('span');parent.className='helper';const prior=(detail.attemptHistory||[]).find(item=>item.id===attempt.parentRunId);parent.textContent='Continues attempt '+(prior?.attempt||'unknown');row.append(parent);}
+    for(const [step,outcome] of Object.entries(attempt.outcomes||{})){
+      const text=document.createElement('p');text.className='helper';
+      text.textContent=stepTitle(step)+': '+(outcome.status==='success'?'Completed':'Could not finish')+(outcome.backend?.attempts?.length?' · AI attempts: '+outcome.backend.attempts.map(item=>`${item.number}: ${item.category.replaceAll('_',' ')}`).join('; '):'');row.append(text);
+    }
+    area.append(row);
+  }
+}
+$('#resume-run').onclick=async()=>{
+  const run=state.displayedRun,s=state.snapshot;
+  if(!run?.resumeAvailable||state.retryPlanning||state.launching)return;
+  if(state.dirty||state.jobDirty){notice('Save your CV and job description drafts before retrying.',true);return;}
+  state.retryPlanning=true;renderWorkflow();
+  try{
+    const request={id:run.id,revision:s.revision,jobRevision:s.jobRevision,aiConfig:aiSetup.value(),language:$('#language').value};
+    const plan=await api('/api/resume-preview',request);
+    if(state.snapshot!==s)return;
+    state.resumeReview={request,plan,snapshot:s};
+    $('#resume-summary').textContent=`Attempt ${plan.attempt}, continuing attempt ${run.attempt||1}. Output language: ${$('#language').selectedOptions[0].textContent}. Uses the AI setup currently shown for this application.`;
+    $('#resume-reuse').textContent=plan.reuse.length?plan.reuse.map(stepTitle).join(', '):'None. Start again with the current inputs and setup.';
+    $('#resume-rerun').textContent=[...plan.rerun.map(stepTitle),'Final checks'].join(', ');
+    $('#resume-adapted').hidden=!plan.reuse.includes('adapt');$('#resume-error').textContent='';$('#confirm-resume').disabled=false;
+    $('#resume-dialog').showModal();
+  }catch(error){notice(error.message,true);}finally{state.retryPlanning=false;renderWorkflow();}
+};
+$('#resume-form').onsubmit=async event=>{
+  event.preventDefault();const review=state.resumeReview;if(!review||state.launching)return;
+  state.launching=true;$('#confirm-resume').disabled=true;renderWorkflow();configureWorkflow();
+  try{
+    const job=await api('/api/resume',{...review.request,token:review.plan.token});
+    review.snapshot.running=job;state.graphRunId=job.id;$('#resume-dialog').close();
+    $('#selected-run').hidden=true;await runMonitor.refresh();renderWorkflow();updateSaveState();
+  }catch(error){$('#resume-error').textContent=error.message;}
+  finally{state.launching=false;$('#confirm-resume').disabled=false;configureWorkflow();renderWorkflow();}
+};
+$('#resume-dialog').onclose=()=>{if(!state.launching)state.resumeReview=null;};
+$('#cleanup-checkpoints').onclick=async()=>{
+  const button=$('#cleanup-checkpoints');button.disabled=true;
+  try{const result=await api('/api/checkpoints-cleanup',{});$('#cleanup-checkpoints-status').textContent=`Removed checkpoints for ${result.removed.length} preparations. ${result.retainedRuns} retained. Your drafts and review results are unchanged.`;await runMonitor.refresh();renderWorkflow();}
+  catch(error){$('#cleanup-checkpoints-status').textContent=error.message;}finally{button.disabled=false;}
 };
 $('#mark-run-reviewed').onclick=async()=>{
   const run=state.displayedRun;if(!run||isActiveRun(run)||run.reviewed||state.reviewingRunId)return;

@@ -1,6 +1,7 @@
 """The CLI workflow contract and its small, public progress record."""
 from pathlib import Path
 import time
+import re
 
 REPORTS = {
     'extract': ('job.json', 'job.toon'),
@@ -107,5 +108,8 @@ def clean_stages(stages):
         if any(t is not None and (type(t) not in (int, float) or not 0 <= t < 1e12)
                for t in (value['startedAt'], value['finishedAt'])):
             raise ValueError('Invalid workflow time')
+        parent = stage.get('reusedFrom')
+        if isinstance(parent, str) and re.fullmatch(r'[a-f0-9]{32}', parent):
+            value['reusedFrom'] = parent
         result.append(value)
     return result

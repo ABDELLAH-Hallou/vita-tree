@@ -40,7 +40,7 @@ export function renderGraph(container, {run, options, available, selected, selec
     button.setAttribute('aria-label',`${task.title}: ${statusNames[task.status] || task.status}. ${task.detail}`);
     const icon=document.createElement('span'); icon.className='dag-symbol'; icon.textContent=symbols[task.status] || '?'; icon.setAttribute('aria-hidden','true');
     const title=document.createElement('strong'); title.textContent=task.title;
-    const state=document.createElement('span'); state.className='dag-status'; state.textContent=statusNames[task.status] || task.status;
+    const state=document.createElement('span'); state.className='dag-status'; state.textContent=(statusNames[task.status] || task.status)+(task.reusedFrom?' · reused':'');
     const time=document.createElement('span'); time.className='dag-time';
     if(task.startedAt&&!task.finishedAt&&task.status==='running')time.dataset.startedAt=task.startedAt;
     time.textContent=task.startedAt ? `${Math.max(0,Math.floor((task.finishedAt || Date.now()/1000)-task.startedAt))}s` : task.output;

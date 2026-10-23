@@ -4,6 +4,9 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import runpy
+import sys
+import argparse
+import inspect
 import subprocess
 
 
@@ -37,7 +40,19 @@ def configure(llm):
     llm.load_env = lambda: {**original_load(), **os.environ}
     reasoning = os.environ.get('VITA_TREE_REASONING', '')
     if reasoning:
-        llm._call_codex_cli = lambda system, user, model='': call_codex(llm, system, user, model, reasoning)
+        original_codex = llm._call_codex_cli
+        if 'reasoning_effort' in inspect.signature(original_codex).parameters:
+            def configured_codex(system, user, model='', **options):
+                options['reasoning_effort'] = reasoning
+                return original_codex(system, user, model, **options)
+            llm._call_codex_cli = configured_codex
+        else:
+            def legacy_codex(system, user, model='', **options):
+                if options.get('response_schema') is not None:
+                    from vita.helpers.provider_errors import UnsupportedSchema
+                    raise UnsupportedSchema()
+                return call_codex(llm, system, user, model, reasoning)
+            llm._call_codex_cli = legacy_codex
 
 
 def main():
@@ -45,7 +60,24 @@ def main():
     original_load = env.load_env
     env.load_env = lambda: {**original_load(), **os.environ}
     configure(llm)
-    runpy.run_module('vita', run_name='__main__')
+    if os.environ.get('VITA_TREE_EXECUTION_ID') and len(sys.argv) > 1 and sys.argv[1] in {'extract','analyze','adapt','review','cover'}:
+        from vita.commands.ai_step import run
+        if __package__:
+            from .outcomes import execute
+        else:
+            from outcomes import execute
+        parser = argparse.ArgumentParser()
+        parser.add_argument('step')
+        parser.add_argument('--auto', action='store_true')
+        parser.add_argument('--provider')
+        parser.add_argument('--language')
+        args = parser.parse_args()
+        success = execute(args.step, lambda: run(args.step, auto=args.auto, provider=args.provider, language=args.language),
+                          os.environ['VITA_TREE_EXECUTION_ID'])
+        if not success:
+            raise SystemExit(1)
+    else:
+        runpy.run_module('vita', run_name='__main__')
 
 
 if __name__ == '__main__':
