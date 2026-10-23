@@ -79,6 +79,10 @@ class ResumeTests(unittest.TestCase):
         self.assertEqual(self.calls('recovery','cover'), [digest(adapted)] * 2)
         self.assertEqual(self.workspace.read('recovery','main.tex'), adapted)
         self.assertIsNotNone(self.workspace.cover_pdf_result(child['id']))
+        inspection=self.workspace.inspector.public_detail(child['id'])
+        self.assertFalse(inspection['tree']['configurationChanged'])
+        self.assertEqual(inspection['tree']['stepInputs']['cover']['source_sha256'],digest(adapted))
+        self.assertEqual(child['traceId'],parent['traceId'])
 
     def test_repeated_retry_failure_preserves_draft_and_ancestors(self):
         branch, first, flag = self.prepare()

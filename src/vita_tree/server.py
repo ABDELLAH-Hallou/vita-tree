@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import errno
 import socket
 import secrets
@@ -287,6 +288,13 @@ class DashboardHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
         self._observe(self._get)
 
+    @staticmethod
+    def execution_offset(query):
+        raw = query.get('offset', ['0'])[0]
+        if not isinstance(raw, str) or not re.fullmatch(r'\d{1,6}', raw):
+            raise ValueError('Invalid execution pagination offset')
+        return int(raw)
+
     def _get(self) -> None:  # noqa: N802 - stdlib handler API
         if not self.check_origin():
             return
@@ -295,6 +303,26 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         query = parse_qs(parsed.query)
         if path == '/api/diagnostics':
             self.api_call(self.server.diagnostic_snapshot)
+            return
+        if path == '/api/executions':
+            self.api_call(lambda: self.server.workspace.inspector.listing(self.execution_offset(query), query.get('q',[''])[0], query.get('status',[''])[0]))
+            return
+        if path == '/api/execution':
+            self.api_call(lambda: self.server.workspace.inspector.public_detail(query.get('id',[''])[0], query.get('step',[None])[0], self.execution_offset(query)))
+            return
+        if path == '/api/execution-artifact':
+            self.api_call(lambda: self.server.workspace.inspector.artifact(query.get('id',[''])[0], query.get('artifact',[''])[0]))
+            return
+        if path == '/api/execution-export':
+            inspector = self.server.workspace.inspector
+            if query.get('preview',[''])[0] == '1':
+                self.api_call(lambda: inspector.export(query.get('id',[''])[0], preview=True))
+            else:
+                try:
+                    body = inspector.export(query.get('id',[''])[0])
+                    self.send_bytes(body, 'application/zip', filename='vita-tree-technical-support.zip', download=True)
+                except (ValueError, OSError) as error:
+                    self.error_response(error, 400)
             return
         if path == '/metrics':
             active = self.server.diagnostic_snapshot()['history']['running']

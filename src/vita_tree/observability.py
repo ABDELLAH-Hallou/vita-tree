@@ -20,11 +20,13 @@ ROUTES = {'/api/session', '/api/workspace', '/api/providers', '/api/job', '/api/
           '/api/job-result', '/api/pdf-file', '/api/branches', '/api/branch-content', '/health',
           '/api/release-worktree', '/api/job-reviewed', '/api/jobs-reviewed', '/api/save', '/api/commit-preview',
           '/api/commit-push', '/api/create', '/api/adapt', '/api/parse', '/api/lint', '/api/pdf',
-          '/api/pdf-save', '/api/diagnostics', '/metrics'}
+          '/api/pdf-save', '/api/diagnostics', '/api/executions', '/api/execution',
+          '/api/execution-artifact', '/api/execution-export', '/api/resume', '/api/resume-preview', '/metrics'}
 EVENTS = {'server_started', 'server_stopped', 'logging_failed', 'request_finished', 'request_failed',
           'client_disconnected', 'history_write_failed', 'history_load_failed',
           'run_started', 'run_error', 'run_finished', 'step_started', 'step_finished',
-          'review_saved', 'provider_failed', 'pdf_compiled', 'pdf_saved', 'pdf_failed'}
+          'review_saved', 'provider_failed', 'pdf_compiled', 'pdf_saved', 'pdf_failed',
+          'execution_phase', 'checkpoint_cleanup_failed', 'publication_cleanup_failed', 'publication_recovery_failed'}
 STEPS = {'extract', 'analyze', 'adapt', 'review', 'cover', 'validating', 'preparing'}
 
 
@@ -75,7 +77,7 @@ class Diagnostics:
             fields['request_id'] = request_context.get()
         row = {'time': datetime.now(timezone.utc).isoformat(), 'level': level, 'event': event}
         for key, value in fields.items():
-            if key in {'request_id', 'run_id'} and isinstance(value, str) and re.fullmatch(r'[a-f0-9]{12,32}', value):
+            if key in {'request_id', 'run_id', 'trace_id'} and isinstance(value, str) and re.fullmatch(r'[a-f0-9]{12,32}', value):
                 row[key] = value
             elif key == 'step' and isinstance(value, str) and value in STEPS:
                 row[key] = value
@@ -84,7 +86,7 @@ class Diagnostics:
                 row[key] = route if route in ROUTES else 'other'
             elif key in {'operation', 'error_type', 'location', 'method'} and isinstance(value, str) and re.fullmatch(r'[a-zA-Z0-9_./:-]{1,100}', value):
                 row[key] = value
-            elif key == 'status' and (type(value) is int or isinstance(value, str) and value in {'running', 'succeeded', 'failed', 'interrupted', 'skipped', 'blocked'}):
+            elif key == 'status' and (type(value) is int or isinstance(value, str) and value in {'running', 'succeeded', 'failed', 'interrupted', 'skipped', 'blocked', 'ok', 'error', 'reused', 'not_retained'}):
                 row[key] = value
             elif key in {'errno', 'winerror', 'duration_ms', 'exit_code'} and type(value) in (int, float):
                 row[key] = round(value, 3)
@@ -136,24 +138,24 @@ class Diagnostics:
         if not previous:
             with self.lock:
                 self.runs['started'] += 1
-            self.record('run_started', run_id=ident, status='running')
+            self.record('run_started', run_id=ident, trace_id=record.get('traceId'), status='running')
         old = {stage['id']: stage for stage in previous.get('stages') or []}
         for stage in record.get('stages') or []:
             before = old.get(stage['id'], {})
             if stage['status'] == before.get('status'):
                 continue
             if stage['status'] == 'running':
-                self.record('step_started', run_id=ident, step=stage['id'], status='running')
+                self.record('step_started', run_id=ident, trace_id=record.get('traceId'), step=stage['id'], status='running')
             elif before.get('status') == 'running':
                 seconds = max(0, (stage.get('finishedAt') or time.time()) - (stage.get('startedAt') or time.time()))
                 with self.lock:
                     self.steps[(stage['id'], stage['status'])] += 1
                     self.step_seconds[stage['id']] += seconds
-                self.record('step_finished', run_id=ident, step=stage['id'], status=stage['status'], duration_ms=seconds*1000)
+                self.record('step_finished', run_id=ident, trace_id=record.get('traceId'), step=stage['id'], status=stage['status'], duration_ms=seconds*1000)
         if record['status'] != previous.get('status') and record['status'] in {'succeeded', 'failed', 'interrupted'}:
             with self.lock:
                 self.runs[record['status']] += 1
-            self.record('run_finished', 'ERROR' if record['status']=='failed' else 'INFO', run_id=ident, status=record['status'])
+            self.record('run_finished', 'ERROR' if record['status']=='failed' else 'INFO', run_id=ident, trace_id=record.get('traceId'), status=record['status'])
 
     def snapshot(self):
         with self.lock:

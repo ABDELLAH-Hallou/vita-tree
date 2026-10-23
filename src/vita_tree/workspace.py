@@ -19,6 +19,7 @@ from urllib.parse import urlsplit
 
 from .fileio import atomic_write_bytes
 from .observability import Diagnostics
+from .execution import ExecutionInspector
 from .latex import parse_document, replace_leaf
 from .workflow import REPORTS, MESSAGES, capabilities as workflow_capabilities, plan, transition, clean_stages, reusable_reports
 from .server import branch_payload, run_git
@@ -42,6 +43,9 @@ class PushError(RuntimeError):
 
 class AIRunError(ValueError):
     """A fixed, user-facing message safe to expose in the global runs list."""
+
+class PreparationConflict(AIRunError):
+    pass
 
 
 def digest(content: str) -> str:
@@ -107,6 +111,11 @@ class Workspace:
                 self.vita_source = Path(distribution('vita-cv').locate_file('')).resolve()
             except PackageNotFoundError:
                 pass
+        self.inspector = ExecutionInspector(self)
+        for record in self.jobs.values():
+            if record['status'] == 'interrupted':
+                self.inspector.mark(record, 'recovery', 'interrupted')
+                self.inspector.finish(record)
 
     def branch(self, name):
         for branch in branch_payload(self.repository)["branches"]:
@@ -254,7 +263,7 @@ class Workspace:
                 "running": self.active_job(name)}
 
     JOB_FIELDS = ("id", "branch", "opportunity", "status", "step", "message", "provider", "model",
-                  "reasoning", "language", "createdAt", "startedAt", "finishedAt", "reviewed", "stages", "stepConfig", "parentRunId", "rootRunId", "attempt", "checkpointSteps", "outcomes")
+                  "reasoning", "language", "createdAt", "startedAt", "finishedAt", "reviewed", "stages", "stepConfig", "parentRunId", "rootRunId", "attempt", "checkpointSteps", "outcomes", "traceId")
     ACTIVE_STATUSES = {"queued", "running"}
 
     def _public_job(self, record):
@@ -276,14 +285,17 @@ class Workspace:
             if not parent or parent.get('status') not in {'failed', 'interrupted'} or not parent.get('attempt'):
                 raise ConflictError('Select a failed or interrupted preparation to retry.')
             steps = [stage['id'] for stage in parent['stages'] if stage['status'] != 'skipped']
+            captured_origins = None
             if ai_config is None:
+                prior_origins = self.inspector.read_tree(parent).get('configuration',{})
+                captured_origins = {step: prior_origins.get(step,{}).get('origin','captured') for step in parent.get('stepConfig') or {}}
                 routes = parent.get('stepConfig') or {}
                 clean = {step: {key: value for key, value in route.items() if key in {'provider','model','reasoning','connection'}}
                          for step, route in routes.items()}
                 ai_config = {'default': next(iter(clean.values()), {}), 'steps': clean}
             return self.start_ai(parent['branch'], revision, job_revision, language=language or parent['language'],
                                  workflow={'steps': steps}, ai_config=ai_config, resume_from=ident,
-                                 resume_token=token, preview_only=preview)
+                                 resume_token=token, preview_only=preview, captured_origins=captured_origins)
 
     def _persist_job(self, record):
         try:
@@ -308,7 +320,7 @@ class Workspace:
                 record['stepConfig'] = {step: {key: value for key, value in route.items()
                                               if key in {'provider', 'model', 'reasoning', 'connection', 'connectionName'} and isinstance(value, str)}
                                         for step, route in routes.items() if step in REPORTS and isinstance(route, dict)} if isinstance(routes, dict) else {}
-                for field in ('parentRunId', 'rootRunId'):
+                for field in ('parentRunId', 'rootRunId', 'traceId'):
                     value = record.get(field)
                     record[field] = value if isinstance(value, str) and re.fullmatch(r'[a-f0-9]{32}', value) else None
                 attempt = record.get('attempt')
@@ -347,7 +359,7 @@ class Workspace:
                 if isinstance(native, dict):
                     native = safe_outcome({'schema_version': 1, 'status': native.get('status'),
                                            'attempts': native.get('attempts'), 'run_id': native.get('backendRunId'),
-                                           'error': {'code': native.get('errorCode')}})
+                                           'error': {**(native.get('errorDetails') if isinstance(native.get('errorDetails'),dict) else {}), 'code': native.get('errorCode')}})
                 result[step] = {'status': value.get('status') if value.get('status') in {'success','failed'} else 'failed',
                                 'verified': value.get('verified') is True, 'backend': native}
         return result
@@ -779,7 +791,7 @@ class Workspace:
                 "workflow": workflow_capabilities(self.vita_source),
                 "engines": [x for x in ("pdflatex", "xelatex", "lualatex") if shutil.which(x)]}
 
-    def start_ai(self, name, revision, job_revision, provider="", language="en", model=None, reasoning="", workflow=None, ai_config=None, resume_from=None, resume_token=None, preview_only=False):
+    def start_ai(self, name, revision, job_revision, provider="", language="en", model=None, reasoning="", workflow=None, ai_config=None, resume_from=None, resume_token=None, preview_only=False, captured_origins=None):
         with self.lock:
             if self._closed:
                 raise ConflictError("Vita Tree is stopping. Restart it before preparing an application.")
@@ -824,7 +836,8 @@ class Workspace:
                       "reasoning": reasoning, "language": language, "stages": stages, "stepConfig": routes,
                       "parentRunId": resume_from, "rootRunId": self.jobs[resume_from].get('rootRunId') or resume_from if resume_from else ident,
                       "attempt": (self.jobs[resume_from].get('attempt') or 1) + 1 if resume_from else 1,
-                      "checkpointSteps": [], "outcomes": {}}
+                      "checkpointSteps": [], "outcomes": {},
+                      "traceId": (self.jobs[resume_from].get("traceId") or self.jobs[resume_from].get("rootRunId") or resume_from) if resume_from else ident}
             if resume_from:
                 record['attempt'] = max((item.get('attempt') or 1 for item in self.jobs.values() if item.get('rootRunId') == record['rootRunId']), default=0) + 1
             context = self._ai_context(location, source, job, command, provider, model, reasoning)
@@ -865,6 +878,10 @@ class Workspace:
             atomic_write(inputs / "job.md", job)
             self._persist_job(record)
             self.jobs[ident] = record
+            origins = {step: ('step_override' if step in settings['steps'] else 'shared') for step in routes} if uses_ai else {}
+            if captured_origins is not None:
+                origins.update(captured_origins)
+            self.inspector.begin(record, context, origins)
             self.diagnostics.workflow(record)
             thread = threading.Thread(target=self._run_ai, args=(record, context), daemon=True)
             self._ai_threads.add(thread)
@@ -933,31 +950,33 @@ class Workspace:
         stage = self.root / "runs" / record["id"]
         location, source, job = (context[key] for key in ("location", "source", "job"))
         try:
-            export_snapshot(self.repository, context["baseCommit"], stage, location)
-            for name, expected in context['checkpointInputs']['assets'].items():
-                path = safe_path(stage, name)
-                if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != expected:
-                    raise AIRunError('Your application inputs changed while preparing the workspace. Your edits were preserved.')
-            atomic_write(stage / "main.tex", source)
-            atomic_write(stage / "job.md", job)
-            for filename, content in context["skills"].items():
-                atomic_write(safe_path(stage, filename), content)
-            for filename, content in context["config"].items():
-                atomic_write(stage / ".vita" / filename, content)
-            # Never mistake reports copied from a previous run for this run's outputs.
-            for path in self.report_paths():
-                safe_path(stage, path).unlink(missing_ok=True)
-            safe_path(stage, "cover-letter.tex").unlink(missing_ok=True)
-            for path, content in context['dependencies'].items():
-                atomic_write(safe_path(stage, path), content)
-            for name, content in context['criteria'].items():
-                atomic_write(safe_path(stage / '.vita/criteria-snapshot', name), content)
+            with self.inspector.phase(record, "staging"):
+                export_snapshot(self.repository, context["baseCommit"], stage, location)
+                for name, expected in context['checkpointInputs']['assets'].items():
+                    path = safe_path(stage, name)
+                    if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != expected:
+                        raise PreparationConflict('Your application inputs changed while preparing the workspace. Your edits were preserved.')
+                atomic_write(stage / "main.tex", source)
+                atomic_write(stage / "job.md", job)
+                for filename, content in context["skills"].items():
+                    atomic_write(safe_path(stage, filename), content)
+                for filename, content in context["config"].items():
+                    atomic_write(stage / ".vita" / filename, content)
+                # Never mistake reports copied from a previous run for this run's outputs.
+                for path in self.report_paths():
+                    safe_path(stage, path).unlink(missing_ok=True)
+                safe_path(stage, "cover-letter.tex").unlink(missing_ok=True)
+                for path, content in context['dependencies'].items():
+                    atomic_write(safe_path(stage, path), content)
+                for name, content in context['criteria'].items():
+                    atomic_write(safe_path(stage / '.vita/criteria-snapshot', name), content)
             for task in record["stages"]:
                 step = task["id"]
                 if task["status"] == "skipped" or step == "validating":
                     continue
                 before = checkpoints.artifacts(stage)
                 key = checkpoints.signature(context, step, before)
+                self.inspector.capture_step(record, step, digest(before['main.tex'] or ''), checkpoints.fingerprint(before), key)
                 saved = context['resume']['checkpoints'].get(step)
                 if saved:
                     checkpoints.restore(stage, saved[1])
@@ -968,7 +987,11 @@ class Workspace:
                         atomic_write_bytes(output/'cover-letter.pdf', prior_pdf.read_bytes())
                         atomic_write(output/'ready.json', json.dumps({key: saved[0]['pdf'][key] for key in ('engine','warnings')}))
                         reused_pdf = dict(path=output/'cover-letter.pdf', **{key: saved[0]['pdf'][key] for key in ('engine','warnings')})
-                    saved_child = checkpoints.write_checkpoint(self.root/'checkpoints', record['id'], step, key, saved[1], saved[0]['outcome'], reused_pdf)
+                    with self.inspector.phase(record, 'checkpoint', step):
+                        saved_child = checkpoints.write_checkpoint(self.root/'checkpoints', record['id'], step, key, saved[1], saved[0]['outcome'], reused_pdf)
+                    if not saved_child:
+                        self.inspector.mark(record, 'checkpoint', 'not_retained', step)
+                    self.inspector.mark(record, 'checkpoint', 'reused', step, reused_from=record['parentRunId'])
                     reused_stages = [dict(item, status='succeeded', startedAt=time.time(), finishedAt=time.time(), reusedFrom=record['parentRunId']) if item['id'] == step else dict(item) for item in record['stages']]
                     saved_outcome = self._safe_outcomes({step: saved[0]['outcome']})[step]
                     if not self._job_update(record, step=step, message='Reused verified ' + step + ' results.',
@@ -984,6 +1007,7 @@ class Workspace:
                 route = context['stepConfig'][step]
                 env = stage_environment(context['env'], route, context['keys'].get(step))
                 execution_id = uuid.uuid4().hex
+                env.update(self.inspector.environment(record, step))
                 env['VITA_TREE_EXECUTION_ID'] = execution_id
                 env['VITA_REQUIREMENTS_DIR'] = str(stage / '.vita/criteria-snapshot')
                 safe_path(stage, '.vita/results/tree-' + step + '.outcome.json').unlink(missing_ok=True)
@@ -1003,30 +1027,34 @@ class Workspace:
                 if step == 'analyze':
                     for filename in ('delta.md', 'delta.json'):
                         safe_path(stage, '.vita/results/' + filename).unlink(missing_ok=True)
-                process = subprocess.run(args, cwd=stage, env=env, stdin=subprocess.DEVNULL, capture_output=True, timeout=600)
-                reports = [read_text(safe_path(stage, ".vita/results/" + name)).strip() for name in REPORTS[step]]
+                with self.inspector.phase(record, 'subprocess', step):
+                    process = subprocess.run(args, cwd=stage, env=env, stdin=subprocess.DEVNULL, capture_output=True, timeout=600)
                 if process.returncode:
-                    self.diagnostics.record('provider_failed', 'ERROR', run_id=record['id'], step=step, exit_code=process.returncode)
-                outcome = read_outcome(stage, step, execution_id)
-                if outcome:
-                    if not self._job_update(record, outcomes={**record['outcomes'], step: outcome}):
-                        return
-                if process.returncode or not any(reports) or (outcome and outcome['status'] != 'success'):
-                    raise AIRunError(f"Your AI service did not return the expected results. Check the AI connection and try again. Your CV is unchanged.")
-                if step == "extract":
-                    try:
-                        extracted = json.loads(reports[0])
-                        if extracted.get("source_sha256") != digest(job) or not reports[1]:
-                            raise ValueError("Job mismatch")
-                    except (ValueError, AttributeError):
-                        raise AIRunError("The job requirements could not be verified against this job description. Your CV is unchanged.") from None
-                if read_text(stage / 'job.md') != job:
-                    raise AIRunError('The preparation unexpectedly changed its job description. Your application is unchanged.')
-                step_source = read_text(stage / 'main.tex')
-                if step != 'adapt' and step_source != before['main.tex']:
-                    raise AIRunError('This feedback step unexpectedly changed the CV. Your application is unchanged; inspect the preparation results.')
-                if step == 'adapt' and (parse_document(step_source)['error'] or r'\begin{document}' not in step_source):
-                    raise AIRunError('main.tex is not parseable. Your branch is unchanged; inspect the source in the LaTeX editor.')
+                    self.inspector.mark(record, 'subprocess', 'error', step, error=RuntimeError())
+                with self.inspector.phase(record, 'validation', step):
+                    reports = [read_text(safe_path(stage, ".vita/results/" + name)).strip() for name in REPORTS[step]]
+                    if process.returncode:
+                        self.diagnostics.record('provider_failed', 'ERROR', run_id=record['id'], step=step, exit_code=process.returncode)
+                    outcome = read_outcome(stage, step, execution_id)
+                    if outcome:
+                        if not self._job_update(record, outcomes={**record['outcomes'], step: outcome}):
+                            return
+                    if process.returncode or not any(reports) or (outcome and outcome['status'] != 'success'):
+                        raise AIRunError(f"Your AI service did not return the expected results. Check the AI connection and try again. Your CV is unchanged.")
+                    if step == "extract":
+                        try:
+                            extracted = json.loads(reports[0])
+                            if extracted.get("source_sha256") != digest(job) or not reports[1]:
+                                raise ValueError("Job mismatch")
+                        except (ValueError, AttributeError):
+                            raise AIRunError("The job requirements could not be verified against this job description. Your CV is unchanged.") from None
+                    if read_text(stage / 'job.md') != job:
+                        raise AIRunError('The preparation unexpectedly changed its job description. Your application is unchanged.')
+                    step_source = read_text(stage / 'main.tex')
+                    if step != 'adapt' and step_source != before['main.tex']:
+                        raise AIRunError('This feedback step unexpectedly changed the CV. Your application is unchanged; inspect the preparation results.')
+                    if step == 'adapt' and (parse_document(step_source)['error'] or r'\begin{document}' not in step_source):
+                        raise AIRunError('main.tex is not parseable. Your branch is unchanged; inspect the source in the LaTeX editor.')
                 if step == 'cover':
                     cover_source = read_text(safe_path(stage, 'cover-letter.tex'))
                     if parse_document(cover_source)['error'] or not all(marker in cover_source for marker in (r'\documentclass', r'\begin{document}', r'\end{document}')):
@@ -1035,71 +1063,78 @@ class Workspace:
                         return
                     try:
                         output = safe_path(self.root, 'run-pdfs/' + record['id'])
-                        built = compile_document(stage, 'cover-letter.tex', output=output)
+                        with self.inspector.phase(record, 'pdf', step):
+                            built = compile_document(stage, 'cover-letter.tex', output=output)
                         self.diagnostics.record('pdf_compiled', operation='compile_cover', run_id=record['id'], step='cover')
                         atomic_write(output / 'ready.json', json.dumps({'engine': built['engine'], 'warnings': built['warnings']}))
                         step_pdf = {'path': built['pdf'], 'engine': built['engine'], 'warnings': built['warnings']}
                     except (ValueError, OSError, subprocess.SubprocessError) as error:
                         raise AIRunError('The cover-letter PDF could not be created. Your application is unchanged. Check the PDF tools and packages, inspect the cover-letter source in the preparation results, then retry.') from error
                 if outcome and outcome['verified'] and outcome['status'] == 'success':
-                    saved = checkpoints.write_checkpoint(self.root/'checkpoints', record['id'], step, key,
-                                                         checkpoints.artifacts(stage), outcome, step_pdf)
+                    with self.inspector.phase(record, 'checkpoint', step):
+                        saved = checkpoints.write_checkpoint(self.root/'checkpoints', record['id'], step, key,
+                                                             checkpoints.artifacts(stage), outcome, step_pdf)
+                    if not saved:
+                        self.inspector.mark(record, 'checkpoint', 'not_retained', step)
                     if saved and not self._job_update(record, checkpointSteps=[*record['checkpointSteps'], step]):
                         return
             if not self._job_update(record, step="validating", message=MESSAGES["validating"],
                                     stages=transition(record["stages"], step="validating")):
                 return
-            cover = None
-            if any(t["id"] == "cover" and t["status"] != "skipped" for t in record["stages"]):
-                cover = read_text(safe_path(stage, "cover-letter.tex"))
-                if parse_document(cover)["error"] or not all(marker in cover for marker in ("\\documentclass", "\\begin{document}", "\\end{document}")):
-                    raise AIRunError("Your AI service did not produce a valid cover letter. Your application is unchanged; inspect the preparation results.")
-            result = read_text(stage / "main.tex")
-            adapting = 'adapt' in context['selected']
-            if adapting or context['selected'] == {'validating'}:
-                if parse_document(result)["error"] or "\\begin{document}" not in result:
-                    raise AIRunError("main.tex is not parseable. Your branch is unchanged; inspect the source in the LaTeX editor.")
-            if not adapting and result != source:
-                raise AIRunError("This feedback step unexpectedly changed the CV. Your application is unchanged; inspect the preparation results.")
             with self.lock:
-                if self._closed:
-                    return
-                if (self.head(record["branch"]) != context["baseCommit"]
-                        or self.location(record["branch"]) != location
-                        or self.read(record["branch"], self.document_path) != source
-                        or self.read(record["branch"], "job.md") != job
-                        or any(digest(read_text(safe_path(location, p))) != value for p, value in context["reports"].items())):
-                    raise AIRunError("Your application changed during preparation. The results were kept separately and your edits were preserved.")
-                # Include files and approved criteria are application evidence, too.
-                # AI setup/skills remain the immutable submitted choice for this
-                # attempt; changing them invalidates checkpoints on the next retry.
-                fresh = self._ai_context(location, source, job, context['command'], record['provider'], record['model'], record['reasoning'])
-                fresh.update(stepConfig=context['stepConfig'], keys=context['keys'], dependencies=context['dependencies'])
-                capture_resume_inputs(self, fresh, record)
-                if any(fresh['checkpointInputs'][key] != context['checkpointInputs'][key]
-                       for key in ('assets', 'criteria', 'backend')):
-                    raise AIRunError('Your application inputs or AI configuration changed during preparation. Results were retained separately and your edits were preserved.')
-                updates = {}
-                if adapting and result != source:
-                    meta = self.metadata(record['branch'])
-                    meta.update(baseCommit=self.head(record['branch']), baseBranch=record['branch'] + ' · before AI', original=source)
-                    updates['@metadata'] = json.dumps(meta)
-                outputs = {'.vita/results/' + filename for step in context['selected'] if step in REPORTS for filename in REPORTS[step]}
-                if 'analyze' in context['selected']:
-                    outputs.update(('.vita/results/delta.md', '.vita/results/delta.json'))
-                for path in outputs:
-                    target = safe_path(stage, path)
-                    updates[path] = read_text(target) if target.is_file() else None
-                if cover is not None:
-                    updates['cover-letter.tex'] = cover
-                if adapting and result != source:
-                    updates[self.document_path] = result
-                with publish(self, record['id'], record['branch'], updates):
-                    if not self._job_update(record, status="succeeded", step="completed", finishedAt=time.time(),
-                                            message=("Your changes were checked. Create a PDF preview to check the final layout."
-                                                     if context['selected'] == {'validating'} else "Cover-letter PDF ready. Open the run to review and save it." if cover is not None else "Selected steps finished. Open the run to review the results."),
-                                            stages=transition(record['stages'], terminal='succeeded')):
-                        raise AIRunError('The preparation was interrupted before publication completed.')
+                with self.inspector.phase(record, 'validation', 'validating'):
+                    cover = None
+                    if any(t["id"] == "cover" and t["status"] != "skipped" for t in record["stages"]):
+                        cover = read_text(safe_path(stage, "cover-letter.tex"))
+                        if parse_document(cover)["error"] or not all(marker in cover for marker in ("\\documentclass", "\\begin{document}", "\\end{document}")):
+                            raise AIRunError("Your AI service did not produce a valid cover letter. Your application is unchanged; inspect the preparation results.")
+                    result = read_text(stage / "main.tex")
+                    adapting = 'adapt' in context['selected']
+                    if adapting or context['selected'] == {'validating'}:
+                        if parse_document(result)["error"] or "\\begin{document}" not in result:
+                            raise AIRunError("main.tex is not parseable. Your branch is unchanged; inspect the source in the LaTeX editor.")
+                    if not adapting and result != source:
+                        raise AIRunError("This feedback step unexpectedly changed the CV. Your application is unchanged; inspect the preparation results.")
+                    with self.lock:
+                        if self._closed:
+                            return
+                        if (self.head(record["branch"]) != context["baseCommit"]
+                                or self.location(record["branch"]) != location
+                                or self.read(record["branch"], self.document_path) != source
+                                or self.read(record["branch"], "job.md") != job
+                                or any(digest(read_text(safe_path(location, p))) != value for p, value in context["reports"].items())):
+                            raise PreparationConflict("Your application changed during preparation. The results were kept separately and your edits were preserved.")
+                        # Include files and approved criteria are application evidence, too.
+                        # AI setup/skills remain the immutable submitted choice for this
+                        # attempt; changing them invalidates checkpoints on the next retry.
+                        fresh = self._ai_context(location, source, job, context['command'], record['provider'], record['model'], record['reasoning'])
+                        fresh.update(stepConfig=context['stepConfig'], keys=context['keys'], dependencies=context['dependencies'])
+                        capture_resume_inputs(self, fresh, record)
+                        if any(fresh['checkpointInputs'][key] != context['checkpointInputs'][key]
+                               for key in ('assets', 'criteria', 'backend')):
+                            raise PreparationConflict('Your application inputs or AI configuration changed during preparation. Results were retained separately and your edits were preserved.')
+                        updates = {}
+                        if adapting and result != source:
+                            meta = self.metadata(record['branch'])
+                            meta.update(baseCommit=self.head(record['branch']), baseBranch=record['branch'] + ' · before AI', original=source)
+                            updates['@metadata'] = json.dumps(meta)
+                        outputs = {'.vita/results/' + filename for step in context['selected'] if step in REPORTS for filename in REPORTS[step]}
+                        if 'analyze' in context['selected']:
+                            outputs.update(('.vita/results/delta.md', '.vita/results/delta.json'))
+                        for path in outputs:
+                            target = safe_path(stage, path)
+                            updates[path] = read_text(target) if target.is_file() else None
+                        if cover is not None:
+                            updates['cover-letter.tex'] = cover
+                        if adapting and result != source:
+                            updates[self.document_path] = result
+                with self.lock, self.inspector.phase(record, 'publication', 'validating'):
+                    with publish(self, record['id'], record['branch'], updates):
+                        if not self._job_update(record, status="succeeded", step="completed", finishedAt=time.time(),
+                                                message=("Your changes were checked. Create a PDF preview to check the final layout."
+                                                         if context['selected'] == {'validating'} else "Cover-letter PDF ready. Open the run to review and save it." if cover is not None else "Selected steps finished. Open the run to review the results."),
+                                                stages=transition(record['stages'], terminal='succeeded')):
+                            raise AIRunError('The preparation was interrupted before publication completed.')
         except Exception as error:
             self.diagnostics.error('run_error', error, run_id=record['id'], step=record.get('step'))
             # Never persist exception text or provider stdout: either can contain
@@ -1110,6 +1145,7 @@ class Workspace:
             self._job_update(record, status="failed", step="failed", finishedAt=time.time(), message=message,
                              stages=transition(record.get("stages"), terminal="failed"))
         finally:
+            self.inspector.finish(record)
             context.get('keys', {}).clear()
             try:
                 if not self._closed:

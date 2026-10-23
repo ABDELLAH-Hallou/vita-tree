@@ -86,6 +86,8 @@ jobs:
       - run: python tests/browser_ai_settings.py --browser chromium
       - run: python tests/browser_custom_environment.py --browser chromium
       - run: python tests/browser_resume.py --browser chromium
+      - run: python tests/browser_inspector.py --browser chromium
+      - run: python tests/browser_inspector_states.py --browser chromium
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:

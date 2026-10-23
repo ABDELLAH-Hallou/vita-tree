@@ -1,5 +1,7 @@
+import {initExecutionInspector} from './execution-inspector.js';
 // Local diagnostics contain controlled events rather than document/provider payloads.
-export function initDiagnostics({api}) {
+export function initDiagnostics({api, retry}) {
+  const inspector=initExecutionInspector({api,retry});
   const $=selector=>document.querySelector(selector), dialog=$('#diagnostics-dialog');
   let pending=false, snapshot=null;
   const cell=(row,text)=>{const td=document.createElement('td');td.textContent=text ?? '—';row.append(td);};
@@ -39,7 +41,7 @@ export function initDiagnostics({api}) {
     }catch(error){$('#diagnostics-error').textContent=error.message;}
     finally{pending=false;$('#refresh-diagnostics').disabled=false;}
   }
-  for(const button of document.querySelectorAll('[data-open-diagnostics]'))button.onclick=()=>{dialog.showModal();refresh();};
+  for(const button of document.querySelectorAll('[data-open-diagnostics]'))button.onclick=()=>{inspector.open();refresh();};
   $('#refresh-diagnostics').onclick=refresh;$('#diagnostics-search').oninput=renderEvents;
   $('#download-diagnostics').onclick=()=>{
     if(!snapshot)return;
@@ -48,4 +50,5 @@ export function initDiagnostics({api}) {
     const link=document.createElement('a');link.href=url;link.download='vita-tree-support-report.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
   };
   setInterval(()=>{if(dialog.open)refresh();},3000);
+  return inspector;
 }
