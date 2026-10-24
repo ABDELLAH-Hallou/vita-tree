@@ -190,4 +190,17 @@ class SetupTests(unittest.TestCase):
         self.assertIsNone(preflight.public_result({'checks':{'arbitrary':'value'}}))
 
 
+class PublicRunPrivacyTests(unittest.TestCase):
+    def test_fixed_entry_guidance_is_public_but_raw_fields_and_values_are_not(self):
+        from support import assert_public_run_privacy
+        report=preflight.public_result({'checks':[{'code':'configuration_default'},{'code':'compiled'}],'engine':'pdflatex'})
+        self.assertIn('main.tex',json.dumps(report))
+        assert_public_run_privacy({'runs':[{'preflight':report,'model':'environment-model'}]},['private-canary'])
+        for field in ('env','stdout','stderr','prompt','source','content','sourceContent','rawOutput'):
+            with self.subTest(field=field),self.assertRaises(AssertionError):
+                assert_public_run_privacy({'runs':[{'nested':[{field:'private data'}]}]},[])
+        with self.assertRaises(AssertionError):
+            assert_public_run_privacy({'runs':[{'message':'private-canary'}]},['private-canary'])
+
+
 if __name__=='__main__':unittest.main()
