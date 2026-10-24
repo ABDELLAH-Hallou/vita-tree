@@ -29,8 +29,14 @@ def capture(workspace, context, record):
                 raise ValueError('Application inputs exceed the snapshot limit')
             assets[name] = hashlib.sha256(path.read_bytes()).hexdigest()
     criteria = {}
-    store = context['env'].get('VITA_REQUIREMENTS_DIR')
-    store = Path(store).expanduser() if store else workspace.root.parent / 'vita/requirements'
+    from . import requirements_review
+    store, _, marker = requirements_review.paths(workspace, context)
+    if context.get('requirementsBackend'):
+        review = requirements_review.state(workspace, context)
+        context['requirementsToken'] = review['token']
+        criteria['tree-review-token.json'] = json.dumps({'token':review['token']})
+        if marker.is_file():
+            criteria['tree-review.json'] = read_text(marker)
     approval = store / 'approved' / (digest(context['job']) + '.json')
     if approval.is_file():
         if approval.is_symlink():
@@ -52,7 +58,7 @@ def capture(workspace, context, record):
         for path in root.rglob('*'):
             if path.is_file() and '__pycache__' not in path.parts and path.suffix in {'.py', '.md', '.json', '.yaml'}:
                 backend[path.relative_to(root).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
-    for name in ('ai_runner.py', 'outcomes.py', 'checkpoints.py', 'resume_inputs.py', 'workspace.py', 'execution.py', 'diagnostics_contract.py', 'provider_status.py', 'factual_contract.py', 'factual_backend.py', 'factual_review.py'):
+    for name in ('ai_runner.py', 'outcomes.py', 'checkpoints.py', 'resume_inputs.py', 'workspace.py', 'execution.py', 'diagnostics_contract.py', 'provider_status.py', 'factual_contract.py', 'factual_backend.py', 'factual_review.py', 'requirements_backend.py', 'requirements_review.py'):
         backend['tree-adapter/' + name] = hashlib.sha256(Path(__file__).with_name(name).read_bytes()).hexdigest()
     configs = dict(context['config'])
     extensions = json.loads(configs.get('extensions.json', '{}'))

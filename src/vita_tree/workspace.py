@@ -25,6 +25,7 @@ from .workflow import REPORTS, MESSAGES, capabilities as workflow_capabilities, 
 from .server import branch_payload, run_git
 from . import checkpoints
 from . import factual_review
+from . import requirements_review
 from .outcomes import read_outcome
 from .provider_status import failure
 from .resume_inputs import capture as capture_resume_inputs
@@ -265,7 +266,7 @@ class Workspace:
                 "running": self.active_job(name)}
 
     JOB_FIELDS = ("id", "branch", "opportunity", "status", "step", "message", "provider", "model",
-                  "reasoning", "language", "createdAt", "startedAt", "finishedAt", "reviewed", "stages", "stepConfig", "parentRunId", "rootRunId", "attempt", "checkpointSteps", "outcomes", "traceId")
+                  "reasoning", "language", "createdAt", "startedAt", "finishedAt", "reviewed", "stages", "stepConfig", "parentRunId", "rootRunId", "attempt", "checkpointSteps", "outcomes", "traceId", "requirementsRevision", "requirementsDraft")
     ACTIVE_STATUSES = {"queued", "running"}
 
     def _public_job(self, record):
@@ -284,6 +285,15 @@ class Workspace:
         result['failures'] = {step: info for step, outcome in result['outcomes'].items()
                               if (info := failure(outcome))}
         result['factualReview'] = factual_review.summary(self, record['id'])
+        if record.get('requirementsRevision'):
+            result['requirementsStatus'] = requirements_review.run_status(self, record)
+        if record.get('requirementsDraft'):
+            try:
+                review = requirements_review.state(self, requirements_review.context_for(self, record['branch']))
+                result['requirementsApprovalNeeded'] = review['state'] != 'approved'
+            except (OSError, ValueError):
+                result['requirementsApprovalNeeded'] = True
+            result['resumeAvailable'] = result['resumeAvailable'] and not result['requirementsApprovalNeeded']
         if result['factualReview']:
             pending = result['factualReview']['state'] != 'resolved'
             result['resumeAvailable'] = result['resumeAvailable'] and not pending
@@ -345,6 +355,9 @@ class Workspace:
                 for field in ('parentRunId', 'rootRunId', 'traceId'):
                     value = record.get(field)
                     record[field] = value if isinstance(value, str) and re.fullmatch(r'[a-f0-9]{32}', value) else None
+                for field in ('requirementsRevision', 'requirementsDraft'):
+                    value = record.get(field)
+                    record[field] = value if isinstance(value, str) and re.fullmatch(r'[a-f0-9]{64}', value) else None
                 attempt = record.get('attempt')
                 record['attempt'] = attempt if type(attempt) is int and 1 <= attempt <= 100 else None
                 record['checkpointSteps'] = [step for step in record.get('checkpointSteps') or [] if step in REPORTS]
@@ -820,6 +833,12 @@ class Workspace:
     def factual_review(self, ident):
         return factual_review.view(self, ident)
 
+    def save_requirements(self, branch, token, revision, items):
+        return requirements_review.change(self, branch, token, revision, items)
+
+    def approve_requirements(self, branch, token, revision, confirmed=False):
+        return requirements_review.change(self, branch, token, revision, approve=True, confirmed=confirmed)
+
     def apply_factual_review(self, ident, revision, token, decisions, confirmed=False):
         return factual_review.apply(self, ident, revision, token, decisions, confirmed)
 
@@ -896,7 +915,24 @@ class Workspace:
             context["selected"] = selected
             if record['attempt'] > 100:
                 raise ValueError('This preparation has reached 100 attempts. Start a new preparation.')
+            if context['requirementsBackend'] and selected - {'validating'}:
+                review = requirements_review.state(self, context)
+                if review['state'] == 'approved':
+                    data = requirements_review.definition(self, context, review['approvedRevision'])
+                    context['requirementsRevision'] = record['requirementsRevision'] = data['revision']
+                elif selected - {'extract', 'validating'} and 'extract' not in selected:
+                    raise ValueError('Run Extract, then review and approve the job requirements before starting dependent steps.')
+                if review['state'] == 'pending':
+                    record['requirementsDraft'] = review['revision']
+                    raise ValueError('A job definition is awaiting review. Open requirements from Extract and approve it before continuing.')
+                # Old assessments are never context for a different definition.
+                context['dependencies'] = reusable_reports(captured, digest(job), context.get('requirementsRevision'))
             capture_resume_inputs(self, context, record)
+            if context['requirementsBackend'] and selected - {'validating'}:
+                pointer = context['criteria'].get('approved/'+digest(job)+'.json')
+                captured_revision = json.loads(pointer)['revision'] if pointer else None
+                if review['token'] != context['requirementsToken'] or captured_revision != context.get('requirementsRevision'):
+                    raise ConflictError('The requirement approval changed while capturing inputs. Review requirements and try again.')
             context['resume'] = checkpoints.resume_plan(self.root/'checkpoints', resume_from, context) if resume_from else {'reuse': [], 'rerun': [], 'checkpoints': {}}
             if resume_from:
                 preview = {key: context['resume'][key] for key in ('reuse', 'rerun')}
@@ -913,6 +949,8 @@ class Workspace:
                     raise ConflictError('The resume plan changed. Review the retry plan again before starting.')
 
             # Preserve each run's inputs before its independent process starts.
+            if context.get('requirementsRevision'):
+                requirements_review.retain_run(self, record, context, data)
             inputs = self.root / "run-inputs" / ident
             atomic_write(inputs / "main.tex", source)
             atomic_write(inputs / "job.md", job)
@@ -968,7 +1006,8 @@ class Workspace:
         except (ValueError, TypeError, AttributeError):
             raise ValueError("Your AI settings could not be read. Check AI connection details.") from None
         return {"location": location, "source": source, "job": job, "command": command, "env": env, "config": config, "skills": skills,
-                'factualBackend': bool(self.vita_source and (self.vita_source/'vita/helpers/factual_changes.py').is_file())}
+                'factualBackend': bool(self.vita_source and (self.vita_source/'vita/helpers/factual_changes.py').is_file()),
+                'requirementsBackend': requirements_review.supported(self)}
 
     def _job_update(self, record, **values):
         with self.lock:
@@ -1107,6 +1146,14 @@ class Workspace:
                                 raise ValueError("Job mismatch")
                         except (ValueError, AttributeError):
                             raise AIRunError("The job requirements could not be verified against this job description. Your CV is unchanged.") from None
+                        requirements_review.capture(self, record, context, stage, execution_id)
+                    if step in {'analyze','review'} and context.get('requirementsRevision'):
+                        try:
+                            assessment = json.loads(read_text(stage/('.vita/results/'+('analysis.json' if step=='analyze' else 'review.json'))))
+                            if assessment['metadata']['requirements_revision'] != context['requirementsRevision']:
+                                raise ValueError('Mismatched requirements')
+                        except (ValueError, KeyError, TypeError):
+                            raise AIRunError('The assessment did not use the captured requirement revision. Your application is unchanged.') from None
                     if read_text(stage / 'job.md') != job:
                         raise AIRunError('The preparation unexpectedly changed its job description. Your application is unchanged.')
                     step_source = read_text(stage / 'main.tex')
@@ -1137,6 +1184,8 @@ class Workspace:
                         self.inspector.mark(record, 'checkpoint', 'not_retained', step)
                     if saved and not self._job_update(record, checkpointSteps=[*record['checkpointSteps'], step]):
                         return
+                if step == 'extract':
+                    requirements_review.require_approval(self, record, context)
             if not self._job_update(record, step="validating", message=MESSAGES["validating"],
                                     stages=transition(record["stages"], step="validating")):
                 return

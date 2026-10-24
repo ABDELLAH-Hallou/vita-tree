@@ -53,7 +53,7 @@ def plan(options, available):
              'startedAt': None, 'finishedAt': None} for step in STEPS]
 
 
-def reusable_reports(reports, job_hash):
+def reusable_reports(reports, job_hash, requirements_revision=None):
     """Carry only job-matching context into a new isolated run.
 
     Vita CV validates extraction/evaluation schemas and criteria itself. Markdown
@@ -67,6 +67,8 @@ def reusable_reports(reports, job_hash):
             data = json.loads(reports.get('.vita/results/' + name, ''))
             metadata = data if step == 'extract' else data.get('metadata', {})
             if metadata.get(key) != job_hash:
+                continue
+            if step != 'extract' and requirements_revision is not None and metadata.get('requirements_revision') != requirements_revision:
                 continue
         except (ValueError, AttributeError):
             continue

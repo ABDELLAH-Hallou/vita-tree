@@ -146,6 +146,8 @@ Retries run in new isolated folders. Failed or interrupted work does not publish
 
 Vita CV 2.8.0+ also pauses Tailor CV and Cover letter for source-linked factual review. Choose accept, reject, or edit for every change, save the reviewed preparation draft, then retry to continue from matching checkpoints. Rejected wording is excluded from downstream work. [Factual review and provenance](docs/FACTUAL_REVIEW.md) explains conflicts, atomic publication, keyboard controls and retention.
 
+Extract also creates a canonical job definition for review. Correct requirements and source references, keep employment conditions separate, then approve an immutable revision before continuing. Applications with the same job description share the approval; run history records the exact revision used. [Requirements review](docs/REQUIREMENTS.md) explains approval, corrections and downstream invalidation.
+
 Verified checkpoints live in the Git common directory under `vita-tree/checkpoints/`. Cleanup runs on startup, launch, and completion, and is also available under **Activity & support → Retained retry results**. Retention is at most 7 days, 20 terminal preparations, and 256 MB total, with a 32 MB limit per checkpoint. Active attempts and their immediate resume parents are protected from eviction; checkpoint writes stop when the byte budget is full. An expired checkpoint causes a fresh rerun, never a guessed success. Cleanup deletes only checkpoint copies; application folders, drafts, preparation/review history, `runs/`, `run-inputs/`, and `run-pdfs/` remain. The existing result caches require separate cleanup with the server stopped.
 
 ## Activity, errors, and logs

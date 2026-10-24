@@ -19,7 +19,7 @@ export function createAIConfiguration(container, {api, onChange}) {
     <div class="ai-save-bar"><button id="save-ai-setup" type="button">Save AI setup</button><span id="ai-setup-status" class="helper" role="status">Choices are saved locally. API keys last for this server session.</span></div>
     <p id="ai-setup-error" class="ai-setup-error" role="alert" hidden></p>
     <dialog id="step-ai-dialog" aria-labelledby="step-ai-title" aria-describedby="step-ai-description"><form id="step-ai-form">
-      <div class="dialog-heading"><div><span id="step-ai-context" class="pill accent"></span><h2 id="step-ai-title"></h2><button id="inspect-step-dialog" type="button" hidden>Inspect this step’s execution</button></div><button id="close-step-ai" class="quiet" type="button" aria-label="Close step settings">×</button></div>
+      <div class="dialog-heading"><div><span id="step-ai-context" class="pill accent"></span><h2 id="step-ai-title"></h2><button id="step-requirements" type="button" hidden>View job requirements</button><button id="inspect-step-dialog" type="button" hidden>Inspect this step’s execution</button></div><button id="close-step-ai" class="quiet" type="button" aria-label="Close step settings">×</button></div>
       <p id="step-ai-description" class="helper"></p>
       <fieldset id="step-ai-mode" class="step-ai-mode"><legend>AI setup for this step</legend>
         <label><input type="radio" name="step-ai-mode" id="step-ai-shared" value="shared"><span><strong>Use shared setup</strong><small>Follow the shared provider, model, reasoning, and connection.</small></span></label>
@@ -237,6 +237,7 @@ export function createAIConfiguration(container, {api, onChange}) {
     const history=!!options.history, readOnly=history||disabled||!!options.readOnly;
     const route=history?options.recorded:routeFor(step);
     stepEditor={step,branch,route:route?copy(route):null,custom:!!settings.steps[step],readOnly,history,allowNext:!!options.allowNext,saving:false};
+    $('#step-requirements').hidden=step!=='extract';
     $('#step-ai-title').textContent=title;
     $('#step-ai-description').textContent=readOnly?(route?'These are the settings captured for this run. Editing the next run does not change these results.':'This older run did not record an AI setup. Configure the next run to choose its settings.'):'Choose the AI for this component. Changes are applied only after you select Apply to step.';
     renderPopupFields();
