@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.12.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.11.0...v1.12.0) (2026-10-24)
+
+
+### Features
+
+* review and approve canonical job requirements ([9e69332](https://github.com/ABDELLAH-Hallou/vita-tree/commit/9e693327756f1de1eb31d2ad61ef916d355ba298))
+* review and approve canonical job requirements ([aaeff8b](https://github.com/ABDELLAH-Hallou/vita-tree/commit/aaeff8bbb28394ab8f381b45f76a51e458552417))
+
 ## [1.11.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.10.0...v1.11.0) (2026-10-24)
 
 
