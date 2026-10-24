@@ -201,6 +201,10 @@ npm run vendor
 
 Use Node 22.13+ or 24+ when updating PDF.js. The application itself runs on Python 3.10+.
 
+## Security
+
+Read the [security boundaries and threat model](SECURITY.md) before opening unfamiliar templates or repository configurations. The [scoped security review](docs/SECURITY_REVIEW.md) records synthetic tests, fixes, and remaining limits.
+
 ## Releases
 
 Use `feat:` and `fix:` commit messages. Releases have two separate PRs:

@@ -5,6 +5,7 @@ import re
 import uuid
 
 from .providers import SUPPORTED, discover, resolve
+from .security import credential_name
 
 STEPS = ('extract', 'analyze', 'adapt', 'review', 'cover')
 PREFIXES = dict(zip(STEPS, ('EXTRACTION', 'ANALYSIS', 'ADAPT', 'REVIEW', 'COVER')))
@@ -79,7 +80,16 @@ def effective_settings(settings, selected):
 
 def stage_environment(base, route, key=None):
     """A fresh environment per process prevents credentials leaking between steps."""
-    env = dict(base)
+    provider = route['provider'].upper()
+    aliases = {provider}
+    if provider in {'GEMINI','GOOGLE'}:
+        aliases.update({'GEMINI','GOOGLE'})
+    if provider == 'CODEX':
+        aliases.add('OPENAI')  # Explicit Codex API authentication remains supported.
+    allowed_keys = {alias+'_API_KEY' for alias in aliases}
+    env = {name:value for name,value in base.items()
+           if (not credential_name(name) or name.upper() in allowed_keys)
+           and not any(name.upper().startswith(other.upper()+'_') for other in SUPPORTED if other.upper() not in aliases)}
     env['ENABLE_JD_EXTRACTION'] = 'false'
     env['VITA_TREE_REASONING'] = route['reasoning']
     # Nested helper calls, if any, must use this step's explicit route too.
@@ -87,5 +97,7 @@ def stage_environment(base, route, key=None):
         env[prefix + '_PROVIDER'] = route['provider']
         env[prefix + '_MODEL'] = route['model']
     if key is not None:
+        for alias in aliases:
+            env.pop(alias+'_API_KEY', None)
         env[route['provider'].upper() + '_API_KEY'] = key
     return env

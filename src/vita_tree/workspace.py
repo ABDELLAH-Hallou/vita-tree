@@ -22,7 +22,7 @@ from .observability import Diagnostics
 from .execution import ExecutionInspector
 from .latex import parse_document, replace_leaf
 from .workflow import REPORTS, MESSAGES, capabilities as workflow_capabilities, plan, transition, clean_stages, reusable_reports
-from .server import branch_payload, run_git
+from .server import branch_payload, run_git, git_document
 from . import checkpoints
 from . import factual_review
 from . import requirements_review
@@ -31,6 +31,7 @@ from .provider_status import failure
 from .resume_inputs import capture as capture_resume_inputs
 from .publication import publish, recover as recover_publications
 from .ai_config import Connections, clean_settings, effective_settings, stage_environment
+from .security import credential_name, scrub_generated
 
 
 class ConflictError(ValueError):
@@ -61,10 +62,10 @@ def safe_path(root: Path, name: str) -> Path:
         raise ValueError("Invalid repository-relative path")
     target = root.joinpath(*path.parts)
     for parent in [target, *target.parents]:
+        if parent.is_symlink() or getattr(parent, 'is_junction', lambda:False)():
+            raise ValueError("Symlink paths are not supported")
         if parent == root:
             break
-        if parent.is_symlink():
-            raise ValueError("Symlink paths are not supported")
     if not target.resolve().is_relative_to(root.resolve()):
         raise ValueError("Path escapes the repository")
     return target
@@ -172,7 +173,7 @@ class Workspace:
     def committed(self, commit, filename):
         safe_path(self.repository, filename)
         try:
-            return run_git(self.repository, "show", f"{commit}:{filename}", strip=False)
+            return git_document(self.repository, commit, filename)
         except RuntimeError:
             # Distinguish absent files from command/repository failures.
             paths = run_git(self.repository, "ls-tree", "--name-only", commit, "--", filename)
@@ -1116,10 +1117,14 @@ class Workspace:
                     for filename in ('delta.md', 'delta.json'):
                         safe_path(stage, '.vita/results/' + filename).unlink(missing_ok=True)
                 with self.inspector.phase(record, 'subprocess', step):
-                    process = subprocess.run(args, cwd=stage, env=env, stdin=subprocess.DEVNULL, capture_output=True, timeout=600)
+                    process = subprocess.run(args, cwd=stage, env=env, stdin=subprocess.DEVNULL,
+                                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=600)
                 if process.returncode:
                     self.inspector.mark(record, 'subprocess', 'error', step, error=RuntimeError())
                 with self.inspector.phase(record, 'validation', step):
+                    secrets = set(context['keys'].values()) | {v for k,v in context['env'].items() if credential_name(k)}
+                    if scrub_generated(stage,secrets):
+                        raise AIRunError('Generated output contained a session credential and was withheld. Your application is unchanged. Review the source and provider setup before retrying.')
                     reports = [read_text(safe_path(stage, ".vita/results/" + name)).strip() for name in REPORTS[step]]
                     if process.returncode:
                         self.diagnostics.record('provider_failed', 'ERROR', run_id=record['id'], step=step, exit_code=process.returncode)
