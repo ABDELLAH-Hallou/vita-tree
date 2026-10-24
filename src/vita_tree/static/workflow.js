@@ -43,10 +43,15 @@ export function renderGraph(container, {run, options, available, selected, selec
     const title=document.createElement('strong'); title.textContent=task.title;
     const state=document.createElement('span'); state.className='dag-status'; state.textContent=(statusNames[task.status] || task.status)+(task.reusedFrom?' · reused':'');
     if(run?.factualReview?.step===task.id)state.textContent=({pending:'Needs factual review',resolved:'Factual decisions saved',unavailable:'Review unavailable'}[run.factualReview.state]||'Review unavailable');
+    if(task.id==='extract'&&run?.requirementsApprovalNeeded)state.textContent='Needs requirements review';
+    if(['analyze','adapt','review','cover'].includes(task.id)&&task.status==='succeeded'&&run?.requirementsStatus&&run.requirementsStatus!=='current')state.textContent+=' · requirements changed';
     const time=document.createElement('span'); time.className='dag-time';
     if(task.startedAt&&!task.finishedAt&&task.status==='running')time.dataset.startedAt=task.startedAt;
     time.textContent=task.startedAt ? `${Math.max(0,Math.floor((task.finishedAt || Date.now()/1000)-task.startedAt))}s` : task.output;
     button.append(icon,title,state,time); button.onclick=()=>select(task); container.append(button);
+    if(run?.requirementsRevision&&task.id!=='validating'){
+      const revision=document.createElement('span');revision.className='dag-requirements';revision.textContent='Requirements '+run.requirementsRevision.slice(0,12);revision.title=run.requirementsRevision;button.append(revision);
+    }
     const failure=run?.factualReview?.step===task.id?'':failureText(run,task.id);
     if(failure){const info=document.createElement('span');info.className='dag-failure';info.textContent=failure;button.append(info);button.setAttribute('aria-label',button.getAttribute('aria-label')+' '+failure);}
     if(config[task.id]) {

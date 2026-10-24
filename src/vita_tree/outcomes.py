@@ -59,6 +59,9 @@ def execute(step, invoke, execution_id):
     folder = Path('.vita/results')
     native = folder / (step + '.outcome.json')
     native.unlink(missing_ok=True)
+    requirements_trace = folder/'tree-requirements-native.json'
+    if step == 'extract':
+        requirements_trace.unlink(missing_ok=True)
     result = False
     api_result = None
     try:
@@ -73,10 +76,13 @@ def execute(step, invoke, execution_id):
                 from factual_backend import capture
             capture(step, execution_id)
         trace = None
+        expected_step = step
+        if step == 'extract' and requirements_trace.is_file():
+            native, expected_step = requirements_trace, 'requirements'
         if native.is_file() and native.stat().st_size < 200_000:
             try:
                 raw = json.loads(native.read_text(encoding='utf-8'))
-                if raw.get('step') == step:
+                if raw.get('step') == expected_step:
                     trace = safe_outcome(raw, [v for k,v in os.environ.items() if any(part in k.upper() for part in ('KEY','TOKEN','SECRET','PASSWORD'))])
             except (OSError, ValueError, AttributeError):
                 pass

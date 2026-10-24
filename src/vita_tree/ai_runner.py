@@ -8,6 +8,55 @@ import sys
 import argparse
 import inspect
 import subprocess
+import json
+import tempfile
+import shutil
+
+
+def extract_requirements(invoke, provider, execution_id):
+    """Canonical extraction sees only the job description, never the candidate CV."""
+    if not invoke():
+        return False
+    try:
+        from vita.helpers import requirements
+    except ImportError:
+        return True  # Legacy backends are never labelled as canonically approved.
+    raw = Path('job.md').read_text(encoding='utf-8')
+    if requirements.approved_revision(raw):
+        return True
+    from vita.commands.requirements import run
+    origin = Path.cwd()
+    trace = origin/'.vita/results/tree-requirements-native.json'
+    trace.unlink(missing_ok=True)
+    old_store = os.environ.get('VITA_REQUIREMENTS_DIR')
+    with tempfile.TemporaryDirectory(prefix='vita-requirements-') as directory:
+        scratch = Path(directory)
+        (scratch/'job.md').write_text(raw, encoding='utf-8')
+        (scratch/'.vita').mkdir()
+        for name in ('extensions.json','config.json'):
+            if (origin/'.vita'/name).is_file():
+                shutil.copyfile(origin/'.vita'/name, scratch/'.vita'/name)
+        # Codex requires a repository; no application files are copied into it.
+        subprocess.run(['git','init','--quiet',str(scratch)], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        try:
+            os.chdir(scratch)
+            os.environ['VITA_REQUIREMENTS_DIR'] = str(scratch/'store')
+            success = run('draft', auto=True, provider=provider)
+            native = scratch/'.vita/results/requirements.outcome.json'
+            if native.is_file():
+                shutil.copyfile(native, trace)
+            if success:
+                pointer = json.loads(requirements.STATE.read_text(encoding='utf-8'))
+                data = requirements.read_revision(pointer['revision'])
+                (origin/'.vita/results/tree-requirements.json').write_text(
+                    json.dumps({'executionId':execution_id,'definition':data}, ensure_ascii=False), encoding='utf-8')
+            return success
+        finally:
+            os.chdir(origin)
+            if old_store is None:
+                os.environ.pop('VITA_REQUIREMENTS_DIR', None)
+            else:
+                os.environ['VITA_REQUIREMENTS_DIR'] = old_store
 
 
 def call_codex(llm, system_prompt, user_prompt, model='', reasoning=''):
@@ -72,7 +121,11 @@ def main():
         parser.add_argument('--provider')
         parser.add_argument('--language')
         args = parser.parse_args()
-        success = execute(args.step, lambda: run(args.step, auto=args.auto, provider=args.provider, language=args.language),
+        invoke = lambda: run(args.step, auto=args.auto, provider=args.provider, language=args.language)
+        if args.step == 'extract':
+            original_invoke = invoke
+            invoke = lambda: extract_requirements(original_invoke, args.provider, os.environ['VITA_TREE_EXECUTION_ID'])
+        success = execute(args.step, invoke,
                           os.environ['VITA_TREE_EXECUTION_ID'])
         if not success:
             raise SystemExit(1)

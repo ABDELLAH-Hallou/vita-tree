@@ -8,6 +8,8 @@ import {initDiagnostics} from './diagnostics.js';
 import {createAIConfiguration} from './ai-settings.js';
 import {failureText,runFailureText} from './provider-failures.js';
 import {createFactualReview} from './factual-review.js';
+import {createRequirements} from './requirements.js';
+const requirements=createRequirements({api,getState:()=>state,changed:()=>runMonitor.refresh(),notice});
 const factualReview=createFactualReview({api,getState:()=>state,changed:()=>runMonitor.refresh(),notice});
 state.filter='all';
 state.syncedCommits=new Map();
@@ -137,7 +139,7 @@ async function releaseBranch(name){
 }
 async function openBranch(name, force=false) {
   if(!force && !canLeave()) return;
-  factualReview.reset();
+  factualReview.reset();requirements.reset();
   const previous=state.snapshot?.branch;
   const generation=++state.generation;
   state.pdfGeneration++;state.snapshot=null;state.displayedRun=null;state.graphRunId=null;state.selectedTask=null;$('#task-inspector').hidden=true;
@@ -145,7 +147,7 @@ async function openBranch(name, force=false) {
   $('#selected-run').hidden=true;$('#attempt-history').replaceChildren();
   aiSetup.setDisabled(true);
   for(const id of aiSteps.map(id=>'step-'+id))$('#'+id).checked=false;
-  for(const id of ['save-source','save-job','run-adapt','run-all','task-run','branch-from','compile','commit-push','view-run','mark-run-reviewed']) $('#'+id).disabled=true;
+  for(const id of ['save-source','save-job','run-adapt','run-all','task-run','branch-from','compile','commit-push','view-run','mark-run-reviewed','requirements-current-open','requirements-captured','task-requirements','step-requirements']) $('#'+id).disabled=true;
   editors.current.setReadOnly(true);$('#job-description').readOnly=true;
   $('#board').hidden=true;$('#workspace').hidden=false;document.body.classList.add('in-workspace');
   $('#branch-title').textContent=applicationName(name); notice('Loading the application…');
@@ -402,6 +404,9 @@ function renderWorkflow(){
   if(run&&!runs.some(item=>item.id===run.id))select.add(new Option('Current preparation',run.id));
   select.value=run?run.id:'draft';state.displayedRun=run;
   const finished=run&&!isActiveRun(run);
+  for(const id of ['requirements-current-open','requirements-captured','task-requirements','step-requirements'])$('#'+id).disabled=false;
+  $('#requirements-captured').hidden=!run?.requirementsRevision&&!run?.requirementsDraft;
+  $('#requirements-captured').textContent=run?.requirementsRevision?'Requirements used · '+run.requirementsRevision.slice(0,12)+(run.requirementsStatus&&run.requirementsStatus!=='current'?' · needs update':''):'Review job requirements';
   $('#review-facts').hidden=!finished||!run?.factualReview;
   $('#review-facts').disabled=!!state.snapshot.running||!!state.launching||!!state.openingRunId;
   $('#review-facts').textContent=run?.factualReview?.state==='resolved'?'View factual decisions':'Review factual changes';
@@ -425,6 +430,7 @@ function updateInspector(){
   $('#task-status').textContent=`${statusNames[task.status] || task.status} · ${task.output}`;
   $('#task-output').textContent=task.id==='validating'?'Compare current CVs':task.id==='adapt'?'View CV source':'View results';
   $('#task-run').textContent=task.id==='validating'?'Check current changes':'Start this step';
+  $('#task-requirements').hidden=task.id!=='extract';
   $('#task-configure').hidden=task.id==='validating';
   $('#task-configure').textContent=state.displayedRun?'Configure next run':'Configure AI';
   $('#task-configure').disabled=!!state.snapshot.running||!!state.launching||!state.snapshot.editable;
@@ -449,6 +455,8 @@ $('#view-run').onclick=async()=>{
   finally{state.openingRunId=null;renderWorkflow();}
 };
 function stepTitle(id){return graphStages(null,{},{}).find(task=>task.id===id)?.title||id;}
+for(const id of ['task-requirements','step-requirements','requirements-current-open'])$('#'+id).onclick=()=>requirements.open().catch(e=>notice(e.message,true));
+$('#requirements-captured').onclick=()=>requirements.open(state.displayedRun?.requirementsRevision?state.displayedRun:null).catch(e=>notice(e.message,true));
 $('#review-facts').onclick=()=>{if(state.displayedRun)factualReview.open(state.displayedRun).catch(error=>notice(error.message,true));};
 function renderAttemptHistory(detail){
   const area=$('#attempt-history');area.replaceChildren();
@@ -460,6 +468,7 @@ function renderAttemptHistory(detail){
     const button=document.createElement('button');button.type='button';button.className='quiet';
     button.textContent=`Attempt ${attempt.attempt||1} · ${runLabel(attempt)}${attempt.id===detail.run.id?' · Viewing':''}`;
     button.disabled=attempt.id===detail.run.id;button.onclick=()=>openRun(attempt).catch(error=>notice(error.message,true));row.append(button);
+    if(attempt.requirementsRevision||attempt.requirementsDraft){const requirementsButton=document.createElement('button');requirementsButton.textContent='Requirements '+(attempt.requirementsRevision||attempt.requirementsDraft)+(attempt.requirementsStatus&&attempt.requirementsStatus!=='current'?' · needs update':'');requirementsButton.onclick=()=>requirements.open(attempt).catch(e=>notice(e.message,true));row.append(requirementsButton);}
     if(attempt.factualReview){const review=document.createElement('button');review.type='button';review.textContent=attempt.factualReview.state==='resolved'?'View factual decisions':'Review factual changes';review.onclick=()=>factualReview.open(attempt).catch(error=>notice(error.message,true));row.append(review);}
     if(attempt.parentRunId){const parent=document.createElement('span');parent.className='helper';const prior=(detail.attemptHistory||[]).find(item=>item.id===attempt.parentRunId);parent.textContent='Continues attempt '+(prior?.attempt||'unknown')+' · '+(attempt.configurationChanged?'Changed setup':'Captured setup preserved');row.append(parent);}
     for(const [step,outcome] of Object.entries(attempt.outcomes||{})){

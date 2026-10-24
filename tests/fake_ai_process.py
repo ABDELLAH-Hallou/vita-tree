@@ -92,16 +92,24 @@ if step == 'analyze':
         raise SystemExit(1)
 results = Path('.vita/results')
 results.mkdir(parents=True, exist_ok=True)
+requirements_revision = None
+criteria = Path(os.environ.get('VITA_REQUIREMENTS_DIR', '.vita/criteria-snapshot'))
+pointer = criteria/'approved'/(hashlib.sha256(Path('job.md').read_bytes()).hexdigest()+'.json')
+if pointer.is_file():
+    requirements_revision = json.loads(pointer.read_text(encoding='utf-8'))['revision']
 (results / (step + '.md')).write_text('# ' + label + ' ' + step)
 if job.get('pipeline'):
     if step == 'extract':
         (results / 'job.json').write_text(json.dumps({'source_sha256': hashlib.sha256(Path('job.md').read_bytes()).hexdigest(), 'jobs': [{'id': 'job-1', 'title': 'Platform engineer'}]}))
         (results / 'job.toon').write_text('jobs[1]: Platform engineer')
+        if os.environ.get('VITA_TEST_CANONICAL') and not requirements_revision:
+            from requirements_fixtures import compile_definition
+            (results/'tree-requirements.json').write_text(json.dumps({'executionId':os.environ['VITA_TREE_EXECUTION_ID'],'definition':compile_definition(Path('job.md').read_text(encoding='utf-8'))}),encoding='utf-8')
     if step == 'analyze':
         (results / 'analysis.md').write_text('# Initial analysis\n\n## Evidence\n- **Python** services and automated tests.\n- Add more detail about delivery.\n\n| Category | Score |\n|---|---:|\n| Experience | 72 |\n| Skills | 80 |\n')
-        (results / 'analysis.json').write_text(json.dumps({'overall_score': 76, 'metadata': {'job_sha256': hashlib.sha256(Path('job.md').read_bytes()).hexdigest()}}))
+        (results / 'analysis.json').write_text(json.dumps({'overall_score': 76, 'metadata': {'job_sha256': hashlib.sha256(Path('job.md').read_bytes()).hexdigest(), **({'requirements_revision':requirements_revision} if requirements_revision else {})}}))
     if step == 'review':
-        (results / 'review.json').write_text('{"overall_score":84}')
+        (results / 'review.json').write_text(json.dumps({'overall_score':84, **({'metadata':{'requirements_revision':requirements_revision}} if requirements_revision else {})}))
         if (results / 'analysis.json').is_file():
             (results / 'delta.json').write_text('{"delta":8}')
             (results / 'delta.md').write_text('# Evaluation changes\n\n| Score | Before | After | Delta |\n|---|---:|---:|---:|\n| Overall | 76 | 84 | +8 |\n')

@@ -356,6 +356,10 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         if path == '/api/factual-review':
             self.api_call(lambda: self.server.workspace.factual_review(query.get('id', [''])[0]))
             return
+        if path == '/api/requirements':
+            from . import requirements_review
+            self.api_call(lambda: requirements_review.view(self.server.workspace, query.get('branch',[''])[0], query.get('runId',[None])[0]))
+            return
         if path == "/api/pdf-file":
             pdf = self.server.compiler.results.get(query.get("id", [""])[0])
             if not pdf or not pdf.is_file():
@@ -421,6 +425,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             '/api/connections/remove': lambda: workspace.remove_connection(data.get('id')),
             '/api/generation-check': lambda: workspace.check_generation(data['branch'], data['step'], data.get('aiConfig'), data.get('confirmed')),
             '/api/factual-review/apply': lambda: workspace.apply_factual_review(data['id'], data['revision'], data['token'], data.get('decisions'), data.get('confirmed')),
+            '/api/requirements/draft': lambda: workspace.save_requirements(data['branch'], data['token'], data['revision'], data.get('items')),
+            '/api/requirements/approve': lambda: workspace.approve_requirements(data['branch'], data['token'], data['revision'], data.get('confirmed')),
             '/api/ai-settings': lambda: workspace.save_ai_settings(data['branch'], data.get('settings')),
             '/api/resume-preview': lambda: workspace.resume_ai(data['id'], data['revision'], data['jobRevision'], data.get('aiConfig'), data.get('language'), preview=True),
             '/api/resume': lambda: workspace.resume_ai(data['id'], data['revision'], data['jobRevision'], data.get('aiConfig'), data.get('language'), data.get('token')),

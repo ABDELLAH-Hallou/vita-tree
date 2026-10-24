@@ -31,6 +31,8 @@ def main():
     server=VitaTreeServer(('127.0.0.1',0),root,'main.tex',source,log_dir=root/'.git/test-logs')
     command=[sys.executable,str(Path(__file__).parent/'smoke/factual_ai.py')]
     branch=server.workspace.create('master','facts',json.dumps({'label':'facts','pipeline':True}),digest(SOURCE))
+    from requirements_fixtures import seed
+    seed(server.workspace,'facts')
     worker=threading.Thread(target=server.serve_forever,daemon=True);worker.start();errors=[];applications=[]
     try:
         with patch.object(server.workspace,'vita_command',return_value=command),sync_playwright() as pw:
@@ -89,6 +91,7 @@ def main():
             assert 'dependable' in extracted and 'TypeScript' in extracted and 'OOP' not in extracted
             # An external edit after capture produces an actionable conflict.
             stale=server.workspace.create('master','stale-facts',json.dumps({'label':'stale','pipeline':True}),digest(SOURCE))
+            seed(server.workspace,'stale-facts')
             stale_run=server.workspace.start_ai('stale-facts',stale['revision'],stale['jobRevision'],provider='codex',workflow={'steps':['adapt']})
             page.locator('#back').click();page.locator('#refresh').click()
             page.get_by_role('button',name='Open stale-facts',exact=True).click()

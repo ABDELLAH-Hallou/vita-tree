@@ -137,7 +137,8 @@ class ResumeTests(unittest.TestCase):
         approval.parent.mkdir(parents=True)
         approval.write_text(json.dumps({'revision':revision}))
         target = store/'revisions'/(revision+'.json');target.parent.mkdir();target.write_text('{"criteria":"changed"}')
-        self.assertEqual(self.preview(parent)['reuse'], [])
+        # Canonical requirements affect assessments, not JD-only Extract.
+        self.assertEqual(self.preview(parent)['reuse'], ['extract'])
         approval.unlink();target.unlink()
         # Corrupt retained dependencies are detected, never copied into a retry.
         retained = self.workspace.root/'checkpoints'/parent['id']/'analyze/files/.vita/results/analysis.json'

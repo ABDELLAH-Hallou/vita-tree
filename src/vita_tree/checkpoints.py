@@ -56,7 +56,10 @@ def signature(context, step, before):
     # are handles, not configuration: the actual credentials are HMACed by
     # the workspace and never enter this record or the public API.
     route = context['stepConfig'].get(step, {})
-    return fingerprint({'version': 1, 'inputs': context['checkpointInputs'], 'step': step,
+    inputs = dict(context['checkpointInputs'])
+    if step == 'extract':
+        inputs.pop('criteria', None)  # Approval changes assessments, not JD extraction.
+    return fingerprint({'version': 1, 'inputs': inputs, 'step': step,
                         'route': {k: v for k, v in route.items() if k not in {'connectionName', 'connection'}},
                         'language': context['language'] if step in ('adapt', 'cover') else None,
                         'credentials': context['credentialHashes'].get(step),

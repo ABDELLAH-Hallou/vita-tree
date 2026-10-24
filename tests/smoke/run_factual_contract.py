@@ -31,6 +31,8 @@ class FactualWorkflowTests(unittest.TestCase):
 
     def prepare(self, steps=None, previous_cover=None, asset=None):
         branch = self.workspace.create('master', 'facts', json.dumps({'label': 'facts', 'pipeline': True}), digest(SOURCE))
+        from requirements_fixtures import seed
+        seed(self.workspace, 'facts')
         if previous_cover is not None:
             (Path(branch['worktree'])/'cover-letter.tex').write_text(previous_cover, encoding='utf-8')
         if asset:

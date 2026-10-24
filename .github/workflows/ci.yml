@@ -80,6 +80,7 @@ jobs:
           python-version: "3.12"
       - run: python -m pip install . 'vita-cv==2.8.0'
       - run: python tests/smoke/run_factual_contract.py
+      - run: python tests/smoke/run_requirements_contract.py
 
   browser:
     name: Browser and real PDF integration
@@ -128,6 +129,7 @@ jobs:
       - name: Install the minimum factual-change backend
         run: python -m pip install 'vita-cv==2.8.0'
       - run: python tests/browser_factual_reviews.py --browser chromium
+      - run: python tests/browser_requirements.py --browser chromium
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
