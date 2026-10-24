@@ -1,4 +1,4 @@
-include README.md LICENSE THIRD_PARTY_NOTICES.md CHANGELOG.md pyproject.toml
+include README.md SECURITY.md LICENSE THIRD_PARTY_NOTICES.md CHANGELOG.md pyproject.toml
 include package.json package-lock.json
 recursive-include docs *.md
 recursive-include scripts *.mjs *.py

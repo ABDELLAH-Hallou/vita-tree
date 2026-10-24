@@ -17,6 +17,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse, quote
 from .observability import Diagnostics, default_log_directory, request_context
+from .security import redact, credential_name
 
 
 STATIC_ROOT = Path(__file__).resolve().parent / "static"
@@ -146,12 +147,7 @@ def branch_content_payload(
         raise ValueError(f"Application or CV not found: {name}")
 
     try:
-        content = run_git(
-            repository,
-            "show",
-            f"{branch['ref']}:{document_path}",
-            strip=False,
-        )
+        content = git_document(repository, branch['ref'], document_path)
     except RuntimeError as error:
         if "does not exist" in str(error) or "exists on disk" in str(error):
             raise FileNotFoundError(
@@ -166,6 +162,16 @@ def branch_content_payload(
         "commit": branch["commit"],
         "modifiedAt": branch["modifiedAt"],
     }
+
+
+def git_document(repository, ref, name):
+    """Read an immutable blob only after checking its byte size."""
+    ident = run_git(repository, 'rev-parse', '--verify', f'{ref}:{name}')
+    if not re.fullmatch(r'[a-f0-9]{40}|[a-f0-9]{64}', ident):
+        raise ValueError('Invalid document object')
+    if int(run_git(repository, 'cat-file', '-s', ident)) > 2_000_000:
+        raise ValueError('Document exceeds the 2 MB limit')
+    return run_git(repository, 'cat-file', 'blob', ident, strip=False)
 
 
 class VitaTreeServer(ThreadingHTTPServer):
@@ -197,6 +203,8 @@ class VitaTreeServer(ThreadingHTTPServer):
         log_dir: Path | None = None,
         log_level: str = 'INFO',
     ) -> None:
+        if address[0] not in {'127.0.0.1','localhost'}:
+            raise ValueError('Vita Tree supports loopback addresses only.')
         from .workspace import Workspace
         from .pdf import PDFCompiler
         self.repository = repository
@@ -246,6 +254,7 @@ class VitaTreeServer(ThreadingHTTPServer):
 
 class DashboardHandler(SimpleHTTPRequestHandler):
     server: VitaTreeServer
+    idle_timeout = 15
     # Windows registry associations can label JS modules as text/plain, which
     # browsers reject with nosniff. Keep bundled web assets platform-independent.
     extensions_map = {
@@ -258,6 +267,10 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 
     def __init__(self, *args: object, **kwargs: object) -> None:
         super().__init__(*args, directory=str(STATIC_ROOT), **kwargs)
+
+    def setup(self):
+        super().setup()
+        self.connection.settimeout(self.idle_timeout)
 
     def _observe(self, action):
         self.request_id = uuid.uuid4().hex[:12]
@@ -287,6 +300,9 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         self._observe(self._get)
+
+    def do_HEAD(self):
+        self._observe(lambda: super(DashboardHandler,self).do_HEAD() if self.check_origin() else None)
 
     @staticmethod
     def execution_offset(query):
@@ -392,7 +408,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         host = self.headers.get("Host", "")
         allowed = {f"127.0.0.1:{self.server.server_port}", f"localhost:{self.server.server_port}"}
         origin = self.headers.get("Origin")
-        if host not in allowed or (origin and origin != "http://" + host):
+        site = self.headers.get('Sec-Fetch-Site')
+        if host not in allowed or (origin and origin != "http://" + host) or site not in {None,'none','same-origin'}:
             self.send_json({"error": "This connection is not allowed. Open Vita Tree using its local address."}, status=403)
             return False
         return True
@@ -412,11 +429,14 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 raise ValueError("Invalid request size")
             if self.headers.get_content_type() != "application/json":
                 raise ValueError("Expected application/json")
-            data = json.loads(self.rfile.read(size))
+            body = self.rfile.read(size)
+            if len(body) != size:
+                raise ValueError('Incomplete request')
+            data = json.loads(body)
             if not isinstance(data, dict):
                 raise ValueError("Expected a JSON object")
-        except (ValueError, UnicodeError) as error:
-            self.send_json({"error": str(error)}, status=400)
+        except (ValueError, UnicodeError, RecursionError, TimeoutError):
+            self.send_json({"error": 'Invalid JSON request, content type, or request size (maximum 3 MB).'}, status=400)
             return
         workspace = self.server.workspace
         path = urlparse(self.path).path
@@ -468,6 +488,11 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             message = 'The operation could not finish. Open Activity & logs for details.'
         else:
             message = str(error)
+        values = list(getattr(self.server.workspace.inspector, 'secrets', ()))
+        values.append(self.server.token)
+        values.extend(item['key'] for item in self.server.workspace.connections.items.values())
+        values.extend(v for k,v in os.environ.items() if credential_name(k))
+        message = redact(message, values)
         self.send_json({'error': message + ' Reference: ' + reference, 'requestId': reference, **(extra or {})}, status=status)
 
     def api_call(self, action):
@@ -493,7 +518,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
     def end_headers(self):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
-        self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'")
+        self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'self'")
         self.send_header('X-Request-ID', getattr(self, 'request_id', ''))
         super().end_headers()
         self.headers_sent = True
@@ -510,7 +535,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
-        self.wfile.write(body)
+        if self.command != 'HEAD':
+            self.wfile.write(body)
 
     def send_json(self, payload: object, status: int = 200) -> None:
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")

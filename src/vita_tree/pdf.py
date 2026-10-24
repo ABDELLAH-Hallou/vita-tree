@@ -2,30 +2,61 @@
 from __future__ import annotations
 
 import hashlib
-import io
-import os
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 import shutil
 import subprocess
 import threading
 import time
 import uuid
 import zipfile
+import tempfile
 
 from .server import run_git
 from .workspace import safe_path, atomic_write, ConflictError, read_text
 from .fileio import atomic_write_bytes
 from .exports import cv_filename
+from .security import snapshot_excluded, compiler_environment, engine_executable
 
 
 def export_snapshot(repository: Path, commit: str, target: Path, working: Path | None = None):
     target.mkdir(parents=True, exist_ok=True)
-    archive = subprocess.run(["git", "archive", "--format=zip", commit], cwd=repository,
-                             capture_output=True, check=True, timeout=30).stdout
     total = 0
-    with zipfile.ZipFile(io.BytesIO(archive)) as files:
+    # Spool compressed bytes to disk, rather than allocating an unbounded archive
+    # in memory before checking its expanded entries. Disk/OS quotas remain external.
+    with tempfile.TemporaryFile() as archive:
+        subprocess.run(["git", "archive", "--format=zip", commit], cwd=repository,
+                       stdout=archive, stderr=subprocess.PIPE, check=True, timeout=30)
+        if archive.tell() > 100_000_000:
+            raise ValueError('The compressed CV snapshot exceeds 100 MB')
+        archive.seek(0)
+        _extract_snapshot(archive, target)
+    if working:
+        names = run_git(working, "ls-files", "-z", "--cached", "--others", "--exclude-standard", strip=False)
+        names = set(names.split("\0")) - {""}
+        if len(names) > 10000:
+            raise ValueError('The application snapshot exceeds the 10000-file limit')
+        for name in names:
+            if snapshot_excluded(name):
+                continue
+            origin = safe_path(working, name)
+            dest = safe_path(target, name)
+            if origin.is_file():
+                total += origin.stat().st_size
+                if total > 100_000_000:
+                    raise ValueError("The application files are too large to create a PDF preview (maximum 100 MB)")
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(origin, dest)
+            elif dest.is_file():
+                dest.unlink()
+
+
+def _extract_snapshot(archive, target):
+    total = 0
+    with zipfile.ZipFile(archive) as files:
+        if len(files.infolist()) > 10000:
+            raise ValueError('The CV snapshot exceeds the 10000-file limit')
         for entry in files.infolist():
-            if entry.is_dir() or PurePosixPath(entry.filename).parts[0] in {".git", ".vita"}:
+            if entry.is_dir() or snapshot_excluded(entry.filename):
                 continue
             if (entry.external_attr >> 16) & 0o170000 == 0o120000:
                 raise ValueError("PDF previews do not support linked files. Use regular files in the application folder.")
@@ -35,21 +66,6 @@ def export_snapshot(repository: Path, commit: str, target: Path, working: Path |
             path = safe_path(target, entry.filename)
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(files.read(entry))
-    if working:
-        names = run_git(working, "ls-files", "-z", "--cached", "--others", "--exclude-standard", strip=False)
-        for name in set(names.split("\0")) - {""}:
-            if PurePosixPath(name).parts[0] in {".git", ".vita"}:
-                continue
-            origin = safe_path(working, name)
-            dest = safe_path(target, name)
-            if origin.is_file():
-                total += origin.stat().st_size
-                if total > 200_000_000:
-                    raise ValueError("The application files are too large to create a PDF preview (maximum 200 MB)")
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(origin, dest)
-            elif dest.is_file():
-                dest.unlink()
 
 
 def compile_document(folder: Path, document_path: str, engine='auto', output=None):
@@ -62,32 +78,41 @@ def compile_document(folder: Path, document_path: str, engine='auto', output=Non
         raise FileNotFoundError('No saved LaTeX document is available to compile.')
     if engine == 'auto':
         engine = 'xelatex' if any(x in source for x in ('fontspec','polyglossia','unicode-math')) else 'pdflatex'
-    executable = shutil.which(engine)
-    if not executable:
-        raise ValueError(f'{engine} not found. Install MiKTeX or TeX Live, or choose an installed engine.')
     output = output or folder / '__vt_output'
+    if output.is_symlink() or getattr(output,'is_junction',lambda:False)():
+        raise ValueError('Linked compiler output folders are not supported')
     output.mkdir(parents=True, exist_ok=True)
-    version = subprocess.run([executable, "--version"], capture_output=True, timeout=10).stdout.decode(errors="replace")
+    env = compiler_environment(folder, output)
+    executable = engine_executable(engine, folder, env)
+    version = subprocess.run([executable, "--version"], env=env, cwd=folder,
+                             stdin=subprocess.DEVNULL, capture_output=True, timeout=10).stdout.decode(errors="replace")
     flags = ["-interaction=nonstopmode", "-halt-on-error", "-file-line-error", "-no-shell-escape"]
     if "MiKTeX" in version:
         flags += ["--disable-installer", "--disable-write18", "--dont-parse-first-line"]
     else:
         flags += ["-no-parse-first-line"]
-    env = os.environ.copy()
-    env.update(openin_any="p", openout_any="p", TEXMFOUTPUT=str(output))
     command = [executable, *flags, "-output-directory=" + str(output), "./" + document_path]
     log = ""
     try:
         for _ in range(2):
-            process = subprocess.run(command, cwd=folder, env=env, stdin=subprocess.DEVNULL,
-                                     capture_output=True, timeout=90)
-            log = process.stdout.decode("utf-8", errors="replace") + process.stderr.decode("utf-8", errors="replace")
+            with tempfile.TemporaryFile() as captured:
+                process = subprocess.run(command, cwd=folder, env=env, stdin=subprocess.DEVNULL,
+                                         stdout=captured, stderr=subprocess.STDOUT, timeout=90)
+                captured.seek(0,2)
+                if captured.tell() > 2_000_000:
+                    raise ValueError('PDF tool output exceeded the 2 MB diagnostic limit.')
+                captured.seek(0)
+                log = captured.read(2_000_000).decode('utf-8',errors='replace')
             if process.returncode:
                 raise ValueError("Couldn’t create the PDF.\n" + log[-6000:])
     except subprocess.TimeoutExpired as error:
         raise ValueError("Creating the PDF took longer than 90 seconds. Check the source formatting and installed PDF tools.") from error
-    pdf = output / (entry.stem + '.pdf')
-    if not pdf.is_file() or not pdf.read_bytes().startswith(b'%PDF-'):
+    pdf = safe_path(output, entry.stem + '.pdf')
+    if not pdf.is_file() or pdf.stat().st_size > 32_000_000:
+        raise ValueError('The PDF tool did not produce a document within the 32 MB limit')
+    with pdf.open('rb') as document:
+        valid = document.read(5) == b'%PDF-'
+    if not valid:
         raise ValueError('The PDF tool did not produce a document')
     warnings = [line.strip() for line in log.splitlines() if any(x in line for x in ('Overfull','Missing character','LaTeX Warning'))]
     return {'pdf': pdf, 'engine': engine, 'warnings': warnings}

@@ -10,6 +10,7 @@ import re
 from .ai_config import stage_environment
 from .checkpoints import ARTIFACTS, fingerprint
 from .fileio import atomic_write_bytes
+from .security import snapshot_excluded
 
 
 def capture(workspace, context, record):
@@ -20,7 +21,7 @@ def capture(workspace, context, record):
     assets = {}
     total = 0
     for name in sorted(set(names.split('\0')) - {''}):
-        if name.startswith(('.git/', '.vita/')) or name in {'main.tex', 'job.md', 'cover-letter.tex'}:
+        if snapshot_excluded(name) or name in {'main.tex', 'job.md', 'cover-letter.tex'}:
             continue
         path = safe_path(location, name)
         if path.is_file():
@@ -58,7 +59,7 @@ def capture(workspace, context, record):
         for path in root.rglob('*'):
             if path.is_file() and '__pycache__' not in path.parts and path.suffix in {'.py', '.md', '.json', '.yaml'}:
                 backend[path.relative_to(root).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
-    for name in ('ai_runner.py', 'outcomes.py', 'checkpoints.py', 'resume_inputs.py', 'workspace.py', 'execution.py', 'diagnostics_contract.py', 'provider_status.py', 'factual_contract.py', 'factual_backend.py', 'factual_review.py', 'requirements_backend.py', 'requirements_review.py'):
+    for name in ('ai_runner.py', 'outcomes.py', 'checkpoints.py', 'resume_inputs.py', 'workspace.py', 'execution.py', 'diagnostics_contract.py', 'provider_status.py', 'factual_contract.py', 'factual_backend.py', 'factual_review.py', 'requirements_backend.py', 'requirements_review.py','security.py','pdf.py'):
         backend['tree-adapter/' + name] = hashlib.sha256(Path(__file__).with_name(name).read_bytes()).hexdigest()
     configs = dict(context['config'])
     extensions = json.loads(configs.get('extensions.json', '{}'))
