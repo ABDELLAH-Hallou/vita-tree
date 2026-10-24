@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.13.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.12.1...v1.13.0) (2026-10-24)
+
+
+### Features
+
+* add guided project and TeX preflight before AI preparation ([89d2a6c](https://github.com/ABDELLAH-Hallou/vita-tree/commit/89d2a6c75e5f3185d9ecab77245d9868529e80d4))
+* guide LaTeX setup and check dependencies before AI preparation ([8c9211b](https://github.com/ABDELLAH-Hallou/vita-tree/commit/8c9211bc58ffd9c1c7a282999e7ec793a8a221e1))
+
 ## [1.12.1](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.12.0...v1.12.1) (2026-10-24)
 
 
