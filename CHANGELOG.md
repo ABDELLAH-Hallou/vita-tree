@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.14.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.13.0...v1.14.0) (2026-10-24)
+
+
+### Features
+
+* add file-aware editing for local LaTeX includes ([4cb45eb](https://github.com/ABDELLAH-Hallou/vita-tree/commit/4cb45eb28be16aaabdf1122df44ecca55eb4dcfc))
+* add file-aware editing for local LaTeX includes ([5cd5ac4](https://github.com/ABDELLAH-Hallou/vita-tree/commit/5cd5ac426384825ffb40e667a20df32662e35869))
+
 ## [1.13.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.12.1...v1.13.0) (2026-10-24)
 
 
