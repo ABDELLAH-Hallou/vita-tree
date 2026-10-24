@@ -4,12 +4,12 @@ import json
 import re
 
 from .fileio import atomic_write_bytes
-from .checkpoints import ARTIFACTS
+from .checkpoints import artifact_name
 
 
 def targets(workspace, branch, entries):
     location = workspace.location(branch)
-    if location is None or set(entries) - set(ARTIFACTS) - {'@metadata'}:
+    if location is None or any(name != '@metadata' and not artifact_name(name) for name in entries):
         raise ValueError('Publication targets are no longer available')
     from .workspace import safe_path
     for values in entries.values():

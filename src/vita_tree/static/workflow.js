@@ -42,11 +42,12 @@ export function renderGraph(container, {run, options, available, selected, selec
     const icon=document.createElement('span'); icon.className='dag-symbol'; icon.textContent=symbols[task.status] || '?'; icon.setAttribute('aria-hidden','true');
     const title=document.createElement('strong'); title.textContent=task.title;
     const state=document.createElement('span'); state.className='dag-status'; state.textContent=(statusNames[task.status] || task.status)+(task.reusedFrom?' · reused':'');
+    if(run?.factualReview?.step===task.id)state.textContent=({pending:'Needs factual review',resolved:'Factual decisions saved',unavailable:'Review unavailable'}[run.factualReview.state]||'Review unavailable');
     const time=document.createElement('span'); time.className='dag-time';
     if(task.startedAt&&!task.finishedAt&&task.status==='running')time.dataset.startedAt=task.startedAt;
     time.textContent=task.startedAt ? `${Math.max(0,Math.floor((task.finishedAt || Date.now()/1000)-task.startedAt))}s` : task.output;
     button.append(icon,title,state,time); button.onclick=()=>select(task); container.append(button);
-    const failure=failureText(run,task.id);
+    const failure=run?.factualReview?.step===task.id?'':failureText(run,task.id);
     if(failure){const info=document.createElement('span');info.className='dag-failure';info.textContent=failure;button.append(info);button.setAttribute('aria-label',button.getAttribute('aria-label')+' '+failure);}
     if(config[task.id]) {
       const route=config[task.id], model=document.createElement('span');model.className='dag-model';

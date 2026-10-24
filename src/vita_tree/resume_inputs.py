@@ -8,7 +8,7 @@ import os
 import re
 
 from .ai_config import stage_environment
-from .checkpoints import artifacts, fingerprint
+from .checkpoints import ARTIFACTS, fingerprint
 from .fileio import atomic_write_bytes
 
 
@@ -52,7 +52,7 @@ def capture(workspace, context, record):
         for path in root.rglob('*'):
             if path.is_file() and '__pycache__' not in path.parts and path.suffix in {'.py', '.md', '.json', '.yaml'}:
                 backend[path.relative_to(root).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
-    for name in ('ai_runner.py', 'outcomes.py', 'checkpoints.py', 'resume_inputs.py', 'workspace.py', 'execution.py', 'diagnostics_contract.py', 'provider_status.py'):
+    for name in ('ai_runner.py', 'outcomes.py', 'checkpoints.py', 'resume_inputs.py', 'workspace.py', 'execution.py', 'diagnostics_contract.py', 'provider_status.py', 'factual_contract.py', 'factual_backend.py', 'factual_review.py'):
         backend['tree-adapter/' + name] = hashlib.sha256(Path(__file__).with_name(name).read_bytes()).hexdigest()
     configs = dict(context['config'])
     extensions = json.loads(configs.get('extensions.json', '{}'))
@@ -79,7 +79,7 @@ def capture(workspace, context, record):
         context['credentialHashes'][step] = hmac.new(salt.read_bytes(), json.dumps(relevant, sort_keys=True).encode(), hashlib.sha256).hexdigest()
     context['criteria'] = criteria
     context['language'] = record['language']
-    initial = artifacts(location)
+    initial = {name: None for name in ARTIFACTS}
     initial = {name: (context['dependencies'].get(name) if name.startswith('.vita/results/') else
-                     context['source'] if name == 'main.tex' else None) for name in initial}
+                     context['source'] if name == 'main.tex' else context.get('coverBefore') if name == 'cover-letter.tex' else None) for name in initial}
     context['initialArtifacts'] = initial

@@ -7,6 +7,8 @@ import {reportDetails,fileLabel} from './reports.js';
 import {initDiagnostics} from './diagnostics.js';
 import {createAIConfiguration} from './ai-settings.js';
 import {failureText,runFailureText} from './provider-failures.js';
+import {createFactualReview} from './factual-review.js';
+const factualReview=createFactualReview({api,getState:()=>state,changed:()=>runMonitor.refresh(),notice});
 state.filter='all';
 state.syncedCommits=new Map();
 const applicationName=name=>state.branches.find(item=>item.name===name)?.displayName||(state.snapshot?.branch===name?state.snapshot.displayName:null)||name;
@@ -135,6 +137,7 @@ async function releaseBranch(name){
 }
 async function openBranch(name, force=false) {
   if(!force && !canLeave()) return;
+  factualReview.reset();
   const previous=state.snapshot?.branch;
   const generation=++state.generation;
   state.pdfGeneration++;state.snapshot=null;state.displayedRun=null;state.graphRunId=null;state.selectedTask=null;$('#task-inspector').hidden=true;
@@ -399,6 +402,9 @@ function renderWorkflow(){
   if(run&&!runs.some(item=>item.id===run.id))select.add(new Option('Current preparation',run.id));
   select.value=run?run.id:'draft';state.displayedRun=run;
   const finished=run&&!isActiveRun(run);
+  $('#review-facts').hidden=!finished||!run?.factualReview;
+  $('#review-facts').disabled=!!state.snapshot.running||!!state.launching||!!state.openingRunId;
+  $('#review-facts').textContent=run?.factualReview?.state==='resolved'?'View factual decisions':'Review factual changes';
   $('#inspect-run').hidden=!run;$('#inspect-step').hidden=!run;$('#inspect-step-dialog').hidden=!run;
   $('#resume-run').hidden=!run?.resumeAvailable;$('#resume-run').disabled=!!state.snapshot.running||!!state.launching||!!state.retryPlanning||!state.snapshot.editable;
   $('#view-run').hidden=!finished;$('#view-run').disabled=!!state.openingRunId;
@@ -406,7 +412,7 @@ function renderWorkflow(){
   const reviewButton=$('#mark-run-reviewed');reviewButton.hidden=!finished;
   reviewButton.disabled=!!run?.reviewed||!!state.reviewingRunId;
   reviewButton.textContent=run?.reviewed?'Reviewed':state.reviewingRunId===run?.id?'Saving review…':'Mark as reviewed';
-  $('#workflow-summary').textContent=run ? (runFailureText(run)||run.message) : 'Choose the steps for your next preparation. Only selected AI steps will use your AI service.';
+   $('#workflow-summary').textContent=run ? (run.factualReview?run.message:runFailureText(run)||run.message) : 'Choose the steps for your next preparation. Only selected AI steps will use your AI service.';
   renderGraph($('#workflow-graph'),{run,options:workflowOptions(),available:state.session.workflow,selected:state.selectedTask,select:selectTask,config:run?.stepConfig||Object.fromEntries(aiSteps.map(step=>[step,aiSetup.route(step)]))});
   if(state.selectedTask)updateInspector();
 }
@@ -443,6 +449,7 @@ $('#view-run').onclick=async()=>{
   finally{state.openingRunId=null;renderWorkflow();}
 };
 function stepTitle(id){return graphStages(null,{},{}).find(task=>task.id===id)?.title||id;}
+$('#review-facts').onclick=()=>{if(state.displayedRun)factualReview.open(state.displayedRun).catch(error=>notice(error.message,true));};
 function renderAttemptHistory(detail){
   const area=$('#attempt-history');area.replaceChildren();
   const heading=document.createElement('h3');heading.textContent='Attempt history';area.append(heading);
@@ -453,6 +460,7 @@ function renderAttemptHistory(detail){
     const button=document.createElement('button');button.type='button';button.className='quiet';
     button.textContent=`Attempt ${attempt.attempt||1} · ${runLabel(attempt)}${attempt.id===detail.run.id?' · Viewing':''}`;
     button.disabled=attempt.id===detail.run.id;button.onclick=()=>openRun(attempt).catch(error=>notice(error.message,true));row.append(button);
+    if(attempt.factualReview){const review=document.createElement('button');review.type='button';review.textContent=attempt.factualReview.state==='resolved'?'View factual decisions':'Review factual changes';review.onclick=()=>factualReview.open(attempt).catch(error=>notice(error.message,true));row.append(review);}
     if(attempt.parentRunId){const parent=document.createElement('span');parent.className='helper';const prior=(detail.attemptHistory||[]).find(item=>item.id===attempt.parentRunId);parent.textContent='Continues attempt '+(prior?.attempt||'unknown')+' · '+(attempt.configurationChanged?'Changed setup':'Captured setup preserved');row.append(parent);}
     for(const [step,outcome] of Object.entries(attempt.outcomes||{})){
       const text=document.createElement('p');text.className='helper';
