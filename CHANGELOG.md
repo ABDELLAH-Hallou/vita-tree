@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.11.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.10.0...v1.11.0) (2026-10-24)
+
+
+### Features
+
+* review source-linked factual changes before publication ([a66573d](https://github.com/ABDELLAH-Hallou/vita-tree/commit/a66573d3ebe60359b4aa5444bd9dbbf50ff6fb0d))
+* review source-linked factual changes before publication ([d27a912](https://github.com/ABDELLAH-Hallou/vita-tree/commit/d27a9123115c0dc6c4ab488a77fda6cff8622dc9))
+
 ## [1.10.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.9.0...v1.10.0) (2026-10-24)
 
 
