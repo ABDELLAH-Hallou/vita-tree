@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.9.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.8.0...v1.9.0) (2026-10-23)
+
+
+### Features
+
+* add workflow execution inspector ([9934265](https://github.com/ABDELLAH-Hallou/vita-tree/commit/9934265f4486e24d9bf2664a2f33e94c5f825a81))
+* inspect workflow executions and provider diagnostics ([69732d3](https://github.com/ABDELLAH-Hallou/vita-tree/commit/69732d36a058c702c0e176919c9981b9baf57378))
+
 ## [1.8.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.7.1...v1.8.0) (2026-10-23)
 
 
