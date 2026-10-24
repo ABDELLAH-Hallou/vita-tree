@@ -59,6 +59,7 @@ def signature(context, step, before):
     inputs = dict(context['checkpointInputs'])
     if step == 'extract':
         inputs.pop('criteria', None)  # Approval changes assessments, not JD extraction.
+        inputs.pop('compiler', None)  # Extract uses only the job description.
     return fingerprint({'version': 1, 'inputs': inputs, 'step': step,
                         'route': {k: v for k, v in route.items() if k not in {'connectionName', 'connection'}},
                         'language': context['language'] if step in ('adapt', 'cover') else None,

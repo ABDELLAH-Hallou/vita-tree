@@ -24,10 +24,13 @@ class JobTests(unittest.TestCase):
         self.command = patch.object(self.workspace, 'vita_command', return_value=[sys.executable, str(Path(__file__).with_name('fake_ai_process.py'))])
         self.command.start()
         def fake_compile(folder, entry, engine='auto', output=None):
+            if (folder/entry).read_text(encoding='utf-8') in {'invalid','invalid source','Incomplete LaTeX source'}:
+                raise ValueError('Synthetic TeX compilation failure')
             output=output or folder/'__vt_output';output.mkdir(parents=True,exist_ok=True)
             pdf=output/(Path(entry).stem+'.pdf');pdf.write_bytes(b'%PDF-1.7\nsynthetic cover fixture')
             return {'pdf':pdf,'engine':'pdflatex','warnings':[]}
         self.cover_compile=patch('vita_tree.pdf.compile_document',side_effect=fake_compile)
+        self.fake_compile=fake_compile
         self.cover_builder=self.cover_compile.start()
 
     def tearDown(self):
@@ -353,7 +356,10 @@ class JobTests(unittest.TestCase):
         self.pipeline_source();branch=self.pipeline_branch('cover-tex-failure')
         location=Path(branch['worktree']);(location/'cover-letter.tex').write_text('previous letter')
         # Recapture source revisions after adding a previous letter.
-        self.cover_builder.side_effect=ValueError('private-provider-canary: missing TeX package')
+        def failing_cover(folder,entry,**options):
+            if entry=='cover-letter.tex':raise ValueError('private-provider-canary: missing TeX package')
+            return self.fake_compile(folder,entry,**options)
+        self.cover_builder.side_effect=failing_cover
         record=self.start(branch,workflow={'steps':['cover']});self.release('cover-tex-failure')
         result=self.finished(record['id']);self.assertEqual(result['status'],'failed',result)
         self.assertIn('cover-letter PDF could not be created',result['message'])
@@ -508,4 +514,4 @@ class JobTests(unittest.TestCase):
         record = self.start(branch, workflow={'steps': ['validating']})
         result = self.finished(record['id'])
         self.assertEqual(result['status'], 'failed')
-        self.assertIn('not parseable', result['message'])
+        self.assertIn('could not produce a PDF', result['message'])

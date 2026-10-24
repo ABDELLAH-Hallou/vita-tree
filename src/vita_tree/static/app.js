@@ -9,6 +9,8 @@ import {createAIConfiguration} from './ai-settings.js';
 import {failureText,runFailureText} from './provider-failures.js';
 import {createFactualReview} from './factual-review.js';
 import {createRequirements} from './requirements.js';
+import {createSetupChecks} from './preflight.js';
+const setupChecks=createSetupChecks({api,getState:()=>state,getBranches:()=>state.branches,getSteps:()=>workflowOptions().steps});
 const requirements=createRequirements({api,getState:()=>state,changed:()=>runMonitor.refresh(),notice});
 const factualReview=createFactualReview({api,getState:()=>state,changed:()=>runMonitor.refresh(),notice});
 state.filter='all';
@@ -197,9 +199,10 @@ function updateSnapshot() {
 function renderDocument(side, data) {
   const target=$(`#${side}-document .cv-document`);
   // HTML is produced by the source-mapped renderer; every source string is escaped there.
-  target.innerHTML=data.error?`<p class="empty">The CV has a formatting problem. Open Source · Advanced to fix it.</p><details class="technical-details"><summary>Formatting details</summary><pre>${esc(data.error)}</pre></details>`:data.html;
+  target.innerHTML=data.error?`<p class="empty">Structure cannot preview this template. Use LaTeX editing and the PDF view; Check setup verifies compilation separately.</p><details class="technical-details"><summary>Structure details</summary><pre>${esc(data.error)}</pre></details>`:data.html;
 }
 function updateSaveState(){
+  setupChecks.summary(state.displayedRun);
   const s=state.snapshot;$('#save-state').textContent=state.dirty||state.jobDirty?'Unsaved changes':s?.saveState?.draft?'Draft saved on this computer':s&&state.syncedCommits.get(s.branch)===s.commit?'Saved and synced':s?.saveState?.ahead!==0?'Saved on this computer · sync pending':'Saved';
   $('#save-source').disabled=!state.dirty || !state.snapshot?.editable || !!state.snapshot?.running;
   $('#commit-push').disabled=!state.snapshot?.editable || !!state.snapshot?.running || state.publishing;
@@ -325,7 +328,7 @@ async function runAdapt(steps=workflowOptions().steps){
   state.launching=true;$('#run-adapt').disabled=true;$('#run-all').disabled=true;$('#task-run').disabled=true;editors.current.setReadOnly(true);$('#job-description').readOnly=true;$('#save-job').disabled=true;$('#branch-from').disabled=true;const s=state.snapshot;
   renderProviders();
   for(const id of aiSteps.map(id=>'step-'+id))$('#'+id).disabled=true;
-  try{const issue=aiSetup.problem(steps);if(issue)throw new Error(issue);const job=await api('/api/adapt',{branch:s.branch,revision:s.revision,jobRevision:s.jobRevision,aiConfig:aiSetup.value(),language:$('#language').value,workflow:{steps}});s.running=job;if(state.snapshot===s){state.graphRunId=job.id;renderProviders();configureWorkflow();renderWorkflow();updateSaveState();$('#ai-status').textContent=job.message;}await runMonitor.refresh();}
+  try{const issue=aiSetup.problem(steps);if(issue)throw new Error(issue);const job=await api('/api/adapt',{branch:s.branch,revision:s.revision,jobRevision:s.jobRevision,aiConfig:aiSetup.value(),language:$('#language').value,workflow:{steps},engine:setupChecks.engine()});s.running=job;if(state.snapshot===s){state.graphRunId=job.id;renderProviders();configureWorkflow();renderWorkflow();updateSaveState();$('#ai-status').textContent=job.message;}await runMonitor.refresh();}
   catch(error){if(state.snapshot===s){notice(error.message,true);configureWorkflow();editors.current.setReadOnly(!s.editable);$('#job-description').readOnly=!s.editable;$('#save-job').disabled=!s.editable;$('#branch-from').disabled=false;}}
   finally{state.launching=false;if(state.snapshot){renderProviders();configureWorkflow();renderWorkflow();}}
 }
@@ -403,6 +406,7 @@ function renderWorkflow(){
   const run=runs.find(run=>run.id===selected) || (state.snapshot.running?.id===selected?state.snapshot.running:null);
   if(run&&!runs.some(item=>item.id===run.id))select.add(new Option('Current preparation',run.id));
   select.value=run?run.id:'draft';state.displayedRun=run;
+  setupChecks.summary(run);
   const finished=run&&!isActiveRun(run);
   for(const id of ['requirements-current-open','requirements-captured','task-requirements','step-requirements'])$('#'+id).disabled=false;
   $('#requirements-captured').hidden=!run?.requirementsRevision&&!run?.requirementsDraft;
@@ -490,7 +494,7 @@ async function reviewResume(){
     const plan=await api('/api/resume-preview',request);
     if(state.snapshot!==s)return;
     state.resumeReview={request,plan,snapshot:s};
-    $('#resume-summary').textContent=`Attempt ${plan.attempt}, continuing attempt ${run.attempt||1}. Output language: ${[...$('#language').options].find(item=>item.value===(captured?run.language:$('#language').value))?.textContent||run.language}. ${captured?'Preserves the AI setup and language captured for this preparation.':'Uses the AI setup currently shown for this application.'}`;
+    $('#resume-summary').textContent=`Attempt ${plan.attempt}, continuing attempt ${run.attempt||1}. Output language: ${[...$('#language').options].find(item=>item.value===(captured?run.language:$('#language').value))?.textContent||run.language}. Captured TeX engine: ${run.compileEngine||'auto'}. ${captured?'Preserves the AI setup and language captured for this preparation.':'Uses the AI setup currently shown for this application.'}`;
     $('#resume-config-choice').hidden=!state.resumeCaptured;
     $('#resume-reuse').textContent=plan.reuse.length?plan.reuse.map(stepTitle).join(', '):'None. Start again with the current inputs and setup.';
     $('#resume-rerun').textContent=[...plan.rerun.map(stepTitle),'Final checks'].join(', ');

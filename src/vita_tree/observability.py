@@ -27,7 +27,7 @@ EVENTS = {'server_started', 'server_stopped', 'logging_failed', 'request_finishe
           'run_started', 'run_error', 'run_finished', 'step_started', 'step_finished',
           'review_saved', 'provider_failed', 'pdf_compiled', 'pdf_saved', 'pdf_failed',
           'execution_phase', 'checkpoint_cleanup_failed', 'publication_cleanup_failed', 'publication_recovery_failed'}
-STEPS = {'extract', 'analyze', 'adapt', 'review', 'cover', 'validating', 'preparing'}
+STEPS = {'extract', 'analyze', 'adapt', 'review', 'cover', 'validating', 'preparing', 'preflight'}
 
 
 def default_log_directory(repository):

@@ -18,6 +18,12 @@ class WorkspaceTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory(prefix='.vita-tree-test-', dir=Path.cwd())
         self.root = init_repo(Path(self.temp.name))
         self.workspace = Workspace(self.root)
+        def compile_fixture(folder,entry,engine='auto',output=None):
+            output=output or folder/'__vt_output';output.mkdir(parents=True,exist_ok=True)
+            pdf=output/(Path(entry).stem+'.pdf');pdf.write_bytes(b'%PDF-1.7\nfixture')
+            return dict(pdf=pdf,engine='pdflatex',warnings=[])
+        self.compiler=patch('vita_tree.pdf.compile_document',side_effect=compile_fixture)
+        self.compiler.start();self.addCleanup(self.compiler.stop)
 
     def tearDown(self):
         cleanup_repo(self.temp)

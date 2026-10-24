@@ -59,7 +59,7 @@ def capture(workspace, context, record):
         for path in root.rglob('*'):
             if path.is_file() and '__pycache__' not in path.parts and path.suffix in {'.py', '.md', '.json', '.yaml'}:
                 backend[path.relative_to(root).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
-    for name in ('ai_runner.py', 'outcomes.py', 'checkpoints.py', 'resume_inputs.py', 'workspace.py', 'execution.py', 'diagnostics_contract.py', 'provider_status.py', 'factual_contract.py', 'factual_backend.py', 'factual_review.py', 'requirements_backend.py', 'requirements_review.py','security.py','pdf.py'):
+    for name in ('ai_runner.py', 'outcomes.py', 'checkpoints.py', 'resume_inputs.py', 'workspace.py', 'execution.py', 'diagnostics_contract.py', 'provider_status.py', 'factual_contract.py', 'factual_backend.py', 'factual_review.py', 'requirements_backend.py', 'requirements_review.py','security.py','pdf.py','preflight.py'):
         backend['tree-adapter/' + name] = hashlib.sha256(Path(__file__).with_name(name).read_bytes()).hexdigest()
     configs = dict(context['config'])
     extensions = json.loads(configs.get('extensions.json', '{}'))
@@ -70,7 +70,8 @@ def capture(workspace, context, record):
     context['checkpointInputs'] = {'source': digest(context['source']), 'job': digest(context['job']),
                                    'assets': assets, 'config': fingerprint(configs),
                                    'criteria': fingerprint(criteria),
-                                   'backend': fingerprint(backend), 'command': context['command'], 'date': date.today().isoformat()}
+                                   'backend': fingerprint(backend), 'command': context['command'], 'date': date.today().isoformat(),
+                                   'compiler': record.get('compileEngine') or 'auto'}
     salt = workspace.root / 'checkpoint-key'
     if not salt.exists():
         atomic_write_bytes(salt, os.urandom(32))

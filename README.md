@@ -51,6 +51,40 @@ vt run [REPOSITORY] [--port 8765] [--file main.tex] [--no-browser] [--vita-sourc
 
 The server accepts localhost connections only. It can modify the chosen repository, so do not expose it through a network proxy. Compile only trusted local LaTeX: disabling shell escape is not an operating-system sandbox.
 
+## Check your input and setup
+
+Open a complete **UTF-8 LaTeX project in Git**. AI preparation uses `main.tex` at the
+collection root, with its local classes, styles, images, fonts and includes.
+Required project assets must be tracked or non-ignored files. Tree does not
+import PDF, DOCX or scanned CVs. `vt run --file other.tex` remains available for
+direct viewing and PDF previews; preparation currently requires `main.tex`.
+
+Use **Check input & setup** from the application list, including when an entry is
+missing, or **Check setup** inside an application. Save editor drafts first.
+Checks validate supported JSON settings/entry fields and compile an isolated
+copy with the restricted local compiler. Missing engines, packages/classes,
+inputs and fonts have separate next actions. Install dependencies yourself with
+your TeX distribution manager; Tree never enables an installer or shell escape.
+Other Vita CV configuration/profile semantics remain the backend's responsibility.
+
+Choose Automatic, PDFLaTeX, XeLaTeX or LuaLaTeX in setup checks. Automatic uses
+XeLaTeX for `fontspec`, `polyglossia` or `unicode-math` declared in the entry;
+otherwise it uses PDFLaTeX. Select explicitly if an included class requires
+another engine. The choice applies to new preparations and cover-letter PDFs;
+retries retain the original run's engine. Checks run again against the captured
+project before any CV-dependent AI step. CV, job and asset changes during that
+check cause a conflict; a preparation keeps its submitted AI settings. Manual
+checks also invalidate their result if project settings change during the check.
+Job-requirement extraction remains independent of CV compilation.
+
+Structure is an approximate reading view, not a TeX validator. A project can
+compile correctly even when Structure cannot display it. A passed preflight
+covers dependencies used by that captured compilation; future AI output may
+introduce new requirements. Only compile templates and installations you trust;
+restricted compilation is not an OS sandbox. Temporary check copies are removed
+on completion; manual check results are browser-local, while a run's summary is
+retained with its history. No check calls a provider or changes project files.
+
 ## Applications and saving
 
 Choose **New application**, give it a natural name such as “Acme — ML Engineer”, and choose a starting CV. Vita Tree keeps the internal Git identifier separate from the displayed name. Existing names remain available without automatic reclassification as templates.
@@ -72,7 +106,7 @@ The editor is bundled locally and follows the selected light/dark theme.
 2. Choose **Branch from this**, name the branch, and paste the job description. Vita Tree creates a Git linked worktree below the repository's Git common directory at `vita-tree/worktrees/`. The original checkout is not switched. The viewed main document and the new `job.md` are written to the new worktree.
 3. In **Structure**, select/copy text normally, or double-click text in the new version to edit it. The parser maps text to its exact source range and escapes LaTeX special characters. **Source · Advanced** provides the full editable source for other changes. Save writes the branch worktree's real file.
 4. In **Job & AI**, save the job description and select a provider, model, reasoning level, and language. Use **Prepare application** for every available AI step, **Start selected steps** for any checked subset, or select a graph node and choose **Run … only**. Each enabled step runs in order in an isolated snapshot. Different branches still run concurrently, without a queue.
-5. Follow the **Application workflow** graph: extract → analyze → adapt → AI review → cover letter → validate. Select a task for its status, duration, output, and independent run action, or choose an earlier run. Actions always use the current saved branch files, even when inspecting an older run. Skipped tasks make no AI calls; failed tasks block downstream work. The validation task checks source structure and conflicts, not PDF compilation. Review the Markdown reports, changes, and compiled PDFs before committing.
+5. Follow the **Application workflow** graph: extract → analyze → adapt → AI review → cover letter → validate. Select a task for its status, duration, output, and independent run action, or choose an earlier run. Actions always use the current saved branch files, even when inspecting an older run. Skipped tasks make no AI calls; failed tasks block downstream work. Input preflight checks compilation before CV-dependent AI steps. Final checks validate source and protect against conflicts; Structure limitations defer to restricted compilation. Review the Markdown reports, changes, and compiled PDFs before committing.
 6. Use **Save** to review the destination, commit message, and included files, then publish only the selected branch. A failed push leaves the commit safely in the worktree and offers a push-only retry.
 
 **Save draft** remains local and uncommitted. **Save** includes only the displayed main document, `job.md`, the generated `cover-letter.tex`, and reviewed VITA Markdown/JSON/TOON reports; unrelated working-tree changes are reported and excluded. It never force-pushes or publishes other branches. Worktrees containing local changes persist across server restarts; leaving a clean worktree releases its branch for CLI checkout.
@@ -124,11 +158,12 @@ For a pipx editable installation, source changes take effect when you restart `v
 | Multi-file uncommitted changes when creating a branch | Only the displayed main document is copied; other files come from the base commit |
 | Bibliography, makeindex, minted/shell-escape builds | Not orchestrated; current compiler runs the selected TeX engine twice |
 | Guaranteed perfect PDF reading order for arbitrary templates/fonts | Not possible; depends on the PDF's text encoding and layout |
+| Guided input and dependency preflight | Saved-project JSON/entry checks and restricted compilation before CV-dependent AI calls; no automatic installs or import conversion |
 | Successful AI generation for every provider | Depends on VITA credentials/provider availability; provider, validation, and conflict failures preserve the CV; inspect files after disk-write failures |
 
 Custom command and environment definitions keep their original source ranges. Their bodies are read as token lists rather than executed: an environment may open in one definition argument and close in another. Structure shows supported body text with an approximate-layout notice; use PDF preview for the actual expanded layout.
 
-Structure preserves unsupported source and explicitly reports unknown commands/environments. It is a reading/editing aid, not a TeX engine. Source edits can temporarily be invalid; the UI reports parse/compile failures instead of pretending a stale PDF is current. AI results are syntax-checked but still require PDF compilation and factual review.
+Structure preserves unsupported source and explicitly reports unknown commands/environments. It is a reading/editing aid, not a TeX engine. Source edits can temporarily be invalid; the UI reports parse/compile failures instead of pretending a stale PDF is current. Input preflight compiles the captured project. Generated CVs receive structure checks, with restricted compilation when Structure cannot validate them; cover letters are compiled. Always review the final PDF and factual changes.
 
 PDF previews and AI snapshots are stored under the repository Git common directory's `vita-tree/pdf/` and `vita-tree/runs/`. AI input text is retained in `vita-tree/run-inputs/`, cover-letter PDFs in `vita-tree/run-pdfs/`, and run status and review state in `vita-tree/job-history/`. These can accumulate; keep the server stopped before manually cleaning old cache folders. Do not delete `worktrees/` directly; use Git's worktree commands.
 

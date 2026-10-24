@@ -32,6 +32,7 @@ from .resume_inputs import capture as capture_resume_inputs
 from .publication import publish, recover as recover_publications
 from .ai_config import Connections, clean_settings, effective_settings, stage_environment
 from .security import credential_name, scrub_generated
+from . import preflight
 
 
 class ConflictError(ValueError):
@@ -98,6 +99,7 @@ class Workspace:
         self._closed = False
         self._publishing = set()
         self._previewing = {}
+        self._setup_checks = set()
         self._release_requested = set()
         self._publish_locks = {}
         self._pending_publications = set()
@@ -267,7 +269,7 @@ class Workspace:
                 "running": self.active_job(name)}
 
     JOB_FIELDS = ("id", "branch", "opportunity", "status", "step", "message", "provider", "model",
-                  "reasoning", "language", "createdAt", "startedAt", "finishedAt", "reviewed", "stages", "stepConfig", "parentRunId", "rootRunId", "attempt", "checkpointSteps", "outcomes", "traceId", "requirementsRevision", "requirementsDraft")
+                  "reasoning", "language", "createdAt", "startedAt", "finishedAt", "reviewed", "stages", "stepConfig", "parentRunId", "rootRunId", "attempt", "checkpointSteps", "outcomes", "traceId", "requirementsRevision", "requirementsDraft", "preflight", "compileEngine")
     ACTIVE_STATUSES = {"queued", "running"}
 
     def _public_job(self, record):
@@ -282,6 +284,7 @@ class Workspace:
         route_values = lambda item: {step: {k: route.get(k) for k in route_fields} for step, route in (item.get('stepConfig') or {}).items()}
         result['configurationChanged'] = bool(parent and (route_values(record) != route_values(parent) or record.get('language') != parent.get('language')))
         secrets = [item['key'] for item in self.connections.items.values()] + list(getattr(getattr(self, 'inspector', None), 'secrets', ()))
+        result['preflight'] = preflight.public_result(record.get('preflight'), secrets)
         result['outcomes'] = self._safe_outcomes(record.get('outcomes'), secrets)
         result['failures'] = {step: info for step, outcome in result['outcomes'].items()
                               if (info := failure(outcome))}
@@ -328,7 +331,8 @@ class Workspace:
                 ai_config = {'default': next(iter(clean.values()), {}), 'steps': clean}
             return self.start_ai(parent['branch'], revision, job_revision, language=language or parent['language'],
                                  workflow={'steps': steps}, ai_config=ai_config, resume_from=ident,
-                                 resume_token=token, preview_only=preview, captured_origins=captured_origins)
+                                 resume_token=token, preview_only=preview, captured_origins=captured_origins,
+                                 engine=parent.get('compileEngine') or 'auto')
 
     def _persist_job(self, record):
         try:
@@ -363,6 +367,8 @@ class Workspace:
                 record['attempt'] = attempt if type(attempt) is int and 1 <= attempt <= 100 else None
                 record['checkpointSteps'] = [step for step in record.get('checkpointSteps') or [] if step in REPORTS]
                 record['outcomes'] = self._safe_outcomes(record.get('outcomes'))
+                record['preflight'] = preflight.public_result(record.get('preflight'))
+                record['compileEngine'] = record.get('compileEngine') if record.get('compileEngine') in preflight.ENGINES else 'auto'
                 if any(value is not None and (type(value) not in (int, float) or not 0 <= value < 1e12)
                        for value in (record.get(key) for key in ("createdAt", "startedAt", "finishedAt"))):
                     continue
@@ -848,11 +854,17 @@ class Workspace:
                 "workflow": workflow_capabilities(self.vita_source),
                 "engines": [x for x in ("pdflatex", "xelatex", "lualatex") if shutil.which(x)]}
 
-    def start_ai(self, name, revision, job_revision, provider="", language="en", model=None, reasoning="", workflow=None, ai_config=None, resume_from=None, resume_token=None, preview_only=False, captured_origins=None):
+    def check_setup(self, name, revision=None, job_revision=None, engine='auto', workflow=None):
+        selected = {task['id'] for task in plan(workflow, workflow_capabilities(self.vita_source)) if task['status'] != 'skipped'}
+        return preflight.check_workspace(self, name, revision, job_revision, engine, selected)
+
+    def start_ai(self, name, revision, job_revision, provider="", language="en", model=None, reasoning="", workflow=None, ai_config=None, resume_from=None, resume_token=None, preview_only=False, captured_origins=None, engine='auto'):
         with self.lock:
             if self._closed:
                 raise ConflictError("Vita Tree is stopping. Restart it before preparing an application.")
             self.busy(name)
+            if not isinstance(engine,str) or engine not in preflight.ENGINES:
+                raise ValueError('Choose a supported TeX engine for setup checks.')
             if resume_from and (factual_review.summary(self, resume_from) or {}).get('state') in {'pending', 'unavailable'}:
                 raise ConflictError('Resolve the factual changes before retrying this preparation.')
             self.cleanup_checkpoints()
@@ -896,11 +908,13 @@ class Workspace:
                       "parentRunId": resume_from, "rootRunId": self.jobs[resume_from].get('rootRunId') or resume_from if resume_from else ident,
                       "attempt": (self.jobs[resume_from].get('attempt') or 1) + 1 if resume_from else 1,
                       "checkpointSteps": [], "outcomes": {},
-                      "traceId": (self.jobs[resume_from].get("traceId") or self.jobs[resume_from].get("rootRunId") or resume_from) if resume_from else ident}
+                      "traceId": (self.jobs[resume_from].get("traceId") or self.jobs[resume_from].get("rootRunId") or resume_from) if resume_from else ident,
+                      "compileEngine": engine, "preflight": None}
             if resume_from:
                 record['attempt'] = max((item.get('attempt') or 1 for item in self.jobs.values() if item.get('rootRunId') == record['rootRunId']), default=0) + 1
             context = self._ai_context(location, source, job, command, provider, model, reasoning)
             context['stepConfig'], context['keys'] = routes, keys
+            context['compileEngine'] = engine
             config = json.loads(context["config"].get("config.json", "{}"))
             if not isinstance(config, dict):
                 raise ValueError("Your AI settings could not be read. Check the configuration in AI connection details.")
@@ -1000,9 +1014,13 @@ class Workspace:
                         key, value = line.split("=", 1)
                         if re.fullmatch(r"[A-Z][A-Z0-9_]*(?:KEY|TOKEN|BASE_URL|ENDPOINT)", key.strip()) or key.strip() == "VITA_REQUIREMENTS_DIR":
                             env[key.strip()] = value.strip().strip("\"'")
+        malformed = next((item for item in preflight.configuration(config, self.document_path) if item['code']=='configuration_invalid'), None)
+        if malformed:
+            raise ValueError('Project settings in .vita/' + malformed['target'] + ' are invalid. Open Check setup for guidance; no files were rewritten.')
         try:
             extensions = json.loads(config.get("extensions.json", "{}"))
-            extensions.setdefault("llm_providers", {})[provider] = {"model": model}
+            if provider:
+                extensions.setdefault("llm_providers", {})[provider] = {"model": model}
             config["extensions.json"] = json.dumps(extensions)
         except (ValueError, TypeError, AttributeError):
             raise ValueError("Your AI settings could not be read. Check AI connection details.") from None
@@ -1054,6 +1072,39 @@ class Workspace:
                     atomic_write(safe_path(stage, path), content)
                 for name, content in context['criteria'].items():
                     atomic_write(safe_path(stage / '.vita/criteria-snapshot', name), content)
+            if not self._job_update(record, step='preflight', message='Checking the captured project and PDF tools before any AI calls.'):
+                return
+            with self.inspector.phase(record, 'validation'):
+                checked = preflight.check_project(stage, context['config'], context['compileEngine'], self.document_path,
+                                                  context['selected'], digest(source), digest(job), self.root/'preflight',
+                                                  set(context['keys'].values()) | {v for k,v in context['env'].items() if credential_name(k)},
+                                                  context['checkpointInputs']['assets'])
+                if not self._job_update(record, preflight=checked):return
+                if not checked['ready']:
+                    problem = next(item for item in checked['checks'] if item['severity']=='error')
+                    raise AIRunError(problem['message'] + ' Open Check setup for next steps. No AI was called.')
+                def invalidate_checks(message):
+                    checked['checks'].append(preflight.item('draft_changed'))
+                    self._job_update(record, preflight=preflight.public_result(checked))
+                    raise PreparationConflict(message)
+                with self.lock:
+                    try:
+                        current,_=preflight.project_state(self,record['branch'])
+                    except (ValueError,OSError,RuntimeError):
+                        invalidate_checks('Project inputs became unavailable during setup checks. Your edits were preserved; reload and check again.')
+                    if current['commit'] != context['baseCommit'] or current['source'] != digest(source) or current['job'] != digest(job):
+                        invalidate_checks('The draft changed during setup checks. Your edits were preserved; check the new draft again.')
+                    current_assets={k:v for k,v in current['assets'].items() if k not in {'main.tex','job.md','cover-letter.tex'}}
+                    if current_assets!=context['checkpointInputs']['assets']:
+                        invalidate_checks('Project dependencies changed during setup checks. Your edits were preserved; check again.')
+            verified_source = digest(source) if any(item['code']=='compiled' for item in checked['checks']) else None
+            def verify_limited_source(value):
+                if digest(value) == verified_source:return
+                if parse_document(value)['error'] or r'\begin{document}' not in value:
+                    verified = preflight.check_project(stage, context['config'], context['compileEngine'], self.document_path,
+                                                        context['selected'], scratch=self.root/'preflight')
+                    if not verified['ready']:
+                        raise AIRunError('The resulting CV could not compile. Your application is unchanged; check the saved preparation source and PDF dependencies.')
             for task in record["stages"]:
                 step = task["id"]
                 if task["status"] == "skipped" or step == "validating":
@@ -1164,18 +1215,19 @@ class Workspace:
                     step_source = read_text(stage / 'main.tex')
                     if step != 'adapt' and step_source != before['main.tex']:
                         raise AIRunError('This feedback step unexpectedly changed the CV. Your application is unchanged; inspect the preparation results.')
-                    if step == 'adapt' and (parse_document(step_source)['error'] or r'\begin{document}' not in step_source):
-                        raise AIRunError('main.tex is not parseable. Your branch is unchanged; inspect the source in the LaTeX editor.')
+                    if step == 'adapt':
+                        verify_limited_source(step_source)
+                        verified_source = digest(step_source)
                 if step == 'cover':
                     cover_source = read_text(safe_path(stage, 'cover-letter.tex'))
-                    if parse_document(cover_source)['error'] or not all(marker in cover_source for marker in (r'\documentclass', r'\begin{document}', r'\end{document}')):
+                    if not cover_source.strip():
                         raise AIRunError('Your AI service did not produce a valid cover letter. Your application is unchanged; inspect the preparation results.')
                     if not self._job_update(record, message='Compiling the cover-letter PDF…'):
                         return
                     try:
                         output = safe_path(self.root, 'run-pdfs/' + record['id'])
                         with self.inspector.phase(record, 'pdf', step):
-                            built = compile_document(stage, 'cover-letter.tex', output=output)
+                            built = compile_document(stage, 'cover-letter.tex', engine=context['compileEngine'], output=output)
                         self.diagnostics.record('pdf_compiled', operation='compile_cover', run_id=record['id'], step='cover')
                         atomic_write(output / 'ready.json', json.dumps({'engine': built['engine'], 'warnings': built['warnings']}))
                         step_pdf = {'path': built['pdf'], 'engine': built['engine'], 'warnings': built['warnings']}
@@ -1199,13 +1251,12 @@ class Workspace:
                     cover = None
                     if any(t["id"] == "cover" and t["status"] != "skipped" for t in record["stages"]) and not checkpoints.rejected_cover(checkpoints.artifacts(stage)):
                         cover = read_text(safe_path(stage, "cover-letter.tex"))
-                        if parse_document(cover)["error"] or not all(marker in cover for marker in ("\\documentclass", "\\begin{document}", "\\end{document}")):
+                        if not cover.strip():
                             raise AIRunError("Your AI service did not produce a valid cover letter. Your application is unchanged; inspect the preparation results.")
                     result = read_text(stage / "main.tex")
                     adapting = 'adapt' in context['selected']
                     if adapting or context['selected'] == {'validating'}:
-                        if parse_document(result)["error"] or "\\begin{document}" not in result:
-                            raise AIRunError("main.tex is not parseable. Your branch is unchanged; inspect the source in the LaTeX editor.")
+                        verify_limited_source(result)
                     if not adapting and result != source:
                         raise AIRunError("This feedback step unexpectedly changed the CV. Your application is unchanged; inspect the preparation results.")
                     with self.lock:
