@@ -66,6 +66,12 @@ def execute(step, invoke, execution_id):
         result = api_result is not False
         return result
     finally:
+        if step in {'adapt', 'cover'}:
+            try:
+                from .factual_backend import capture
+            except ImportError:
+                from factual_backend import capture
+            capture(step, execution_id)
         trace = None
         if native.is_file() and native.stat().st_size < 200_000:
             try:

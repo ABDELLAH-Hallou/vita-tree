@@ -24,6 +24,7 @@ from .latex import parse_document, replace_leaf
 from .workflow import REPORTS, MESSAGES, capabilities as workflow_capabilities, plan, transition, clean_stages, reusable_reports
 from .server import branch_payload, run_git
 from . import checkpoints
+from . import factual_review
 from .outcomes import read_outcome
 from .provider_status import failure
 from .resume_inputs import capture as capture_resume_inputs
@@ -282,6 +283,16 @@ class Workspace:
         result['outcomes'] = self._safe_outcomes(record.get('outcomes'), secrets)
         result['failures'] = {step: info for step, outcome in result['outcomes'].items()
                               if (info := failure(outcome))}
+        result['factualReview'] = factual_review.summary(self, record['id'])
+        if result['factualReview']:
+            pending = result['factualReview']['state'] != 'resolved'
+            result['resumeAvailable'] = result['resumeAvailable'] and not pending
+            if not pending and (self.root/'checkpoints'/record['id']/result['factualReview']['step']/'manifest.json').is_file():
+                result['checkpointSteps'] = list(dict.fromkeys([*result['checkpointSteps'], result['factualReview']['step']]))
+            result['message'] = ('Review the proposed factual changes before continuing. Your application is unchanged.' if pending else
+                                 'Factual decisions saved in the preparation draft. Retry to continue with matching inputs and publish after final checks.')
+            if result['factualReview']['state'] == 'unavailable':
+                result['message'] = 'Factual-review evidence is unavailable or damaged. Start a new preparation; your application is unchanged.'
         return result
 
     def cleanup_checkpoints(self):
@@ -293,6 +304,8 @@ class Workspace:
             parent = self.jobs.get(ident)
             if not parent or parent.get('status') not in {'failed', 'interrupted'} or not parent.get('attempt'):
                 raise ConflictError('Select a failed or interrupted preparation to retry.')
+            if (factual_review.summary(self, ident) or {}).get('state') in {'pending', 'unavailable'}:
+                raise ConflictError('Review and resolve the factual changes before retrying this preparation.')
             steps = [stage['id'] for stage in parent['stages'] if stage['status'] != 'skipped']
             captured_origins = None
             if ai_config is None:
@@ -451,6 +464,11 @@ class Workspace:
             path = safe_path(stage, filename)
             if path.is_file():
                 files[filename] = read_text(path)
+        review = factual_review.summary(self, ident)
+        if review and review['state'] == 'resolved':
+            saved = checkpoints.load_checkpoint(self.root/'checkpoints', ident, review['step'])
+            if saved:
+                files.update({name: content for name, content in saved[1].items() if content is not None})
         original = safe_path(self.root / "run-inputs" / record["id"], "main.tex")
         if original.is_file():
             files["original/main.tex"] = read_text(original)
@@ -515,7 +533,7 @@ class Workspace:
 
     @staticmethod
     def report_paths():
-        return tuple(".vita/results/" + file for files in REPORTS.values() for file in files)
+        return (*dict.fromkeys(".vita/results/" + file for files in REPORTS.values() for file in files), *checkpoints.FACTUAL_ARTIFACTS)
 
     def publish_paths(self):
         """Files Vita Tree owns and may include in a UI-created commit."""
@@ -799,6 +817,12 @@ class Workspace:
         from .generation_check import run
         return run(self, name, step, settings, confirmed)
 
+    def factual_review(self, ident):
+        return factual_review.view(self, ident)
+
+    def apply_factual_review(self, ident, revision, token, decisions, confirmed=False):
+        return factual_review.apply(self, ident, revision, token, decisions, confirmed)
+
     def capabilities(self):
         return {"vita": bool(self.vita_command()), "documentPath": self.document_path,
                 "workflow": workflow_capabilities(self.vita_source),
@@ -809,6 +833,8 @@ class Workspace:
             if self._closed:
                 raise ConflictError("Vita Tree is stopping. Restart it before preparing an application.")
             self.busy(name)
+            if resume_from and (factual_review.summary(self, resume_from) or {}).get('state') in {'pending', 'unavailable'}:
+                raise ConflictError('Resolve the factual changes before retrying this preparation.')
             self.cleanup_checkpoints()
             stages = plan(workflow, workflow_capabilities(self.vita_source))
             selected = {task['id'] for task in stages if task['status'] != 'skipped'}
@@ -864,6 +890,7 @@ class Workspace:
                 raise ValueError("This CV collection needs to use cover-letter.tex for cover letters. Check its Vita CV settings.")
             context["baseCommit"] = self.head(name)
             captured = {p: read_text(safe_path(location, p)) for p in (*self.report_paths(), "cover-letter.tex")}
+            context['coverBefore'] = captured['cover-letter.tex'] if context['factualBackend'] and safe_path(location, 'cover-letter.tex').is_file() else None
             context["reports"] = {p: digest(content) for p, content in captured.items()}
             context["dependencies"] = reusable_reports(captured, digest(job))
             context["selected"] = selected
@@ -940,7 +967,8 @@ class Workspace:
             config["extensions.json"] = json.dumps(extensions)
         except (ValueError, TypeError, AttributeError):
             raise ValueError("Your AI settings could not be read. Check AI connection details.") from None
-        return {"location": location, "source": source, "job": job, "command": command, "env": env, "config": config, "skills": skills}
+        return {"location": location, "source": source, "job": job, "command": command, "env": env, "config": config, "skills": skills,
+                'factualBackend': bool(self.vita_source and (self.vita_source/'vita/helpers/factual_changes.py').is_file())}
 
     def _job_update(self, record, **values):
         with self.lock:
@@ -978,7 +1006,10 @@ class Workspace:
                 # Never mistake reports copied from a previous run for this run's outputs.
                 for path in self.report_paths():
                     safe_path(stage, path).unlink(missing_ok=True)
-                safe_path(stage, "cover-letter.tex").unlink(missing_ok=True)
+                if context.get('coverBefore') is not None:
+                    atomic_write(stage/'cover-letter.tex', context['coverBefore'])
+                else:
+                    safe_path(stage, "cover-letter.tex").unlink(missing_ok=True)
                 for path, content in context['dependencies'].items():
                     atomic_write(safe_path(stage, path), content)
                 for name, content in context['criteria'].items():
@@ -994,14 +1025,14 @@ class Workspace:
                 if saved:
                     checkpoints.restore(stage, saved[1])
                     reused_pdf = None
-                    if step == 'cover':
+                    if step == 'cover' and not saved[0].get('omitted'):
                         output = safe_path(self.root, 'run-pdfs/' + record['id'])
                         prior_pdf = self.root/'checkpoints'/record['parentRunId']/step/'cover-letter.pdf'
                         atomic_write_bytes(output/'cover-letter.pdf', prior_pdf.read_bytes())
                         atomic_write(output/'ready.json', json.dumps({key: saved[0]['pdf'][key] for key in ('engine','warnings')}))
                         reused_pdf = dict(path=output/'cover-letter.pdf', **{key: saved[0]['pdf'][key] for key in ('engine','warnings')})
                     with self.inspector.phase(record, 'checkpoint', step):
-                        saved_child = checkpoints.write_checkpoint(self.root/'checkpoints', record['id'], step, key, saved[1], saved[0]['outcome'], reused_pdf)
+                        saved_child = checkpoints.write_checkpoint(self.root/'checkpoints', record['id'], step, key, saved[1], saved[0]['outcome'], reused_pdf, saved[0].get('omitted', False))
                     if not saved_child:
                         self.inspector.mark(record, 'checkpoint', 'not_retained', step)
                     self.inspector.mark(record, 'checkpoint', 'reused', step, reused_from=record['parentRunId'])
@@ -1032,11 +1063,16 @@ class Workspace:
                 args = context["command"] + [step, "--auto", "--provider", route['provider']]
                 if step in ("adapt", "cover"):
                     args += ["--language", record["language"]]
-                if step == "cover":
+                if step == "cover" and not context['factualBackend']:
                     safe_path(stage, "cover-letter.tex").unlink(missing_ok=True)
                 # Retained inputs are context, never evidence that this task ran.
                 for filename in REPORTS[step]:
                     safe_path(stage, '.vita/results/' + filename).unlink(missing_ok=True)
+                if step in {'adapt', 'cover'}:
+                    for downstream in (('adapt', 'cover') if step == 'adapt' else ('cover',)):
+                        for suffix in ('.facts.json', '.facts.md', '.decisions.json'):
+                            safe_path(stage, '.vita/results/' + downstream + suffix).unlink(missing_ok=True)
+                    safe_path(stage, '.vita/results/tree-' + step + '.facts.json').unlink(missing_ok=True)
                 if step == 'analyze':
                     for filename in ('delta.md', 'delta.json'):
                         safe_path(stage, '.vita/results/' + filename).unlink(missing_ok=True)
@@ -1052,6 +1088,15 @@ class Workspace:
                     if outcome:
                         if not self._job_update(record, outcomes={**record['outcomes'], step: outcome}):
                             return
+                    if step in {'adapt', 'cover'}:
+                        try:
+                            if context['factualBackend'] and not process.returncode and not safe_path(stage, '.vita/results/' + step + '.facts.json').is_file():
+                                raise ValueError('Missing factual-change contract')
+                            pending = factual_review.capture(self, record, context, stage, step, execution_id, before, key)
+                        except (OSError, ValueError, KeyError, TypeError):
+                            raise AIRunError('Factual-change evidence could not be verified. Check Vita CV contract support and regenerate. Your application is unchanged.') from None
+                        if pending:
+                            raise AIRunError('Review the proposed factual changes before continuing. Your application is unchanged.')
                     if process.returncode or not any(reports) or (outcome and outcome['status'] != 'success'):
                         info = failure(outcome)
                         raise AIRunError((info['title'] + '. ' + info['action'] if info else 'The expected results were not returned. Inspect execution details before retrying.') + ' Your CV is unchanged.')
@@ -1098,7 +1143,7 @@ class Workspace:
             with self.lock:
                 with self.inspector.phase(record, 'validation', 'validating'):
                     cover = None
-                    if any(t["id"] == "cover" and t["status"] != "skipped" for t in record["stages"]):
+                    if any(t["id"] == "cover" and t["status"] != "skipped" for t in record["stages"]) and not checkpoints.rejected_cover(checkpoints.artifacts(stage)):
                         cover = read_text(safe_path(stage, "cover-letter.tex"))
                         if parse_document(cover)["error"] or not all(marker in cover for marker in ("\\documentclass", "\\begin{document}", "\\end{document}")):
                             raise AIRunError("Your AI service did not produce a valid cover letter. Your application is unchanged; inspect the preparation results.")
@@ -1142,6 +1187,10 @@ class Workspace:
                             updates['cover-letter.tex'] = cover
                         if adapting and result != source:
                             updates[self.document_path] = result
+                        if context['selected'] & {'adapt', 'cover'}:
+                            for path, content in checkpoints.artifacts(stage).items():
+                                if path in checkpoints.FACTUAL_ARTIFACTS or path.startswith('.vita/factual-changes/'):
+                                    updates[path] = content
                 with self.lock, self.inspector.phase(record, 'publication', 'validating'):
                     with publish(self, record['id'], record['branch'], updates):
                         if not self._job_update(record, status="succeeded", step="completed", finishedAt=time.time(),

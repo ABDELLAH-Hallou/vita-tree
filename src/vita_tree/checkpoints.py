@@ -12,8 +12,10 @@ import threading
 from .fileio import atomic_write_bytes
 from .workflow import REPORTS, STEPS
 
+FACTUAL_ARTIFACTS = tuple('.vita/results/' + step + suffix for step in ('adapt', 'cover')
+                          for suffix in ('.facts.json', '.facts.md', '.decisions.json'))
 ARTIFACTS = ('main.tex', 'cover-letter.tex', *dict.fromkeys(
-    '.vita/results/' + name for names in REPORTS.values() for name in names))
+    '.vita/results/' + name for names in REPORTS.values() for name in names), *FACTUAL_ARTIFACTS)
 MAX_CHECKPOINT_BYTES = 32 * 1024 * 1024
 MAX_TOTAL_BYTES = 256 * 1024 * 1024
 MAX_RUNS = 20
@@ -25,9 +27,17 @@ def fingerprint(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=True).encode()).hexdigest()
 
 
+def artifact_name(name):
+    return name in ARTIFACTS or bool(re.fullmatch(r'\.vita/factual-changes/(adapt|cover)/fc-[a-f0-9]{64}\.json', name))
+
+
 def artifacts(folder):
     result = {}
-    for name in ARTIFACTS:
+    names = set(ARTIFACTS)
+    names.update(p.relative_to(folder).as_posix() for p in (folder/'.vita/factual-changes').glob('*/fc-*.json'))
+    if len(names) > 1000 or any(not artifact_name(name) for name in names):
+        raise ValueError('Invalid factual-change archive')
+    for name in sorted(names):
         path = folder / name
         for parent in (path, *path.parents):
             if parent.is_symlink():
@@ -54,17 +64,21 @@ def signature(context, step, before):
                         'dependencies': before})
 
 
-def write_checkpoint(root, ident, step, key, files, outcome, pdf=None):
+def write_checkpoint(root, ident, step, key, files, outcome, pdf=None, omitted=False):
     with STORE_LOCK:
-        return _write_checkpoint(root, ident, step, key, files, outcome, pdf)
+        return _write_checkpoint(root, ident, step, key, files, outcome, pdf, omitted)
 
 
-def _write_checkpoint(root, ident, step, key, files, outcome, pdf=None):
+def _write_checkpoint(root, ident, step, key, files, outcome, pdf=None, omitted=False):
     data = {'schemaVersion': 1, 'step': step, 'signature': key,
             'hashes': {name: fingerprint(content) for name, content in files.items()},
             'outcome': outcome, 'createdAt': time.time()}
     pdf_bytes = pdf['path'].read_bytes() if pdf else b''
-    if step == 'cover' and not pdf_bytes.startswith(b'%PDF-'):
+    if omitted and (step != 'cover' or not rejected_cover(files)):
+        raise ValueError('Only an explicitly rejected letter can omit its PDF')
+    if omitted:
+        data['omitted'] = True
+    if step == 'cover' and not omitted and not pdf_bytes.startswith(b'%PDF-'):
         return False
     size = sum(len((content or '').encode()) for content in files.values()) + len(pdf_bytes)
     if size > MAX_CHECKPOINT_BYTES:
@@ -75,6 +89,10 @@ def _write_checkpoint(root, ident, step, key, files, outcome, pdf=None):
     folder = root / ident / step
     if any(path.is_symlink() for path in (root, root/ident, folder, folder/'files')):
         raise ValueError('Linked checkpoint folders are not supported')
+    # An interrupted review may have written files without its final manifest.
+    # Remove only our allowlisted obsolete artifacts before publishing a retry.
+    for name in set(artifacts(folder/'files')) - set(files):
+        (folder/'files'/name).unlink(missing_ok=True)
     if pdf:
         data['pdf'] = {'sha256': hashlib.sha256(pdf_bytes).hexdigest(), 'engine': pdf['engine'], 'warnings': [str(warning)[:300] for warning in pdf['warnings'][:100]]}
         atomic_write_bytes(folder/'cover-letter.pdf', pdf_bytes)
@@ -97,7 +115,8 @@ def load_checkpoint(root, ident, step):
         if manifest.is_symlink() or manifest.stat().st_size > 100_000:
             return None
         data = json.loads(manifest.read_text(encoding='utf-8'))
-        if (data.get('schemaVersion') != 1 or data.get('step') != step or set(data['hashes']) != set(ARTIFACTS)
+        if (data.get('schemaVersion') != 1 or data.get('step') != step or not set(ARTIFACTS) <= set(data['hashes'])
+                or len(data['hashes']) > 1000 or any(not artifact_name(name) for name in data['hashes'])
                 or not isinstance(data.get('signature'), str) or not re.fullmatch(r'[a-f0-9]{64}',data['signature'])):
             return None
         files = artifacts(folder / 'files')
@@ -105,11 +124,26 @@ def load_checkpoint(root, ident, step):
             return None
         if data['outcome'].get('status') != 'success' or data['outcome'].get('verified') is not True:
             return None
+        approval = data['outcome'].get('factualApproval')
+        if approval is not None:
+            if (not isinstance(approval, dict) or not re.fullmatch(r'[a-f0-9]{32}', str(approval.get('runId', '')))
+                    or not re.fullmatch(r'fc-[a-f0-9]{64}', str(approval.get('revision', '')))):
+                return None
+            marker = root.parent/'factual-reviews'/approval['runId']/'manifest.json'
+            if any(path.is_symlink() for path in (marker, marker.parent, marker.parent.parent)) or marker.stat().st_size > 32_000_000:
+                return None
+            review = json.loads(marker.read_text(encoding='utf-8'))
+            if (review.get('schemaVersion') != 1 or review.get('state') != 'resolved'
+                    or review.get('revision') != approval['revision'] or review.get('step') != step
+                    or review.get('artifactHash') != fingerprint(files)):
+                return None
         if step in {'extract','analyze','review'}:
             native = data['outcome'].get('backend')
             if not isinstance(native,dict) or native.get('status') != 'success' or not native.get('attempts') or native['attempts'][-1].get('category') != 'valid':
                 return None
-        if step == 'cover':
+        if data.get('omitted') and (step != 'cover' or not rejected_cover(files)):
+            return None
+        if step == 'cover' and not data.get('omitted'):
             pdf_path = folder/'cover-letter.pdf'
             if pdf_path.is_symlink() or pdf_path.stat().st_size > MAX_CHECKPOINT_BYTES:
                 return None
@@ -124,6 +158,10 @@ def load_checkpoint(root, ident, step):
 
 
 def restore(folder, files):
+    # Remove archives from an earlier attempt so rejected proposals cannot be
+    # accidentally replaced with stale approvals during recovery.
+    for name in set(artifacts(folder)) - set(files):
+        (folder/name).unlink(missing_ok=True)
     for name, content in files.items():
         path = folder / name
         if path.is_symlink():
@@ -132,6 +170,15 @@ def restore(folder, files):
             path.unlink(missing_ok=True)
         else:
             atomic_write_bytes(path, content.encode('utf-8'))
+
+
+def rejected_cover(files):
+    try:
+        report = json.loads(files['.vita/results/cover.facts.json'])
+        return (report['contract_version'] == 'factual-changes/1' and report['status'] == 'rejected'
+                and report['application_status'] == 'not_applied' and files['cover-letter.tex'] == report['target_before'])
+    except (KeyError, ValueError, TypeError):
+        return False
 
 
 def resume_plan(root, parent, context):
