@@ -123,6 +123,40 @@ class CheckTests(unittest.TestCase):
         self.assertTrue(locations);self.assertTrue(all(not path.exists() for path in locations))
         self.assertNotIn('private-project-instructions',json.dumps(result))
 
+    @unittest.skipUnless(os.name == 'nt', 'Windows 8.3 temporary-directory aliases')
+    def test_generation_checks_accept_windows_short_temp_paths(self):
+        import ctypes
+        from vita_tree import generation_check
+
+        with tempfile.TemporaryDirectory(prefix='vita-tree-long-temporary-folder-') as folder:
+            get_short_path = ctypes.WinDLL('kernel32', use_last_error=True).GetShortPathNameW
+            get_short_path.argtypes = (ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint)
+            get_short_path.restype = ctypes.c_uint
+            buffer = ctypes.create_unicode_buffer(32768)
+            if not get_short_path(folder, buffer, len(buffer)):
+                raise ctypes.WinError(ctypes.get_last_error())
+            alias = Path(buffer.value)
+            if alias == alias.resolve():
+                self.skipTest('8.3 aliases are disabled on the temporary volume')
+            self.assertTrue(alias.samefile(folder))
+            invoke = generation_check.invoke
+            locations = []
+
+            def observed(args, **kwargs):
+                locations.append(Path(kwargs['cwd']))
+                return invoke(args, **kwargs)
+
+            with patch.object(tempfile, 'tempdir', str(alias)), patch.object(generation_check, 'invoke', side_effect=observed):
+                api = self.check(confirmed=True)
+                codex = self.workspace.check_generation('master', 'analyze', {
+                    'default': {'provider': 'codex', 'model': 'fixture-codex'}}, True)
+            self.assertTrue(api['generationVerified'])
+            self.assertTrue(codex['generationVerified'])
+            self.assertEqual(len(locations), 2)
+            self.assertTrue(all(path != path.resolve() for path in locations))
+            self.assertTrue(all(not path.exists() for path in locations))
+            self.assertFalse(self.workspace._generation_checks)
+
     def test_permanent_failures_secret_redaction_and_future_contract(self):
         for category in ('authentication','invalid_model','rate_limit','invalid_json'):
             result=self.check(category,confirmed=True)

@@ -12,7 +12,9 @@ provider=args[args.index('--provider')+1]
 model=args[args.index('--model')+1] if '--model' in args else 'fixture-default'
 assert not Path('main.tex').exists() and not Path('job.md').exists()
 assert not Path('.vita/.env').exists()
-assert Path(os.environ['VITA_PROJECT_ROOT']).resolve()==Path.cwd()
+# Windows may retain an 8.3 alias in cwd while resolve() expands it. Compare
+# directory identity so the isolation assertion accepts either spelling.
+assert Path(os.environ['VITA_PROJECT_ROOT']).samefile(Path.cwd())
 settings=json.loads(Path('.vita/extensions.json').read_text(encoding='utf-8'))
 assert set(settings)=={'llm_providers'} and set(settings['llm_providers'])=={provider}
 assert settings['llm_providers'][provider]['model']==('' if model=='fixture-default' else model)
