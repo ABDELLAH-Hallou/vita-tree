@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.10.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.9.0...v1.10.0) (2026-10-24)
+
+
+### Features
+
+* actionable provider failures, generation checks, and captured retries ([6ee8b6e](https://github.com/ABDELLAH-Hallou/vita-tree/commit/6ee8b6e4ca5666f80bf04c079749ad02dd9f3987))
+* show actionable provider failures and explicit generation checks ([280fe3c](https://github.com/ABDELLAH-Hallou/vita-tree/commit/280fe3c0f75321cb176370898c158f49198fdc66))
+
 ## [1.9.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.8.0...v1.9.0) (2026-10-23)
 
 
