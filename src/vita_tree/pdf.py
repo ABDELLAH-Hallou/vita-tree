@@ -18,6 +18,12 @@ from .exports import cv_filename
 from .security import snapshot_excluded, compiler_environment, engine_executable
 
 
+class CompilationError(ValueError):
+    def __init__(self, category, message):
+        super().__init__(message)
+        self.category = category
+
+
 def export_snapshot(repository: Path, commit: str, target: Path, working: Path | None = None):
     target.mkdir(parents=True, exist_ok=True)
     total = 0
@@ -83,7 +89,10 @@ def compile_document(folder: Path, document_path: str, engine='auto', output=Non
         raise ValueError('Linked compiler output folders are not supported')
     output.mkdir(parents=True, exist_ok=True)
     env = compiler_environment(folder, output)
-    executable = engine_executable(engine, folder, env)
+    try:
+        executable = engine_executable(engine, folder, env)
+    except ValueError as error:
+        raise CompilationError('engine_missing', str(error)) from error
     version = subprocess.run([executable, "--version"], env=env, cwd=folder,
                              stdin=subprocess.DEVNULL, capture_output=True, timeout=10).stdout.decode(errors="replace")
     flags = ["-interaction=nonstopmode", "-halt-on-error", "-file-line-error", "-no-shell-escape"]
@@ -106,7 +115,7 @@ def compile_document(folder: Path, document_path: str, engine='auto', output=Non
             if process.returncode:
                 raise ValueError("Couldn’t create the PDF.\n" + log[-6000:])
     except subprocess.TimeoutExpired as error:
-        raise ValueError("Creating the PDF took longer than 90 seconds. Check the source formatting and installed PDF tools.") from error
+        raise CompilationError('compile_timeout', "Creating the PDF took longer than 90 seconds. Check the source formatting and installed PDF tools.") from error
     pdf = safe_path(output, entry.stem + '.pdf')
     if not pdf.is_file() or pdf.stat().st_size > 32_000_000:
         raise ValueError('The PDF tool did not produce a document within the 32 MB limit')
