@@ -2,6 +2,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import time
+import json
 
 
 def cleanup_repo(temporary):
@@ -51,6 +52,23 @@ def git(root, *args):
     if result.returncode:
         raise RuntimeError(result.stderr)
     return result.stdout.strip()
+
+
+def assert_public_run_privacy(payload, private_values):
+    """Allow fixed guidance, but reject fixture secrets, source and raw fields."""
+    public = json.dumps(payload)
+    for value in private_values:
+        assert value not in public, 'Private fixture content leaked into the global API'
+    forbidden = {'env', 'stdout', 'stderr', 'prompt', 'source', 'content', 'sourcecontent', 'rawoutput'}
+    def check(value):
+        if isinstance(value, dict):
+            assert not forbidden.intersection(key.casefold() for key in value), 'Raw run payload field leaked into the global API'
+            for child in value.values():
+                check(child)
+        elif isinstance(value, list):
+            for child in value:
+                check(child)
+    check(payload)
 
 
 def init_repo(root):

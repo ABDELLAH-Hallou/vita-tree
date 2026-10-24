@@ -62,6 +62,7 @@ def context():
     db.add_context_category("vita", macros=[
         *(MacroSpec(name, DefinitionArgsParser(bodies)) for name, bodies in DEFINITIONS.items()),
         MacroSpec("name", "{"), MacroSpec("address", "{"),
+        MacroSpec("input", "{"), MacroSpec("include", "{"),
         MacroSpec("href", "[{{"), MacroSpec("url", "{"),
         MacroSpec("resumeItem", "{"), MacroSpec("resumeSubheading", "{{{{"),
         MacroSpec("resumeProjectHeading", "{{"),
@@ -84,8 +85,9 @@ def escape_text(text: str) -> str:
 
 
 class Renderer:
-    def __init__(self, source: str):
+    def __init__(self, source: str, path=None):
         self.source = source
+        self.path = path
         self.warnings: set[str] = set()
         self.leaves: dict[str, dict] = {}
         self.converter = LatexNodes2Text()
@@ -98,6 +100,8 @@ class Renderer:
             return "<br><br>" if "\n\n" in text.replace("\r", "") else " "
         key = str(node.pos)
         self.leaves[key] = {"start": node.pos, "end": node.pos + node.len, "text": text}
+        if self.path is not None:
+            self.leaves[key]['path'] = self.path
         return f'<span data-leaf="{key}">{html.escape(text)}</span>'
 
     def args(self, node):
@@ -214,8 +218,9 @@ class Renderer:
             if name in {"resumeSubheading", "resumeProjectHeading"}:
                 return '<div class="cv-entry">' + ' · '.join(self.node(a) for a in args) + '</div>'
             if name in {"input", "include"}:
-                self.warnings.add("Included files render in PDF; edit them in your source editor.")
-                return '<div class="unsupported">Included file: ' + value() + '</div>'
+                self.warnings.add("Open included files with the CV file selector. Each file has its own Structure and Source view; PDF shows the assembled document.")
+                literal = self.source[args[0].pos:args[0].pos+args[0].len] if args else ''
+                return '<div class="unsupported">Included file: ' + html.escape(literal) + '</div>'
             if name in {"vspace", "hspace", "setlength", "addtolength", "itemsep", "noindent", "smallskip", "medskip", "bigskip", "small", "footnotesize", "scriptsize", "tiny", "large", "Large", "LARGE", "huge", "Huge", "normalsize", "centering", "raggedright", "hline", "maketitle", "label", "pagestyle", "thispagestyle"} or name.startswith("resumeItemList") or name.startswith("resumeSubHeadingList"):
                 return ""
             if name in {"%", "&", "#", "_", "$", "{", "}", "textbackslash", "textasciitilde", "textasciicircum", "LaTeX", "TeX", "textbullet", "textendash", "textemdash", "'", '`', '"', "^", "~", "c", "ss"}:
@@ -247,13 +252,13 @@ def lint_source(source: str) -> list[dict]:
     return []
 
 
-def parse_document(source: str) -> dict:
-    renderer = Renderer(source)
+def parse_document(source: str, path=None) -> dict:
+    renderer = Renderer(source, path)
     try:
         nodes, _, _ = LatexWalker(source, latex_context=context(), tolerant_parsing=False).get_latex_nodes()
         doc = next((n for n in nodes if isinstance(n, LatexEnvironmentNode) and n.environmentname == "document"), None)
         header = [n for n in nodes if isinstance(n, LatexMacroNode) and n.macroname in {"name", "address", "title"}]
-        result = renderer.sequence(header) + renderer.sequence(doc.nodelist if doc else nodes)
+        result = (renderer.sequence(header) if doc else '') + renderer.sequence(doc.nodelist if doc else nodes)
         return {"html": result, "leaves": renderer.leaves, "warnings": sorted(renderer.warnings), "error": None}
     except (ValueError, RecursionError, LatexWalkerError) as error:
         return {"html": "", "leaves": {}, "warnings": [], "error": f"Cannot parse this LaTeX: {error}"}

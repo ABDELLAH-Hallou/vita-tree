@@ -55,7 +55,7 @@ $('#bulk-review').onclick=async()=>{
 let runMonitor;
 const editors = Object.fromEntries(['original', 'current'].map(side => [side, createLatexEditor($(`#${side}-source`), {
   label: side === 'original' ? 'Before · CV source' : 'Current CV source', readOnly: true,
-  onChange: value => {if(side === 'current' && state.snapshot) {state.dirty = value !== state.snapshot.content; updateSaveState();}},
+  onChange: value => {if(side === 'current' && state.snapshot) {state.dirty = value !== currentFile().content; updateSaveState();}},
   lint: async (content, signal) => {
     const response = await fetch('/api/lint', {method:'POST', signal, headers:{'Content-Type':'application/json','X-Vita-Token':state.session.token}, body:JSON.stringify({content})});
     const result = await response.json();
@@ -143,6 +143,7 @@ async function openBranch(name, force=false) {
   if(!force && !canLeave()) return;
   factualReview.reset();requirements.reset();
   const previous=state.snapshot?.branch;
+  if(previous&&previous!==name)state.filePath=null;
   const generation=++state.generation;
   state.pdfGeneration++;state.snapshot=null;state.displayedRun=null;state.graphRunId=null;state.selectedTask=null;$('#task-inspector').hidden=true;
   for(const node of document.querySelectorAll('.dag-node'))node.disabled=true;
@@ -169,11 +170,13 @@ async function openBranch(name, force=false) {
 }
 function updateSnapshot() {
   const s=state.snapshot;
+  const file=currentFile();
+  renderFileNavigation();
   $('#branch-title').textContent=s.displayName||s.branch;$('#workspace-caption').textContent=s.editable?'Review your CV and results, then save your application.':'This CV is view only. Use it to create a new application before editing.';
-  $('#original-label').textContent='';$('#current-label').textContent=s.displayName||s.branch;
-  $('#version-label').textContent=s.editable?'Editable':'View only';
-  editors.original.setDocument(s.original,s.branch);editors.current.setDocument(s.content,s.branch);editors.current.setReadOnly(!s.editable||!!s.running);
-  renderDocument('original',s.originalDocument);renderDocument('current',s.document);
+  $('#original-label').textContent=file.originalExists===false?'File absent before':file.path===s.path?'':file.path;$('#current-label').textContent=file.exists===false?'Not in current CV':file.path===s.path?s.displayName||s.branch:file.path;
+  $('#version-label').textContent=s.editable&&file.exists!==false?'Editable':'View only';
+  editors.original.setDocument(file.original,s.branch+':'+file.path);editors.current.setDocument(file.content,s.branch+':'+file.path);editors.current.setReadOnly(!s.editable||!!s.running||file.exists===false);
+  renderDocument('original',file.originalDocument);renderDocument('current',file.document);
   $('#job-description').value=s.job;$('#job-description').readOnly=!s.editable||!!s.running;$('#job-state').textContent=s.job?'Saved on this computer':'No job description yet';
   $('#save-job').disabled=!s.editable||!!s.running;$('#branch-from').disabled=!!s.running;$('#compile').disabled=false;$('#ai-dot').textContent=Object.keys(s.artifacts).length?'•':'';
   $('#ai-capability').textContent=state.session.vita?'Prepare everything or start only the steps you choose. Your existing edits are checked before results are applied. Save any draft edits first.': 'The Vita CV connection is not available. Open AI connection details for setup instructions.';
@@ -181,10 +184,11 @@ function updateSnapshot() {
   $('#ai-status').textContent=s.running?.message || (s.job?'Ready to prepare this application.':'Add and save a job description first.');
   $('#application-id').textContent=s.branch;$('#worktree-path').textContent=s.worktree || 'An application folder will be created when you save your first draft.';
   $('#diff').replaceChildren();
-  if(!s.diff) $('#diff').textContent='No changes from the original.';
-  else for(const line of s.diff.split('\n')) {const item=document.createElement('span');item.textContent=line+'\n';if(line.startsWith('+')&&!line.startsWith('+++'))item.className='added';else if(line.startsWith('-')&&!line.startsWith('---'))item.className='removed';$('#diff').append(item);}
-  const added=s.diff.split('\n').filter(x=>x.startsWith('+')&&!x.startsWith('+++')).length;
-  const removed=s.diff.split('\n').filter(x=>x.startsWith('-')&&!x.startsWith('---')).length;
+  if(!file.diff) $('#diff').textContent='No changes from the original in this file.';
+  else for(const line of file.diff.split('\n')) {const item=document.createElement('span');item.textContent=line+'\n';if(line.startsWith('+')&&!line.startsWith('+++'))item.className='added';else if(line.startsWith('-')&&!line.startsWith('---'))item.className='removed';$('#diff').append(item);}
+  const allDiff=(s.files||[s]).map(file=>file.diff).join('\n');
+  const added=allDiff.split('\n').filter(x=>x.startsWith('+')&&!x.startsWith('+++')).length;
+  const removed=allDiff.split('\n').filter(x=>x.startsWith('-')&&!x.startsWith('---')).length;
   $('#change-count').textContent=added||removed?`+${added} −${removed}`:'';
   $('#artifacts').replaceChildren();
   if(!Object.keys(s.artifacts).length) $('#artifacts').innerHTML='<p class="helper">No results yet. Choose the steps you want to prepare your application.</p>';
@@ -196,6 +200,30 @@ function updateSnapshot() {
   }
   updateSaveState();
 }
+function currentFile(){
+  const s=state.snapshot;
+  if(!s)return null;
+  return s.files?.find(file=>file.path===state.filePath)||s.files?.find(file=>file.path===s.path)||s;
+}
+function renderFileNavigation(){
+  const s=state.snapshot,file=currentFile();state.filePath=file.path;
+  $('#cv-file').replaceChildren(...(s.files||[s]).map(item=>{
+    const option=document.createElement('option');option.value=item.path;option.textContent=item.path+(item.exists===false?' · unavailable':'')+(item.diff?' · changed':'');return option;
+  }));$('#cv-file').value=file.path;
+  $('#include-problems').hidden=!s.includeDiagnostics?.length;
+  $('#include-diagnostics').replaceChildren(...(s.includeDiagnostics||[]).map(item=>{
+    const li=document.createElement('li');li.textContent=item.message;
+    const path=item.sourcePath||item.path;
+    if(s.files.some(file=>file.path===path)){
+      const button=document.createElement('button');button.className='quiet';button.textContent='Open '+path;button.onclick=()=>selectFile(path,'source');li.append(' ',button);
+    }return li;
+  }));
+}
+function selectFile(path,view=state.view){
+  if(!canLeave()){$('#cv-file').value=state.filePath;return;}
+  state.filePath=path;state.dirty=false;state.jobDirty=false;updateSnapshot();setView(view);
+}
+$('#cv-file').onchange=event=>selectFile(event.target.value);
 function renderDocument(side, data) {
   const target=$(`#${side}-document .cv-document`);
   // HTML is produced by the source-mapped renderer; every source string is escaped there.
@@ -204,19 +232,24 @@ function renderDocument(side, data) {
 function updateSaveState(){
   setupChecks.summary(state.displayedRun);
   const s=state.snapshot;$('#save-state').textContent=state.dirty||state.jobDirty?'Unsaved changes':s?.saveState?.draft?'Draft saved on this computer':s&&state.syncedCommits.get(s.branch)===s.commit?'Saved and synced':s?.saveState?.ahead!==0?'Saved on this computer · sync pending':'Saved';
-  $('#save-source').disabled=!state.dirty || !state.snapshot?.editable || !!state.snapshot?.running;
+  $('#save-source').disabled=!state.dirty || !state.snapshot?.editable || !!state.snapshot?.running || currentFile()?.exists===false;
   $('#commit-push').disabled=!state.snapshot?.editable || !!state.snapshot?.running || state.publishing;
 }
 function setView(view){
   state.view=view;
+  $('#file-navigation').hidden=!['structure','source','changes'].includes(view);
   document.querySelectorAll('[data-view]').forEach(b=>{b.setAttribute('aria-selected',String(b.dataset.view===view));b.tabIndex=b.dataset.view===view?0:-1;});
   if(state.snapshot)history.replaceState(null,'','?'+new URLSearchParams({branch:state.snapshot.branch,view}));
   $('#comparison').hidden=!['structure','source','pdf'].includes(view)||(view==='pdf'&&state.pdfDocument==='cover');$('#cover-pdf-pane').hidden=view!=='pdf'||state.pdfDocument!=='cover';$('#compile').textContent=state.pdfDocument==='cover'?'Create cover-letter PDF':'Create PDF previews';$('#structure-hint').hidden=view!=='structure';$('#pdf-toolbar').hidden=view!=='pdf';$('#changes-panel').hidden=view!=='changes';$('#ai-panel').hidden=view!=='ai';$('#document-actions').hidden=false;$('#save-source').hidden=['ai','pdf'].includes(view);
   for(const side of ['original','current']) {$(`#${side}-document`).hidden=view!=='structure';$(`#${side}-source`).hidden=view!=='source';$(`#${side}-pdf`).hidden=view!=='pdf';}
   if(view==='source') for(const editor of Object.values(editors)) editor.refresh();
   if(!state.snapshot)return;
+  const file=currentFile(),s=state.snapshot;
+  $('#original-label').textContent=view==='pdf'||file.path===s.path?'':file.path;
+  $('#current-label').textContent=view==='pdf'||file.path===s.path?s.displayName||s.branch:file.path;
+  $('#version-label').textContent=view!=='pdf'&&s.editable&&file.exists!==false?'Editable':'View only';
   if(view==='structure'){
-    const warnings=[...new Set([...state.snapshot.document.warnings,...state.snapshot.originalDocument.warnings])];
+    const file=currentFile(),warnings=[...new Set([...file.document.warnings,...file.originalDocument.warnings])];
     notice(state.dirty?'The reading view shows the saved version. Save your draft to update this view.':warnings.join('\n'));
   } else if(view==='pdf') {
     notice(state.dirty?'PDF previews use your saved draft. Save your changes first.':'');
@@ -226,9 +259,9 @@ function setView(view){
 async function saveSource(){
   if(!state.dirty||!state.snapshot)return;
   if(state.jobDirty){notice('Save the job description draft first.',true);return;}
-  const s=state.snapshot, value=editors.current.value;$('#save-source').disabled=true;editors.current.setReadOnly(true);$('#job-description').readOnly=true;$('#save-job').disabled=true;
-  try {await api('/api/save',{branch:s.branch,path:s.path,revision:s.revision,content:value});await openBranch(s.branch,true);toast('CV draft saved on this computer');}
-  catch(error){notice(error.message,true);editors.current.setReadOnly(!s.editable);$('#job-description').readOnly=false;$('#save-job').disabled=false;updateSaveState();}
+  const s=state.snapshot,file=currentFile(), value=editors.current.value;$('#save-source').disabled=true;editors.current.setReadOnly(true);$('#job-description').readOnly=true;$('#save-job').disabled=true;
+  try {await api('/api/save',{branch:s.branch,path:file.path,revision:file.revision,projectRevision:s.projectRevision,content:value});await openBranch(s.branch,true);toast('CV draft saved on this computer');}
+  catch(error){notice(error.message,true);editors.current.setReadOnly(!s.editable||currentFile()?.exists===false);$('#job-description').readOnly=false;$('#save-job').disabled=false;updateSaveState();}
 }
 async function saveJob(){
   if(!state.snapshot)return;
@@ -269,6 +302,10 @@ async function refreshCommitReview(options={}){
 }
 async function showCommit(){
   if(!state.snapshot||state.snapshot.running)return;
+  if(state.dirty&&currentFile().path!==state.snapshot.path){
+    if(state.jobDirty){notice('Save your CV and job description drafts first.',true);return;}
+    await saveSource();if(state.dirty)return;
+  }
   $('#commit-push').disabled=true;$('#commit-error').textContent='';$('#commit-progress').textContent='Checking your changes…';$('#commit-message').value='';
   try{
     await refreshCommitReview();$('#commit-progress').textContent='Review these changes before saving and syncing.';$('#commit-dialog').showModal();
@@ -307,18 +344,22 @@ async function showCreate(){
 }
 $('#create-form').onsubmit=async event=>{
   event.preventDefault();const button=event.submitter;button.disabled=true;
-  try{const base=$('#base-branch').value;const original=await api('/api/workspace?branch='+encodeURIComponent(base));const s=await api('/api/create',{base,applicationName:$('#branch-name').value.trim(),job:$('#new-job').value,revision:original.revision});$('#create-dialog').close();state.dirty=false;state.jobDirty=false;await loadBranches();state.view='structure';await openBranch(s.branch,true);toast('Application created with your CV and job description');$('#create-form').reset();}
+  try{const base=$('#base-branch').value;const original=await api('/api/workspace?branch='+encodeURIComponent(base));const s=await api('/api/create',{base,applicationName:$('#branch-name').value.trim(),job:$('#new-job').value,revision:original.revision,projectRevision:original.projectRevision});$('#create-dialog').close();state.dirty=false;state.jobDirty=false;await loadBranches();state.view='structure';await openBranch(s.branch,true);toast('Application created with your CV and job description');$('#create-form').reset();}
   catch(error){$('#create-error').textContent=error.message;}finally{button.disabled=false;}
 };
 $('#current-document').ondblclick=event=>{
   const leaf=event.target.closest('[data-leaf]');if(!leaf||!state.snapshot?.editable)return;
   if(state.dirty||state.jobDirty){notice('Save your CV and job description drafts before editing this view.',true);return;}
   if(state.snapshot.running){notice('Wait for this preparation to finish before editing.',true);return;}
-  state.leaf=leaf.dataset.leaf;$('#edit-text').value=state.snapshot.document.leaves[state.leaf].text;$('#edit-error').textContent='';$('#edit-dialog').showModal();$('#edit-text').focus();
+  if(currentFile().exists===false)return;
+  state.leaf=leaf.dataset.leaf;const mapped=currentFile().document.leaves[state.leaf];
+  state.editOrigin={path:mapped.path,revision:currentFile().revision,projectRevision:state.snapshot.projectRevision};
+  $('#edit-origin').textContent=`${mapped.path} · characters ${mapped.start}–${mapped.end}`;
+  $('#edit-text').value=mapped.text;$('#edit-error').textContent='';$('#edit-dialog').showModal();$('#edit-text').focus();
 };
 $('#edit-form').onsubmit=async event=>{
   event.preventDefault();event.submitter.disabled=true;const s=state.snapshot;
-  try{await api('/api/save',{branch:s.branch,path:s.path,revision:s.revision,leaf:state.leaf,text:$('#edit-text').value});$('#edit-dialog').close();await openBranch(s.branch,true);toast('CV draft updated on this computer');}
+  try{await api('/api/save',{branch:s.branch,...state.editOrigin,leaf:state.leaf,text:$('#edit-text').value});$('#edit-dialog').close();await openBranch(s.branch,true);toast('CV draft updated on this computer');}
   catch(error){$('#edit-error').textContent=error.message;}finally{event.submitter.disabled=false;}
 };
 async function runAdapt(steps=workflowOptions().steps){
@@ -329,7 +370,7 @@ async function runAdapt(steps=workflowOptions().steps){
   renderProviders();
   for(const id of aiSteps.map(id=>'step-'+id))$('#'+id).disabled=true;
   try{const issue=aiSetup.problem(steps);if(issue)throw new Error(issue);const job=await api('/api/adapt',{branch:s.branch,revision:s.revision,jobRevision:s.jobRevision,aiConfig:aiSetup.value(),language:$('#language').value,workflow:{steps},engine:setupChecks.engine()});s.running=job;if(state.snapshot===s){state.graphRunId=job.id;renderProviders();configureWorkflow();renderWorkflow();updateSaveState();$('#ai-status').textContent=job.message;}await runMonitor.refresh();}
-  catch(error){if(state.snapshot===s){notice(error.message,true);configureWorkflow();editors.current.setReadOnly(!s.editable);$('#job-description').readOnly=!s.editable;$('#save-job').disabled=!s.editable;$('#branch-from').disabled=false;}}
+  catch(error){if(state.snapshot===s){notice(error.message,true);configureWorkflow();editors.current.setReadOnly(!s.editable||currentFile()?.exists===false);$('#job-description').readOnly=!s.editable;$('#save-job').disabled=!s.editable;$('#branch-from').disabled=false;}}
   finally{state.launching=false;if(state.snapshot){renderProviders();configureWorkflow();renderWorkflow();}}
 }
 async function runsChanged(runs){
@@ -347,7 +388,7 @@ async function runsChanged(runs){
       const loaded=await openBranch(s.branch,true);
       if(loaded&&finished){$('#ai-status').textContent=finished.message;notice(finished.message,finished.status!=='succeeded');}
     }else{
-      editors.current.setReadOnly(!s.editable);$('#job-description').readOnly=!s.editable;
+      editors.current.setReadOnly(!s.editable||currentFile()?.exists===false);$('#job-description').readOnly=!s.editable;
       $('#save-job').disabled=!s.editable;$('#branch-from').disabled=false;
       renderProviders();updateSaveState();
       configureWorkflow();

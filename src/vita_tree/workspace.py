@@ -33,6 +33,7 @@ from .publication import publish, recover as recover_publications
 from .ai_config import Connections, clean_settings, effective_settings, stage_environment
 from .security import credential_name, scrub_generated
 from . import preflight
+from . import includes
 
 
 class ConflictError(ValueError):
@@ -140,7 +141,7 @@ class Workspace:
             branch['displayName'] = label if isinstance(label,str) and label.strip() else branch['name']
         return result
 
-    def create_application(self, base, label, job, revision):
+    def create_application(self, base, label, job, revision, project_revision=None):
         if not isinstance(label, str) or not label.strip() or len(label.strip()) > 100 or any(c in label for c in '\r\n\x00'):
             raise ValueError('Enter an application name of up to 100 characters.')
         label = label.strip()
@@ -157,10 +158,10 @@ class Workspace:
                 name = name[:70] + '-' + digest(label)[:8]
                 while name in existing:
                     name = name[:70] + '-' + uuid.uuid4().hex[:8]
-            return self.create(base, name, job, revision, display_name=label)
+            return self.create(base, name, job, revision, display_name=label, project_revision=project_revision)
 
     def save_state(self, name, location):
-        draft = bool(location and run_git(location, 'status', '--porcelain', '--untracked-files=all', '--ignored', '--', *self.publish_paths()))
+        draft = bool(location and run_git(location, 'status', '--porcelain', '--untracked-files=all', '--ignored', '--', *self.publish_paths(location)))
         upstream = self._git_process(self.repository, 'rev-parse', '--verify', name + '@{upstream}')
         ahead = None
         if upstream.returncode == 0:
@@ -248,6 +249,20 @@ class Workspace:
         original = meta.get("original", self.committed(baseline, self.document_path))
         if not source:
             raise FileNotFoundError(f"{self.document_path} is missing or empty on {name}")
+        project = includes.project(self, name)
+        if project['files'].get(self.document_path, source) != source:
+            raise ConflictError('The CV changed while loading its files. Reload the application.')
+        before = includes.project(self, name, commit=baseline,
+                                  originals={self.document_path: original, **meta.get('originalFiles', {})})
+        files = []
+        for path in dict.fromkeys([self.document_path, *project['files'], *before['files']]):
+            current, previous = project['files'].get(path), before['files'].get(path)
+            files.append(dict(path=path, content=current or '', original=previous or '',
+                              revision=digest(current or ''), exists=current is not None,
+                              originalExists=previous is not None,
+                              document=parse_document(current or '', path),
+                              originalDocument=parse_document(previous or '', path),
+                              diff=''.join(difflib.unified_diff((previous or '').splitlines(True), (current or '').splitlines(True), fromfile='original/'+path, tofile=name+'/'+path))))
         job = read("job.md")
         artifacts = {}
         for label in ("analyze", "adapt", "review", "delta", "cover", "extract"):
@@ -260,8 +275,9 @@ class Workspace:
                     break
         return {"branch": name, "displayName": meta.get("displayName") or name, "saveState": self.save_state(name, location), "path": self.document_path, "commit": commit,
                 "baseCommit": baseline, "baseBranch": meta.get("baseBranch", name + " · committed"),
-                "content": source, "revision": digest(source), "document": parse_document(source),
-                "original": original, "originalDocument": parse_document(original),
+                "content": source, "revision": digest(source), "document": parse_document(source, self.document_path),
+                "original": original, "originalDocument": parse_document(original, self.document_path),
+                "files": files, "projectRevision": project['revision'], "originalProjectRevision": before['revision'], "includeDiagnostics": project['diagnostics'],
                 "job": job, "jobRevision": digest(job), "artifacts": artifacts, "cover": read("cover-letter.tex"),
                 "diff": "".join(difflib.unified_diff(original.splitlines(True), source.splitlines(True), fromfile="original/"+self.document_path, tofile=name+"/"+self.document_path)),
                 "worktree": str(location) if location else None, "editable": bool(branch["local"]),
@@ -532,18 +548,22 @@ class Workspace:
         if name in self._publishing:
             raise ConflictError("This application is being saved and synced. Wait before changing it.")
 
-    def save(self, name, filename, revision, content=None, leaf=None, text=None):
-        if filename not in {self.document_path, "job.md"}:
-            raise ValueError("Only the CV and job description can be edited here")
+    def save(self, name, filename, revision, content=None, leaf=None, text=None, project_revision=None):
         with self.lock:
             self.busy(name)
+            graph = includes.project(self, name)
+            if ((filename not in {self.document_path, 'job.md'} and not project_revision)
+                    or (project_revision is not None and project_revision != graph['revision'])):
+                raise ConflictError('The CV files or include dependencies changed outside the editor. Copy your edits, then reload before saving.')
+            if filename not in {self.document_path, 'job.md'} and filename not in graph['files']:
+                raise ValueError('Only the CV, its supported local includes and job description can be edited here. Reload the CV file list.')
             location = self.location(name, create=True)
             target = safe_path(location, filename)
             current = read_text(target)
             if digest(current) != revision:
                 raise ConflictError("This file changed outside the editor. Copy your edits, then reload before saving.")
             if leaf is not None:
-                if filename != self.document_path or not isinstance(text, str):
+                if filename == 'job.md' or not isinstance(text, str):
                     raise ValueError("Invalid structured edit")
                 content = replace_leaf(current, str(leaf), text)
             if not isinstance(content, str) or len(content.encode("utf-8")) > 2_000_000:
@@ -555,10 +575,13 @@ class Workspace:
     def report_paths():
         return (*dict.fromkeys(".vita/results/" + file for files in REPORTS.values() for file in files), *checkpoints.FACTUAL_ARTIFACTS)
 
-    def publish_paths(self):
+    def publish_paths(self, location=None, pending=None):
         """Files Vita Tree owns and may include in a UI-created commit."""
+        graph = includes.local(location, self.document_path, pending) if location else {'files':{},'diagnostics':[]}
+        sources = [*graph['files'], *(item['path'] for item in graph['diagnostics'] if item['code']=='missing')]
         return tuple(dict.fromkeys((
             self.document_path,
+            *sources,
             "job.md",
             "cover-letter.tex",
             *self.report_paths(),
@@ -627,7 +650,7 @@ class Workspace:
             "??": "Untracked", "A ": "Added", " A": "Added", "M ": "Modified",
             " M": "Modified", "MM": "Modified", "D ": "Deleted", " D": "Deleted",
         }
-        for filename in self.publish_paths():
+        for filename in self.publish_paths(location, pending):
             status = self._git_process(
                 location, "status", "--porcelain=v1", "--untracked-files=all", "--", filename,
             )
@@ -667,7 +690,7 @@ class Workspace:
         changes, excluded = self._publish_changes(location, pending)
         remote, remote_branch, upstream, ahead = self._publish_target(location, name)
         fingerprints = []
-        for filename in self.publish_paths():
+        for filename in self.publish_paths(location, pending):
             path = safe_path(location, filename)
             fingerprints.append((filename, hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None))
         review = digest(json.dumps({
@@ -767,7 +790,7 @@ class Workspace:
                 "commit": commit, "commitCreated": commit_created, "pushed": True,
             }
 
-    def create(self, base, name, job, revision, display_name=None):
+    def create(self, base, name, job, revision, display_name=None, project_revision=None):
         with self.lock:
             if not isinstance(name, str) or name.startswith("-") or not name or name == "HEAD":
                 raise ValueError("Choose a valid application name")
@@ -776,6 +799,11 @@ class Workspace:
                 raise ValueError("An application or saved CV with this name already exists")
             self.busy(base)
             source = self.read(base, self.document_path)
+            project = includes.project(self, base)
+            if project['files'].get(self.document_path, source) != source:
+                raise ConflictError('The starting CV changed while capturing its includes. Reload before creating an application.')
+            if project_revision is not None and project_revision != project['revision']:
+                raise ConflictError('The starting CV includes changed. Reload before creating an application.')
             if digest(source) != revision:
                 raise ConflictError("The starting CV changed. Refresh it before creating an application.")
             if not isinstance(job, str) or not job.strip():
@@ -785,9 +813,15 @@ class Workspace:
             target.parent.mkdir(parents=True, exist_ok=True)
             run_git(self.repository, "-c", "core.hooksPath=", "worktree", "add", "-b", name, str(target), commit)
             # Preserve the exact viewed CV, including uncommitted edits, in the new workspace.
-            atomic_write(safe_path(target, self.document_path), source)
+            for path, content in {self.document_path: source, **project['files']}.items():
+                destination = safe_path(target, path)
+                if not destination.is_file() or read_text(destination) != content:
+                    atomic_write(destination, content)
+            missing = {item['path']: None for item in project['diagnostics'] if item['code'] == 'missing'}
+            for path in missing:
+                safe_path(target, path).unlink(missing_ok=True)
             atomic_write(safe_path(target, "job.md"), job)
-            atomic_write(self.metadata_path(name), json.dumps({"baseCommit": commit, "baseBranch": base, "original": source, **({"displayName": display_name} if display_name else {})}))
+            atomic_write(self.metadata_path(name), json.dumps({"baseCommit": commit, "baseBranch": base, "original": source, "originalFiles": {**project['files'], **missing}, **({"displayName": display_name} if display_name else {})}))
             return self.snapshot(name)
 
     def vita_command(self):
@@ -1280,7 +1314,8 @@ class Workspace:
                         updates = {}
                         if adapting and result != source:
                             meta = self.metadata(record['branch'])
-                            meta.update(baseCommit=self.head(record['branch']), baseBranch=record['branch'] + ' · before AI', original=source)
+                            meta.update(baseCommit=self.head(record['branch']), baseBranch=record['branch'] + ' · before AI', original=source,
+                                        originalFiles=includes.local(location, self.document_path)['files'])
                             updates['@metadata'] = json.dumps(meta)
                         outputs = {'.vita/results/' + filename for step in context['selected'] if step in REPORTS for filename in REPORTS[step]}
                         if 'analyze' in context['selected']:
