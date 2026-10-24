@@ -103,13 +103,25 @@ for full validation. Unsaved and temporarily invalid source can still be saved.
 The editor is bundled locally and follows the selected light/dark theme.
 
 1. Open a branch. Existing checked-out branches display working files, including uncommitted `main.tex`, `job.md`, and `.vita/results/*.md`. Other branches display committed files.
-2. Choose **Branch from this**, name the branch, and paste the job description. Vita Tree creates a Git linked worktree below the repository's Git common directory at `vita-tree/worktrees/`. The original checkout is not switched. The viewed main document and the new `job.md` are written to the new worktree.
+2. Choose **Branch from this**, name the branch, and paste the job description. Vita Tree creates a Git linked worktree below the repository's Git common directory at `vita-tree/worktrees/`. The original checkout is not switched. The viewed main document, supported local include drafts and the new `job.md` are written to the new worktree.
 3. In **Structure**, select/copy text normally, or double-click text in the new version to edit it. The parser maps text to its exact source range and escapes LaTeX special characters. **Source · Advanced** provides the full editable source for other changes. Save writes the branch worktree's real file.
 4. In **Job & AI**, save the job description and select a provider, model, reasoning level, and language. Use **Prepare application** for every available AI step, **Start selected steps** for any checked subset, or select a graph node and choose **Run … only**. Each enabled step runs in order in an isolated snapshot. Different branches still run concurrently, without a queue.
 5. Follow the **Application workflow** graph: extract → analyze → adapt → AI review → cover letter → validate. Select a task for its status, duration, output, and independent run action, or choose an earlier run. Actions always use the current saved branch files, even when inspecting an older run. Skipped tasks make no AI calls; failed tasks block downstream work. Input preflight checks compilation before CV-dependent AI steps. Final checks validate source and protect against conflicts; Structure limitations defer to restricted compilation. Review the Markdown reports, changes, and compiled PDFs before committing.
 6. Use **Save** to review the destination, commit message, and included files, then publish only the selected branch. A failed push leaves the commit safely in the worktree and offers a push-only retry.
 
-**Save draft** remains local and uncommitted. **Save** includes only the displayed main document, `job.md`, the generated `cover-letter.tex`, and reviewed VITA Markdown/JSON/TOON reports; unrelated working-tree changes are reported and excluded. It never force-pushes or publishes other branches. Worktrees containing local changes persist across server restarts; leaving a clean worktree releases its branch for CLI checkout.
+**Save draft** remains local and uncommitted. **Save** reviews the main document, its supported reachable local includes, `job.md`, the generated `cover-letter.tex`, and VITA Markdown/JSON/TOON reports; unrelated working-tree changes are reported and excluded. It never force-pushes or publishes other branches. Worktrees containing local changes persist across server restarts; leaving a clean worktree releases its branch for CLI checkout.
+
+### CVs with included files
+
+Use **CV file** in Edit CV, Source or Changes to open a local `\input{sections/experience}` or `\include{education}` file. Paths resolve from the project root, including paths inside nested files, as in Vita CV. Each file has its own Before/Current comparison, syntax editor and Structure source map. Structure edits show the originating path and character range; saving writes that file, without flattening the CV into `main.tex`. Changing files asks before discarding unsaved edits.
+
+Navigation supports literal braced `.tex` inputs (the extension may be omitted), up to 64 files, 16 nesting levels, 256 references, 2 MB per file and 8 MB total. Files must be tracked or nonignored regular UTF-8 project files, with names matching their Git paths and case exactly. Missing files, cycles, limits, ignored/excluded files, traversal and symlink/junction paths produce diagnostics. Correct the include command in Source or restore the file externally, then Reload. Files present only in Before are view-only.
+
+Structure displays one file at a time, not a merged typeset document. Macro expansion (including inputs inside command/environment definitions), conditional execution, `\includeonly`, unbraced/computed paths and import/subfiles package resolution are not evaluated. Commands that depend on surrounding files can render approximately or lack editable text; use Source for exact edits and PDF for the assembled layout. Unsupported navigation does not rewrite includes or change Vita CV's context resolver or restricted PDF compiler.
+
+Included-file edits participate in save-conflict checks, new-application draft capture, commit review, checkpoint dependency hashes and PDF freshness checks. If another editor changes an include, Reload before saving or exporting a new PDF. These are optimistic revision checks, not cross-process filesystem locks; the local application is not an OS sandbox against another program racing file operations.
+
+Applications created before include-draft capture use their base commit for Before's included files. Earlier uncommitted include versions cannot be reconstructed.
 
 For existing branches without a recorded baseline, Original means that branch's committed CV. New branches retain the viewed base CV; AI runs retain the pre-run CV. Reload imports changes made by a terminal/editor. Saving with a stale revision returns a conflict and preserves the user's editor text.
 
@@ -154,8 +166,9 @@ For a pipx editable installation, source changes take effect when you restart `v
 | Exact fonts, spacing, line breaks, page breaks | Compiled PDF is authoritative |
 | Arbitrary macro expansion / exact HTML reproduction of every LaTeX package | Not supported; use PDF and source editing |
 | Editing directly inside the compiled PDF | Not supported; PDF is read-only, then recompiled after source edits |
-| `\\input` / `\\include`, custom classes, images | Included in compilation when present in the repository snapshot; included files are not visually editable in Structure |
-| Multi-file uncommitted changes when creating a branch | Only the displayed main document is copied; other files come from the base commit |
+| `\\input` / `\\include` | File navigation and mapped editing for supported literal local `.tex` inputs; PDF assembles the project |
+| Custom classes, images, dynamic/import-package includes | Preserved for restricted compilation; no class/image editor or arbitrary TeX expansion in Structure |
+| Multi-file uncommitted changes when creating a branch | Main document and supported reachable include drafts are copied; other assets come from the base commit |
 | Bibliography, makeindex, minted/shell-escape builds | Not orchestrated; current compiler runs the selected TeX engine twice |
 | Guaranteed perfect PDF reading order for arbitrary templates/fonts | Not possible; depends on the PDF's text encoding and layout |
 | Guided input and dependency preflight | Saved-project JSON/entry checks and restricted compilation before CV-dependent AI calls; no automatic installs or import conversion |

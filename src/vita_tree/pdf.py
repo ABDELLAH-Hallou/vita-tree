@@ -88,6 +88,15 @@ def compile_document(folder: Path, document_path: str, engine='auto', output=Non
     if output.is_symlink() or getattr(output,'is_junction',lambda:False)():
         raise ValueError('Linked compiler output folders are not supported')
     output.mkdir(parents=True, exist_ok=True)
+    # TeX engines may need existing output subdirectories for include .aux
+    # files. Create only bounded, verified local source paths, never TeX paths
+    # computed by macros or paths supplied by a symlink.
+    from .includes import discover
+    def included_source(name):
+        path = safe_path(folder, name)
+        return read_text(path) if path.is_file() else None
+    for name in discover(document_path, included_source)['files']:
+        safe_path(output, name).parent.mkdir(parents=True, exist_ok=True)
     env = compiler_environment(folder, output)
     try:
         executable = engine_executable(engine, folder, env)
@@ -189,13 +198,32 @@ class PDFCompiler:
                 folder = self.workspace.root / 'pdf' / ident
                 working = self.workspace.location(name) if side == 'current' else None
                 export_snapshot(self.workspace.repository, snapshot['commit' if side == 'current' else 'baseCommit'], folder, working)
+                if side == 'original' and document == 'cv':
+                    for file in snapshot['files']:
+                        target = safe_path(folder, file['path'])
+                        if file['originalExists']:
+                            atomic_write(target, file['original'])
+                        else:
+                            target.unlink(missing_ok=True)
                 entry = 'cover-letter.tex' if document == 'cover' else self.workspace.document_path
                 atomic_write(safe_path(folder, entry), source)
+                if document == 'cv':
+                    for file in snapshot['files']:
+                        exists = file['originalExists'] if side == 'original' else file['exists']
+                        expected = file['original' if side == 'original' else 'content'] if exists else None
+                        path = safe_path(folder, file['path'])
+                        # A current-only file can remain as an unused asset in the
+                        # exported baseline. Only captured reachable inputs matter.
+                        if exists and (not path.is_file() or read_text(path) != expected):
+                            raise ConflictError('Included files changed while capturing this PDF. Reload and create a new preview.')
                 built = compile_document(folder, entry, engine)
+                if self.workspace.snapshot(name)['projectRevision'] != snapshot['projectRevision']:
+                    raise ConflictError('The CV or included files changed during compilation. Create a new preview.')
             ident = uuid.uuid4().hex
             self.results[ident] = built['pdf']
             self.previews[ident] = {'branch': name, 'side': side, 'document': document,
-                'revision': hashlib.sha256(source.encode()).hexdigest(), 'filename': filename, 'commit': snapshot['commit']}
+                'revision': hashlib.sha256(source.encode()).hexdigest(), 'filename': filename, 'commit': snapshot['commit'],
+                'projectRevision': snapshot['projectRevision']}
             return {'id': ident, 'url': '/api/pdf-file?id=' + ident, 'filename': filename,
                     'engine': built['engine'], 'warnings': built['warnings'], 'revision': self.previews[ident]['revision']}
 
@@ -212,7 +240,7 @@ class PDFCompiler:
             if not snapshot['editable']:
                 raise ConflictError('Create an editable application before saving its PDF.')
             source = snapshot['cover'] if preview.get('document') == 'cover' else snapshot['original'] if preview['side']=='original' else snapshot['content']
-            if hashlib.sha256(source.encode()).hexdigest()!=preview['revision'] or snapshot['commit']!=preview['commit']:
+            if hashlib.sha256(source.encode()).hexdigest()!=preview['revision'] or snapshot['commit']!=preview['commit'] or snapshot['projectRevision']!=preview['projectRevision']:
                 raise ConflictError('The application changed after this PDF was created. Create a new preview before saving.')
             location = self.workspace.location(branch, create=True)
             target = safe_path(location, preview['filename'])
