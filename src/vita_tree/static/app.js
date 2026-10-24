@@ -6,6 +6,7 @@ import {renderGraph, graphStages, statusNames} from './workflow.js';
 import {reportDetails,fileLabel} from './reports.js';
 import {initDiagnostics} from './diagnostics.js';
 import {createAIConfiguration} from './ai-settings.js';
+import {failureText,runFailureText} from './provider-failures.js';
 state.filter='all';
 state.syncedCommits=new Map();
 const applicationName=name=>state.branches.find(item=>item.name===name)?.displayName||(state.snapshot?.branch===name?state.snapshot.displayName:null)||name;
@@ -111,6 +112,7 @@ function renderBranches() {
     if(run&&(isActiveRun(run)||!run.reviewed||['failed','interrupted'].includes(run.status))){
       const badge=document.createElement('span');badge.className='branch-run';badge.dataset.status=run.status;
       badge.textContent=runLabel(run)+(!isActiveRun(run)&&!run.reviewed?' · To review':'');row.querySelector('.branch-info').append(badge);
+      if(runFailureText(run)){const info=document.createElement('span');info.className='branch-failure';info.textContent=runFailureText(run);row.querySelector('.branch-info').append(info);}
     }
   }
   if(!branches.length) $('#branch-list').innerHTML=state.filter==='review'&&!query ? '<p class="empty">No completed preparations need review.</p>' : '<p class="empty">No applications found. Try another filter or create a new application.</p>';
@@ -347,7 +349,11 @@ async function runsChanged(runs){
 }
 async function openRun(run){
   if(!canLeave())return;
-  const loaded=await openBranch(run.branch,true);if(!loaded)return;
+  // Recorded results are immutable; reuse an idle, clean application instead
+  // of racing a second full reload against completion polling.
+  const current=state.snapshot;
+  const loaded=current?.branch===run.branch&&!current.running&&!state.dirty&&!state.jobDirty
+    ? current : await openBranch(run.branch,true);if(!loaded)return;
   state.graphRunId=run.id;renderWorkflow();
   setView('ai');$('#ai-status').textContent=run.message;
   if(!isActiveRun(run)){
@@ -396,10 +402,11 @@ function renderWorkflow(){
   $('#inspect-run').hidden=!run;$('#inspect-step').hidden=!run;$('#inspect-step-dialog').hidden=!run;
   $('#resume-run').hidden=!run?.resumeAvailable;$('#resume-run').disabled=!!state.snapshot.running||!!state.launching||!!state.retryPlanning||!state.snapshot.editable;
   $('#view-run').hidden=!finished;$('#view-run').disabled=!!state.openingRunId;
+  $('#view-run').textContent=state.openingRunId?'Opening results…':'View results';
   const reviewButton=$('#mark-run-reviewed');reviewButton.hidden=!finished;
   reviewButton.disabled=!!run?.reviewed||!!state.reviewingRunId;
   reviewButton.textContent=run?.reviewed?'Reviewed':state.reviewingRunId===run?.id?'Saving review…':'Mark as reviewed';
-  $('#workflow-summary').textContent=run ? run.message : 'Choose the steps for your next preparation. Only selected AI steps will use your AI service.';
+  $('#workflow-summary').textContent=run ? (runFailureText(run)||run.message) : 'Choose the steps for your next preparation. Only selected AI steps will use your AI service.';
   renderGraph($('#workflow-graph'),{run,options:workflowOptions(),available:state.session.workflow,selected:state.selectedTask,select:selectTask,config:run?.stepConfig||Object.fromEntries(aiSteps.map(step=>[step,aiSetup.route(step)]))});
   if(state.selectedTask)updateInspector();
 }
@@ -417,6 +424,7 @@ function updateInspector(){
   $('#task-configure').disabled=!!state.snapshot.running||!!state.launching||!state.snapshot.editable;
   $('#task-run').disabled=!state.snapshot.editable||!!state.snapshot.running||!!state.launching||!stepAvailable(task.id)||(task.id!=='validating'&&(!state.session.vita||!!aiSetup.problem([task.id])));
   $('#task-output').disabled=isActiveRun(state.displayedRun)||!['succeeded','unknown'].includes(task.status);
+  if(failureText(state.displayedRun,task.id))$('#task-status').textContent=failureText(state.displayedRun,task.id);
   if(isActiveRun(state.displayedRun))$('#task-status').textContent+=' · Results open after the preparation finishes.';
 }
 function selectTask(task){
@@ -445,10 +453,11 @@ function renderAttemptHistory(detail){
     const button=document.createElement('button');button.type='button';button.className='quiet';
     button.textContent=`Attempt ${attempt.attempt||1} · ${runLabel(attempt)}${attempt.id===detail.run.id?' · Viewing':''}`;
     button.disabled=attempt.id===detail.run.id;button.onclick=()=>openRun(attempt).catch(error=>notice(error.message,true));row.append(button);
-    if(attempt.parentRunId){const parent=document.createElement('span');parent.className='helper';const prior=(detail.attemptHistory||[]).find(item=>item.id===attempt.parentRunId);parent.textContent='Continues attempt '+(prior?.attempt||'unknown');row.append(parent);}
+    if(attempt.parentRunId){const parent=document.createElement('span');parent.className='helper';const prior=(detail.attemptHistory||[]).find(item=>item.id===attempt.parentRunId);parent.textContent='Continues attempt '+(prior?.attempt||'unknown')+' · '+(attempt.configurationChanged?'Changed setup':'Captured setup preserved');row.append(parent);}
     for(const [step,outcome] of Object.entries(attempt.outcomes||{})){
       const text=document.createElement('p');text.className='helper';
       text.textContent=stepTitle(step)+': '+(outcome.status==='success'?'Completed':'Could not finish')+(outcome.backend?.attempts?.length?' · AI attempts: '+outcome.backend.attempts.map(item=>`${item.number}: ${item.category.replaceAll('_',' ')}`).join('; '):'');row.append(text);
+      const failure=failureText(attempt,step);if(failure){const info=document.createElement('p');info.className='provider-failure';info.textContent=failure;row.append(info);}
     }
     area.append(row);
   }
@@ -481,7 +490,7 @@ async function reviewResume(){
     }
   }finally{state.retryPlanning=false;$('#resume-current-config').disabled=false;renderWorkflow();}
 }
-$('#resume-run').onclick=()=>{state.resumeCaptured=false;$('#resume-current-config').checked=false;reviewResume();};
+$('#resume-run').onclick=()=>{state.resumeCaptured=true;$('#resume-current-config').checked=false;reviewResume();};
 $('#resume-current-config').onchange=()=>reviewResume();
 $('#resume-form').onsubmit=async event=>{
   event.preventDefault();const review=state.resumeReview;if(!review||state.launching)return;

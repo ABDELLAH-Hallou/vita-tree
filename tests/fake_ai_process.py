@@ -26,6 +26,16 @@ def outcome():
               'error': None if success else {'code': 'provider_error'}}
     backend = {'status': native['status'], 'backendRunId': native['run_id'], 'attempts': native['attempts'],
                'errorCode': None if success else 'provider_error'} if step in {'extract','analyze','review'} else None
+    if not success and job.get('provider_error'):
+        provider=sys.argv[sys.argv.index('--provider')+1]
+        model=json.loads(Path('.vita/extensions.json').read_text(encoding='utf-8'))['llm_providers'][provider]['model']
+        category=job['provider_error']
+        native['error']={'schema_version':1,'code':'provider_error','category':category,'provider':provider,'model':model,
+                         'retryable':category in {'overloaded','rate_limit'},'attempts':3,'max_attempts':3,
+                         'exhausted':True,'status':503,'action':'PRIVATE-PROVIDER-PROMPT'}
+        native['attempts']=[{'number':i,'category':category} for i in (1,2,3)]
+        backend={'status':'failed','backendRunId':native['run_id'],'attempts':native['attempts'],
+                 'errorCode':'provider_error','providerError':native['error']}
     (results/(step+'.outcome.json')).write_text(json.dumps(native))
     (results/('tree-'+step+'.outcome.json')).write_text(json.dumps({
         'schemaVersion': 1, 'adapter': 'vita-python-api-v1', 'executionId': os.environ['VITA_TREE_EXECUTION_ID'],

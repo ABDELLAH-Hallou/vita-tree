@@ -1,3 +1,4 @@
+import {runFailureText} from './provider-failures.js';
 // All diagnostic values are rendered as text, never as HTML.
 export function initExecutionInspector({api, retry}) {
   const $=s=>document.querySelector(s), host=$('#execution-inspector'), dialog=$('#diagnostics-dialog');
@@ -49,6 +50,8 @@ export function initExecutionInspector({api, retry}) {
         button.dataset.run=run.id;button.setAttribute('aria-pressed',String(selected===run.id));
         const info=[run.failedStep?`Stopped at ${names[run.failedStep]||run.failedStep}`:'',run.provider,run.model,`${Math.floor(run.elapsedSeconds)}s`,new Date(run.createdAt*1000).toLocaleString(),run.traceId?`Trace ${run.traceId}`:'Limited historical diagnostics'].filter(Boolean).join(' · ');
         row.append(element('span',info,'helper'));
+        if(runFailureText(run))row.append(element('p',runFailureText(run),'provider-failure'));
+        if(run.parentRunId)row.append(element('span',`Continues ${run.parentRunId} · ${run.configurationChanged?'Changed setup':'Captured setup preserved'}`,'helper'));
         if(run.failedStep)action(row,'Inspect failed step',()=>select(run.id,run.failedStep));
         list.append(row);
       }

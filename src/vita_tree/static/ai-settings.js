@@ -4,7 +4,7 @@ const copy = value => structuredClone(value);
 
 export function createAIConfiguration(container, {api, onChange}) {
   const drafts = new Map();
-  let branch, catalog, connections=[], settings, disabled=true, saving=false, dirty=false, connectionTarget=null, stepEditor=null;
+  let branch, catalog, connections=[], settings, disabled=true, saving=false, dirty=false, connectionTarget=null, stepEditor=null, checkTarget=null, checking=false;
   const dialogs=document.createElement('div');dialogs.className='ai-dialogs';document.body.append(dialogs);
   const $ = selector => container.querySelector(selector)||dialogs.querySelector(selector);
   container.innerHTML=`
@@ -30,6 +30,14 @@ export function createAIConfiguration(container, {api, onChange}) {
       <p id="step-ai-save-hint" class="helper">Apply saves your current AI setup on this computer. Only this step’s override is changed. API keys last for this server session.</p>
       <div class="dialog-footer"><button id="step-ai-cancel" type="button">Cancel</button><button id="step-ai-next" type="button" hidden>Configure next run</button><button id="step-ai-apply" class="primary" type="submit">Apply to step</button></div>
     </form></dialog>
+    <dialog id="generation-check-dialog" aria-labelledby="generation-check-title"><form id="generation-check-form">
+      <div class="dialog-heading"><h2 id="generation-check-title">Check model generation</h2><button id="close-generation-check" class="quiet" type="button" aria-label="Close generation check">×</button></div>
+      <p id="generation-check-route" class="helper"></p>
+      <p>This sends a small synthetic prompt to the selected provider and model and <strong>may consume paid usage</strong>, including provider retries. It sends no CV or job description. A successful model listing does not prove generation access.</p>
+      <p class="helper">This checks the setup shown here without applying or saving edits. Success confirms generation access at this time, not CV quality.</p>
+      <p id="generation-check-result" class="provider-failure" role="status" aria-live="polite"></p>
+      <div class="dialog-footer"><button id="cancel-generation-check" type="button">Cancel</button><button id="confirm-generation-check" class="primary" type="submit">Run generation check · may use credits</button></div>
+    </form></dialog>
     <dialog id="connection-dialog"><form id="connection-form">
       <div class="dialog-heading"><h2>Add API connection</h2><button id="close-connection" class="quiet" type="button" aria-label="Close API connection">×</button></div>
       <p id="connection-service" class="helper"></p>
@@ -41,7 +49,7 @@ export function createAIConfiguration(container, {api, onChange}) {
       <div class="dialog-footer"><button id="cancel-connection" type="button">Cancel</button><button id="add-connection" class="primary" type="submit">Add connection</button></div>
     </form></dialog>`;
   // Keep modal dialogs visible from every workspace tab, including the CV view.
-  dialogs.append($('#step-ai-dialog'),$('#connection-dialog'));
+  dialogs.append($('#step-ai-dialog'),$('#connection-dialog'),$('#generation-check-dialog'));
 
   const routeFor = step => step==='default'?settings.default:settings.steps[step]||settings.default;
   const providerFor = route => catalog?.providers.find(p=>p.id===route.provider);
@@ -86,7 +94,7 @@ export function createAIConfiguration(container, {api, onChange}) {
     </div>
     <p id="${prefix}model-help" class="helper">Choose a suggested model or enter the exact model ID from your provider. Leave empty for its default. Your account must have access.</p>
     <p id="${prefix}reasoning-help" class="helper"></p>
-    <div class="connection-actions"><span class="helper" id="${prefix}connection-help"></span><button type="button" data-add-key>Add API key…</button><button type="button" data-remove-key class="quiet">Remove connection</button></div>`;
+    <div class="connection-actions"><span class="helper" id="${prefix}connection-help"></span><button type="button" data-check-generation>Check generation…</button><button type="button" data-add-key>Add API key…</button><button type="button" data-remove-key class="quiet">Remove connection</button></div>`;
     const field=name=>host.querySelector('#'+prefix+name);
     field('provider').replaceChildren(...catalog.providers.map(p=>new Option(p.name,p.id)));
     field('provider').value=route.provider;
@@ -113,6 +121,8 @@ export function createAIConfiguration(container, {api, onChange}) {
     host.querySelector('[data-add-key]').hidden=route.provider==='codex'||!!editor?.readOnly;
     host.querySelector('[data-remove-key]').hidden=!!editor||!route.connection||!connections.some(c=>c.id===route.connection);
     for(const element of host.querySelectorAll('input,select,button'))if(locked)element.disabled=true;
+    // Checking an inherited route does not edit it or create an override.
+    host.querySelector('[data-check-generation]').disabled=disabled||!!editor?.readOnly||!!editor?.saving;
     field('provider').onchange=()=>{
       const p=field('provider').value;
       const suggestion=catalog.options.find(o=>o.provider===p&&o.supported);
@@ -123,6 +133,18 @@ export function createAIConfiguration(container, {api, onChange}) {
     field('model').onchange=()=>{route.model=route.model.trim();field('model').value=route.model;refreshReasoning();notify();};
     field('reasoning').onchange=()=>{route.reasoning=field('reasoning').value;notify();};
     field('connection').onchange=()=>{route.connection=field('connection').value;repaint();notify();};
+    host.querySelector('[data-check-generation]').onclick=()=>{
+      const issue=routeProblem(route,'Generation check');
+      if(issue){if(editor){$('#step-ai-error').textContent=issue;$('#step-ai-error').hidden=false;}else showError(issue);return;}
+      const captured=copy(settings);
+      if(editor&&!editor.custom)delete captured.steps[step];
+      if(step==='default')captured.steps={};else if(!editor||editor.custom)captured.steps[step]=copy(route);
+      checkTarget={branch,step:step==='default'?'analyze':step,settings:captured};
+      $('#generation-check-route').textContent=`${editor&&!editor.custom||step==='default'||!settings.steps[step]&&!editor?'Shared setup':'Step setup'} · ${summary(route)} · ${connectionName(route)}`;
+      $('#generation-check-result').textContent='No request has been sent.';$('#cancel-generation-check').textContent='Cancel';
+      $('#confirm-generation-check').disabled=false;$('#cancel-generation-check').disabled=false;
+      $('#generation-check-dialog').showModal();
+    };
     host.querySelector('[data-add-key]').onclick=()=>{
       connectionTarget={route,step,branch,editor,repaint,notify};$('#connection-service').textContent=`${provider?.name} · reusable by any step with this provider`;
       $('#connection-name').value=`${provider?.name} account`;$('#connection-key').value='';$('#connection-key').type='password';$('#show-connection-key').checked=false;$('#connection-error').hidden=true;$('#connection-dialog').showModal();
@@ -251,6 +273,24 @@ export function createAIConfiguration(container, {api, onChange}) {
       $('#ai-setup-status').textContent='Setup saved on this computer · API keys last until the server stops.';
       editor.saving=false;closeStep();render();onChange();
     }catch(error){if(stepEditor===editor){editor.saving=false;renderPopupFields();$('#step-ai-error').textContent=error.message;$('#step-ai-error').hidden=false;}}
+  };
+  function closeCheck(){if(checking)return;$('#generation-check-dialog').close();checkTarget=null;}
+  $('#close-generation-check').onclick=closeCheck;$('#cancel-generation-check').onclick=closeCheck;
+  $('#generation-check-dialog').addEventListener('cancel',event=>{event.preventDefault();closeCheck();});
+  $('#generation-check-form').onsubmit=async event=>{
+    event.preventDefault();if(checking||!checkTarget)return;
+    const target=checkTarget;checking=true;
+    for(const id of ['confirm-generation-check','cancel-generation-check','close-generation-check'])$('#'+id).disabled=true;
+    $('#generation-check-result').textContent='Checking generation access… The provider may retry temporary failures.';
+    try{
+      const result=await api('/api/generation-check',{branch:target.branch,step:target.step,aiConfig:target.settings,confirmed:true});
+      const route=`${result.provider||'Effective provider unreported'} / ${result.model||'effective model unreported'}`;
+      const failure=result.failure;
+      $('#generation-check-result').textContent=result.generationVerified
+        ? `Generation succeeded · ${route} · ${result.attempts??'unknown'} provider attempts. This does not evaluate CV quality.`
+        : `${failure?.title||'Generation was not verified'}${failure?.category?' ('+failure.category.replaceAll('_',' ')+')':''} · ${route} · ${result.attempts??'unknown'} provider attempts. ${failure?.retryable===true?'Retryable. ':failure?.retryable===false?'Needs attention before retry. ':''}${failure?.action||'Inspect the Vita CV connection.'}`;
+    }catch(error){$('#generation-check-result').textContent=error.message;}
+    finally{checking=false;for(const id of ['confirm-generation-check','cancel-generation-check','close-generation-check'])$('#'+id).disabled=false;$('#cancel-generation-check').textContent='Close';}
   };
   function closeConnection(){if($('#add-connection').disabled)return;$('#connection-dialog').close();$('#connection-key').value='';$('#connection-key').type='password';}
   $('#cancel-connection').onclick=closeConnection;$('#close-connection').onclick=closeConnection;
