@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.12.1](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.12.0...v1.12.1) (2026-10-24)
+
+
+### Bug Fixes
+
+* harden local security boundaries and document audit ([3e853b8](https://github.com/ABDELLAH-Hallou/vita-tree/commit/3e853b8a61d4d171dc20d097f859de7fcaa8c64e))
+* harden local security boundaries and document audit ([54ae895](https://github.com/ABDELLAH-Hallou/vita-tree/commit/54ae8958ac51ac180acb57fe575777b4f08ca6d0))
+
 ## [1.12.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.11.0...v1.12.0) (2026-10-24)
 
 
