@@ -148,7 +148,9 @@ Verified checkpoints live in the Git common directory under `vita-tree/checkpoin
 
 ## Activity, errors, and logs
 
-Open **Activity & support** for preparation history, request metrics, and recent events. Select a preparation or use **Execution details** in its workflow to inspect phases, attempts, requested/effective AI routing, capture availability, and safe provider errors. The inspector's **Retry preparation** preserves captured routing and reviews verified checkpoint reuse before starting another attempt.
+Open **Activity & support** for preparation history, request metrics, and recent events. Select a preparation or use **Execution details** in its workflow to inspect phases, attempts, requested/effective AI routing, capture availability, and safe provider errors. **Retry preparation** preserves captured routing and language by default. Explicitly choose **Use the current application setup** to change them and review the verified checkpoint plan before starting another attempt.
+
+AI failures, explicit generation checks, and captured-setup retries are described in [AI troubleshooting](docs/PROVIDER_FAILURES.md).
 
 Execution traces live in the application project's .vita/logs/traces/ directory, independently of disposable workspaces and checkpoint cleanup. Older backends show limited diagnostics. See [Execution inspector](docs/EXECUTION_INSPECTOR.md) for trace locations, alternative destinations, capture policies, retention, compatibility, and inspectable support exports. Errors also include request references that can be found in the existing event search.
 

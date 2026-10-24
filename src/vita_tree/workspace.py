@@ -25,6 +25,7 @@ from .workflow import REPORTS, MESSAGES, capabilities as workflow_capabilities, 
 from .server import branch_payload, run_git
 from . import checkpoints
 from .outcomes import read_outcome
+from .provider_status import failure
 from .resume_inputs import capture as capture_resume_inputs
 from .publication import publish, recover as recover_publications
 from .ai_config import Connections, clean_settings, effective_settings, stage_environment
@@ -273,6 +274,14 @@ class Workspace:
         result['resumeAvailable'] = record.get('status') in {'failed', 'interrupted'} and bool(record.get('attempt'))
         result['checkpointSteps'] = [step for step in record.get('checkpointSteps') or []
                                      if (self.root/'checkpoints'/record['id']/step/'manifest.json').is_file()]
+        parent = self.jobs.get(record.get('parentRunId'))
+        route_fields = ('provider','model','reasoning','connection')
+        route_values = lambda item: {step: {k: route.get(k) for k in route_fields} for step, route in (item.get('stepConfig') or {}).items()}
+        result['configurationChanged'] = bool(parent and (route_values(record) != route_values(parent) or record.get('language') != parent.get('language')))
+        secrets = [item['key'] for item in self.connections.items.values()] + list(getattr(getattr(self, 'inspector', None), 'secrets', ()))
+        result['outcomes'] = self._safe_outcomes(record.get('outcomes'), secrets)
+        result['failures'] = {step: info for step, outcome in result['outcomes'].items()
+                              if (info := failure(outcome))}
         return result
 
     def cleanup_checkpoints(self):
@@ -346,7 +355,7 @@ class Workspace:
                 continue  # A damaged history entry must not prevent opening the CV.
 
     @staticmethod
-    def _safe_outcomes(values):
+    def _safe_outcomes(values, secrets=()):
         from .outcomes import safe_outcome
         result = {}
         if isinstance(values, dict):
@@ -359,7 +368,7 @@ class Workspace:
                 if isinstance(native, dict):
                     native = safe_outcome({'schema_version': 1, 'status': native.get('status'),
                                            'attempts': native.get('attempts'), 'run_id': native.get('backendRunId'),
-                                           'error': {**(native.get('errorDetails') if isinstance(native.get('errorDetails'),dict) else {}), 'code': native.get('errorCode')}})
+                                           'error': {**(native.get('providerError') or {}), **(native.get('errorDetails') if isinstance(native.get('errorDetails'),dict) else {}), 'code': native.get('errorCode')}}, secrets)
                 result[step] = {'status': value.get('status') if value.get('status') in {'success','failed'} else 'failed',
                                 'verified': value.get('verified') is True, 'backend': native}
         return result
@@ -786,6 +795,10 @@ class Workspace:
             atomic_write(self.root / 'ai-settings' / (digest(name) + '.json'), json.dumps(clean))
             return clean
 
+    def check_generation(self, name, step, settings, confirmed=False):
+        from .generation_check import run
+        return run(self, name, step, settings, confirmed)
+
     def capabilities(self):
         return {"vita": bool(self.vita_command()), "documentPath": self.document_path,
                 "workflow": workflow_capabilities(self.vita_source),
@@ -1040,7 +1053,8 @@ class Workspace:
                         if not self._job_update(record, outcomes={**record['outcomes'], step: outcome}):
                             return
                     if process.returncode or not any(reports) or (outcome and outcome['status'] != 'success'):
-                        raise AIRunError(f"Your AI service did not return the expected results. Check the AI connection and try again. Your CV is unchanged.")
+                        info = failure(outcome)
+                        raise AIRunError((info['title'] + '. ' + info['action'] if info else 'The expected results were not returned. Inspect execution details before retrying.') + ' Your CV is unchanged.')
                     if step == "extract":
                         try:
                             extracted = json.loads(reports[0])

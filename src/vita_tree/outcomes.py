@@ -5,12 +5,15 @@ It never examines stdout or provider prose. Unsupported CLI integrations can sti
 run normally, but cannot create verified resumable checkpoints.
 """
 import json
+import os
 from pathlib import Path
 import re
 try:
     from .diagnostics_contract import details, CATEGORIES as DIAGNOSTIC_CATEGORIES
+    from .provider_status import provider_error
 except ImportError:  # ai_runner.py also runs directly in the isolated child.
     from diagnostics_contract import details, CATEGORIES as DIAGNOSTIC_CATEGORIES
+    from provider_status import provider_error
 
 CATEGORIES = {'valid', 'invalid_json', 'schema_error', 'validation_error', 'unsupported_schema',
               'provider_error', 'authentication', 'rate_limit', 'timeout', 'started'} | DIAGNOSTIC_CATEGORIES
@@ -18,7 +21,8 @@ MODES = {'native_schema', 'validated_prompt', 'schema_requested'}
 CODES = {'structured_output_invalid', 'provider_error', 'artifact_error', 'backend_error'}
 
 
-def safe_outcome(data):
+def safe_outcome(data, secrets=()):
+    secrets = tuple(secrets) + tuple(v for k,v in os.environ.items() if any(part in k.upper() for part in ('KEY','TOKEN','SECRET','PASSWORD')) and v)
     if not isinstance(data, dict) or data.get('schema_version') != 1:
         return None
     if data.get('status') not in {'success', 'failed', 'running'}:
@@ -35,16 +39,18 @@ def safe_outcome(data):
                          'mode': item.get('mode') if item.get('mode') in MODES else None})
         technical = details({**(item.get('details') if isinstance(item.get('details'), dict) else {}),
                              **{key: item[key] for key in ('http_status','retryable','retry_after_seconds') if key in item},
-                             **({'delay_seconds':item['retry_delay_seconds']} if 'retry_delay_seconds' in item else {})})
+                             **({'delay_seconds':item['retry_delay_seconds']} if 'retry_delay_seconds' in item else {})}, secrets)
         if technical:
             attempts[-1]['details'] = technical
     error = data.get('error')
+    if isinstance(error, dict) and 'schema_version' in error and (type(error['schema_version']) is not int or error['schema_version'] != 1):
+        error = None
     technical_error = details({**error, **({'http_status':error['status']} if 'status' in error else {}),
                                **({'effective_provider':error['provider']} if 'provider' in error else {}),
-                               **({'effective_model':error['model']} if 'model' in error else {})}) if isinstance(error, dict) else {}
+                               **({'effective_model':error['model']} if 'model' in error else {})}, secrets) if isinstance(error, dict) else {}
     return {'status': data['status'], 'attempts': attempts,
             'backendRunId': data.get('run_id') if re.fullmatch(r'[a-f0-9]{32}', str(data.get('run_id', ''))) else None,
-            'errorDetails': technical_error,
+            'errorDetails': technical_error, 'providerError': provider_error(error, secrets),
             'errorCode': error.get('code') if isinstance(error, dict) and error.get('code') in CODES else None}
 
 
@@ -65,7 +71,7 @@ def execute(step, invoke, execution_id):
             try:
                 raw = json.loads(native.read_text(encoding='utf-8'))
                 if raw.get('step') == step:
-                    trace = safe_outcome(raw)
+                    trace = safe_outcome(raw, [v for k,v in os.environ.items() if any(part in k.upper() for part in ('KEY','TOKEN','SECRET','PASSWORD'))])
             except (OSError, ValueError, AttributeError):
                 pass
         structured = step in {'extract', 'analyze', 'review'}
@@ -94,7 +100,7 @@ def read_outcome(folder, step, execution_id):
         if native is not None:
             native = safe_outcome({'schema_version': 1, 'status': native.get('status'),
                                    'attempts': native.get('attempts'), 'run_id': native.get('backendRunId'),
-                                   'error': {**(native.get('errorDetails') if isinstance(native.get('errorDetails'),dict) else {}), 'code': native.get('errorCode')}})
+                                   'error': {**(native.get('providerError') or {}), **(native.get('errorDetails') if isinstance(native.get('errorDetails'),dict) else {}), 'code': native.get('errorCode')}})
         return {'status': data['status'], 'verified': data.get('verified') is True and (step not in {'extract','analyze','review'} or bool(native and native['status'] == 'success' and native['attempts'] and native['attempts'][-1]['category'] == 'valid')),
                 'backend': native}
     except (OSError, ValueError, AttributeError, TypeError):

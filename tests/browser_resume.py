@@ -73,6 +73,8 @@ def main():
             page.get_by_role('tab',name='Job details & AI',exact=False).click()
             page.locator('#model').fill('different-model');page.locator('#model').press('Tab')
             page.locator('#resume-run').click()
+            expect(page.locator('#resume-reuse')).to_contain_text('Tailor CV')
+            page.locator('#resume-current-config').check()
             expect(page.locator('#resume-reuse')).to_contain_text('None. Start again')
             page.locator('#resume-dialog .close-dialog').last.click()
             page.locator('#model').fill('fixture-model');page.locator('#model').press('Tab')

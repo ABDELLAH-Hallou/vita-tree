@@ -406,6 +406,9 @@ class ExecutionInspector:
                    'provider':contract.details({'effective_provider':r.get('provider')}).get('effective_provider'),'model':contract.token(r.get('model'),self.secrets),
                    'createdAt':r.get('createdAt'),'elapsedSeconds':max(0,(r.get('finishedAt') or time.time())-(r.get('startedAt') or time.time())),
                    'attempt':r.get('attempt'),'branch':r['branch']}
+            with self.workspace.lock:
+                public = self.workspace._public_job(r)
+            row.update(failures=public['failures'],parentRunId=r.get('parentRunId'),configurationChanged=public['configurationChanged'])
             if status and status != row['status']:
                 continue
             if query and query.lower() not in json.dumps(row).lower():

@@ -1,3 +1,4 @@
+import {failureText} from './provider-failures.js';
 export const tasks = [
   {id:'extract', title:'Identify job requirements', detail:'Identify the skills and experience the employer wants.', output:'Job requirements'},
   {id:'analyze', title:'Check CV match', detail:'Compare your CV with the job requirements.', output:'CV match analysis'},
@@ -45,6 +46,8 @@ export function renderGraph(container, {run, options, available, selected, selec
     if(task.startedAt&&!task.finishedAt&&task.status==='running')time.dataset.startedAt=task.startedAt;
     time.textContent=task.startedAt ? `${Math.max(0,Math.floor((task.finishedAt || Date.now()/1000)-task.startedAt))}s` : task.output;
     button.append(icon,title,state,time); button.onclick=()=>select(task); container.append(button);
+    const failure=failureText(run,task.id);
+    if(failure){const info=document.createElement('span');info.className='dag-failure';info.textContent=failure;button.append(info);button.setAttribute('aria-label',button.getAttribute('aria-label')+' '+failure);}
     if(config[task.id]) {
       const route=config[task.id], model=document.createElement('span');model.className='dag-model';
       model.textContent=route.model||route.provider+' default';model.title=`${route.provider} · ${route.reasoning||'Automatic reasoning'}`;button.append(model);

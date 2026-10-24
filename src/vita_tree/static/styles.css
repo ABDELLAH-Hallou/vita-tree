@@ -1759,3 +1759,11 @@ dialog textarea {
 #resume-config-choice{display:flex;flex-direction:row;gap:10px;align-items:center;margin:14px 0;font-size:13px}
 #resume-config-choice input{width:16px;height:16px;flex:none}
 @media(max-width:600px){.inspector-heading{flex-direction:column}.inspector-heading .actions{flex-wrap:wrap}.inspector-filters{grid-template-columns:1fr}.inspector-pagination{flex-wrap:wrap}.inspector-pagination button{font-size:11px;padding:8px}.inspector-tabs button{padding:10px 8px}#diagnostics-dialog{padding:16px}#execution-inspector [role=tabpanel]>button{margin:4px 0;max-width:100%;white-space:normal}}
+
+/* Typed provider failures remain legible in both themes and narrow layouts. */
+.dag-failure { grid-column:1/-1; font-size:.76rem; line-height:1.5; color:var(--ink); overflow-wrap:anywhere; text-align:left; }
+.branch-failure { display:block; font-size:.78rem; color:var(--muted); white-space:normal; overflow-wrap:anywhere; line-height:1.5; margin-top:.35rem; }
+.provider-failure { white-space:normal; overflow-wrap:anywhere; line-height:1.6; }
+#generation-check-dialog { max-width:620px; }
+
+.dag-node:has(.dag-failure) { flex-basis:280px; }
