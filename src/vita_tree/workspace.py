@@ -285,11 +285,12 @@ class Workspace:
                 "running": self.active_job(name)}
 
     JOB_FIELDS = ("id", "branch", "opportunity", "status", "step", "message", "provider", "model",
-                  "reasoning", "language", "createdAt", "startedAt", "finishedAt", "reviewed", "stages", "stepConfig", "parentRunId", "rootRunId", "attempt", "checkpointSteps", "outcomes", "traceId", "requirementsRevision", "requirementsDraft", "preflight", "compileEngine")
+                  "reasoning", "language", "createdAt", "startedAt", "finishedAt", "reviewed", "stages", "stepConfig", "parentRunId", "rootRunId", "attempt", "checkpointSteps", "outcomes", "traceId", "requirementsRevision", "requirementsDraft", "preflight", "compileEngine", "reviewPolicy")
     ACTIVE_STATUSES = {"queued", "running"}
 
     def _public_job(self, record):
         result = {key: record.get(key) for key in self.JOB_FIELDS}
+        result['reviewPolicy'] = 'automatic' if record.get('reviewPolicy') == 'automatic' else 'manual'
         start = record.get("startedAt")
         result["elapsedSeconds"] = max(0, (record.get("finishedAt") or time.time()) - start) if start else 0
         result['resumeAvailable'] = record.get('status') in {'failed', 'interrupted'} and bool(record.get('attempt'))
@@ -348,7 +349,46 @@ class Workspace:
             return self.start_ai(parent['branch'], revision, job_revision, language=language or parent['language'],
                                  workflow={'steps': steps}, ai_config=ai_config, resume_from=ident,
                                  resume_token=token, preview_only=preview, captured_origins=captured_origins,
-                                 engine=parent.get('compileEngine') or 'auto')
+                                 engine=parent.get('compileEngine') or 'auto', review_policy=parent.get('reviewPolicy') or 'manual')
+
+    def continue_review(self, ident, revision, job_revision):
+        """Continue an approved draft exactly once, using its captured setup."""
+        with self.lock:
+            parent = self.jobs.get(ident)
+            if not parent:
+                raise ValueError('This preparation is unavailable.')
+            children = [job for job in self.jobs.values() if job.get('parentRunId') == ident]
+            if children:
+                return self._public_job(max(children, key=lambda job: job['createdAt']))
+            review = factual_review.summary(self, ident)
+            if not review and not parent.get('requirementsDraft'):
+                raise ConflictError('This preparation is not waiting for approval. Use Retry to inspect its recovery plan.')
+            preview = self.resume_ai(ident, revision, job_revision, preview=True)
+            if review and (review['state'] != 'resolved' or review['step'] not in preview['reuse']):
+                raise ConflictError('The approved draft no longer matches the captured inputs. Your decisions are saved; use Retry to inspect what changed.')
+            return self.resume_ai(ident, revision, job_revision, token=preview['token'])
+
+    def _automatic_review(self, record):
+        """An explicitly selected policy uses the same review and checkpoint gates."""
+        with self.lock:
+            if self._closed or record.get('reviewPolicy') != 'automatic' or record['status'] != 'failed':
+                return
+            facts = factual_review.summary(self, record['id'])
+            if facts and facts['state'] == 'pending':
+                review = factual_review.view(self, record['id'])
+                factual_review.apply(self, record['id'], review['revision'], review['token'],
+                                     [{'id': item['id'], 'action': 'accept'} for item in review['items']], True,
+                                     automatic=True)
+            elif record.get('requirementsDraft'):
+                review = requirements_review.view(self, record['branch'])
+                if review['state'] != 'pending' or review['revision'] != record['requirementsDraft']:
+                    return
+                requirements_review.change(self, record['branch'], review['token'], review['revision'],
+                                           approve=True, confirmed=True, automatic=True)
+            else:
+                return  # Provider, compilation and conflict failures never auto-retry.
+            self.continue_review(record['id'], digest(self.read(record['branch'], 'main.tex')),
+                                 digest(self.read(record['branch'], 'job.md')))
 
     def _persist_job(self, record):
         try:
@@ -367,6 +407,7 @@ class Workspace:
                         or record.get("status") not in self.ACTIVE_STATUSES | {"succeeded", "failed", "interrupted"}):
                     continue
                 record = {key: record.get(key) for key in self.JOB_FIELDS}
+                record['reviewPolicy'] = 'automatic' if record.get('reviewPolicy') == 'automatic' else 'manual'
                 record["stages"] = clean_stages(record.get("stages"))
                 # History is public: whitelist route fields even in hand-edited files.
                 routes = record.get('stepConfig')
@@ -892,11 +933,13 @@ class Workspace:
         selected = {task['id'] for task in plan(workflow, workflow_capabilities(self.vita_source)) if task['status'] != 'skipped'}
         return preflight.check_workspace(self, name, revision, job_revision, engine, selected)
 
-    def start_ai(self, name, revision, job_revision, provider="", language="en", model=None, reasoning="", workflow=None, ai_config=None, resume_from=None, resume_token=None, preview_only=False, captured_origins=None, engine='auto'):
+    def start_ai(self, name, revision, job_revision, provider="", language="en", model=None, reasoning="", workflow=None, ai_config=None, resume_from=None, resume_token=None, preview_only=False, captured_origins=None, engine='auto', review_policy='manual'):
         with self.lock:
             if self._closed:
                 raise ConflictError("Vita Tree is stopping. Restart it before preparing an application.")
             self.busy(name)
+            if review_policy not in ('manual', 'automatic'):
+                raise ValueError('Choose review before continuing or automatic preparation.')
             if not isinstance(engine,str) or engine not in preflight.ENGINES:
                 raise ValueError('Choose a supported TeX engine for setup checks.')
             if resume_from and (factual_review.summary(self, resume_from) or {}).get('state') in {'pending', 'unavailable'}:
@@ -943,7 +986,7 @@ class Workspace:
                       "attempt": (self.jobs[resume_from].get('attempt') or 1) + 1 if resume_from else 1,
                       "checkpointSteps": [], "outcomes": {},
                       "traceId": (self.jobs[resume_from].get("traceId") or self.jobs[resume_from].get("rootRunId") or resume_from) if resume_from else ident,
-                      "compileEngine": engine, "preflight": None}
+                      "compileEngine": engine, "preflight": None, "reviewPolicy": review_policy}
             if resume_from:
                 record['attempt'] = max((item.get('attempt') or 1 for item in self.jobs.values() if item.get('rootRunId') == record['rootRunId']), default=0) + 1
             context = self._ai_context(location, source, job, command, provider, model, reasoning)
@@ -1350,6 +1393,11 @@ class Workspace:
         finally:
             self.inspector.finish(record)
             context.get('keys', {}).clear()
+            try:
+                self._automatic_review(record)
+            except Exception as error:
+                self.diagnostics.error('automatic_review_failed', error, run_id=record['id'])
+                self._job_update(record, message='Automatic approval could not continue safely. Review the saved proposal and application inputs, then continue manually.')
             try:
                 if not self._closed:
                     self.cleanup_checkpoints()

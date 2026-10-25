@@ -993,7 +993,7 @@ body.in-workspace .shell {
   text-underline-offset:3px
 }
 .report-prose blockquote {
-  border-left:3px solid var(--accent);
+  border-left:1px solid var(--accent);
   margin:16px 0;
   padding:0 16px;
   color:var(--muted)
@@ -1775,7 +1775,7 @@ dialog textarea {
 .factual-wording{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;margin:16px 0}
 .factual-wording h3{font-size:13px;color:var(--muted);margin:0 0 6px}
 .factual-change pre{white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.65 var(--mono);background:var(--bg);padding:14px;border-radius:6px;max-height:340px;overflow:auto}
-.factual-meaning{color:var(--ink);border-left:3px solid var(--accent);padding-left:12px}
+.factual-meaning{color:var(--ink);border-left:1px solid var(--accent);padding-left:12px}
 .factual-options{display:flex;flex-wrap:wrap;gap:12px 24px;margin:16px 0}
 .factual-options label,.factual-confirm{display:flex;flex-direction:row;align-items:flex-start;gap:8px}
 .factual-change textarea{width:100%;min-height:120px;font-family:var(--mono)}
@@ -1808,7 +1808,7 @@ dialog textarea {
 #setup-dialog{width:min(820px,94vw);max-height:90vh;overflow:auto;box-sizing:border-box}
 #setup-dialog p{line-height:1.6;overflow-wrap:anywhere}
 .setup-fields{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:20px 0}.setup-fields label{display:grid;gap:8px;min-width:0}.setup-fields select{width:100%;min-width:0}
-#setup-results{list-style:none;padding:0}#setup-results li{padding:14px 16px;margin:12px 0;border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:6px}
+#setup-results{list-style:none;padding:0}#setup-results li{padding:14px 16px;margin:12px 0;border:1px solid var(--border);border-left:1px solid var(--accent);border-radius:6px}
 #setup-results li[data-severity=error]{border-left-color:var(--negative)}#setup-results li p{margin:8px 0 0;color:var(--muted)}
 @media(max-width:700px){.setup-bar{align-items:flex-start;flex-direction:column;gap:10px}.setup-fields{grid-template-columns:1fr}#setup-dialog .dialog-footer{flex-wrap:wrap}}
 .file-navigation{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:12px 0;padding:14px;border:1px solid var(--border);border-radius:8px}
@@ -1817,3 +1817,85 @@ dialog textarea {
 .file-navigation .helper{flex:1 1 360px;margin:0}
 .file-navigation details{flex-basis:100%;color:var(--muted)}
 .file-navigation li{margin-top:8px;overflow-wrap:anywhere}
+
+/* Guided document workspace. Glass belongs to controls; wording stays opaque. */
+:root {--review:#805500;--review-bg:#fff5dd;--glass:rgba(255,255,255,.94)}
+:root[data-theme=dark] {--review:#ffd580;--review-bg:#3b3425;--glass:rgba(28,40,53,.96)}
+button {min-height:40px;border-radius:10px}
+button.primary {min-height:44px}
+button:active:not(:disabled) {transform:translateY(1px)}
+button:focus-visible,a:focus-visible,summary:focus-visible {outline:2px solid var(--accent);outline-offset:3px}
+::selection {background:var(--accent-light);color:var(--ink)}
+.topbar {background:var(--glass);backdrop-filter:blur(12px)}
+.workspace-heading {margin-bottom:18px}
+.workflow-panel {border-radius:16px;overflow:hidden}
+.workflow-heading {align-items:flex-start;gap:20px}
+.workflow-heading>.actions {max-width:56%;justify-content:flex-end;gap:6px}
+.workflow-heading>.actions button {border-color:transparent;background:transparent;min-height:36px}
+.workflow-action {display:flex;align-items:center;justify-content:space-between;gap:24px;padding:20px 24px;background:var(--accent-light)}
+.workflow-action p {margin:4px 0 0;max-width:72ch;color:var(--muted)}
+.workflow-action button {flex-shrink:0}
+.workflow-action[data-state=review] {background:var(--review-bg)}
+.workflow-action[data-state=review] strong {color:var(--review)}
+.dag {background-image:none;background-color:var(--panel);padding:24px;gap:4px}
+.dag-node {border-radius:12px;min-height:116px;background:var(--panel)}
+.dag-node[data-status=review] {border-color:var(--review);background:var(--review-bg)}
+.dag-node[data-status=review] .dag-status,.dag-node[data-status=review] .dag-symbol {color:var(--review)}
+.dag-node[data-status=previous] .dag-status,.dag-node[data-status=previous] .dag-symbol {color:var(--positive)}
+.branch-run[data-status=review] {color:var(--review);background:var(--review-bg)}
+.dag-requirements {display:none}
+.workflow-footer {font-size:12px}
+.review-policy {display:grid;gap:8px;max-width:540px;margin:20px 24px}
+.review-policy small {font-weight:400;color:var(--muted);line-height:1.6}
+#factual-review-panel[open],#requirements-dialog[open] {display:flex;flex-direction:column;width:min(1160px,calc(100vw - 32px));height:min(860px,calc(100dvh - 32px));max-height:calc(100dvh - 32px);margin:auto;padding:0;overflow:hidden;border:0;border-radius:16px;box-shadow:0 24px 80px #0005;box-sizing:border-box}
+#factual-review-panel[hidden] {display:none}
+.review-heading,#requirements-dialog>.dialog-heading {display:flex;justify-content:space-between;align-items:center;flex-shrink:0;padding:16px 24px;margin:0;background:var(--glass);border-bottom:1px solid var(--line)}
+.review-heading h2,#requirements-dialog>.dialog-heading h2 {margin:0;font-size:20px}
+.review-scroll {flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:20px 24px;scroll-padding:16px}
+.review-controls {flex-shrink:0;padding:12px 24px;background:var(--glass);border-top:1px solid var(--line);backdrop-filter:blur(12px)}
+.review-controls .panel-footer,.review-controls .dialog-footer {margin:0;padding:8px 0 0;border:0;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.review-controls .panel-footer>span {max-width:46ch;font-size:12px;color:var(--muted)}
+.review-controls .factual-confirm,#requirements-confirm-label {margin:0;font-size:13px;line-height:1.4}
+.review-controls .error:empty,.review-controls [role=status]:empty {display:none}
+.review-controls .error {margin:6px 0;max-height:80px;overflow:auto}
+.factual-change {border:0;border-top:1px solid var(--line);border-radius:0;padding:20px 0;margin:20px 0}
+.factual-meaning {border:0;padding:0;color:var(--muted)}
+.factual-change pre {border-radius:8px;font-size:13px}
+.wording-before pre {background:var(--negative-bg)}
+.wording-after pre {background:var(--positive-bg)}
+.wording-before h3::before {content:'− ';color:var(--negative)}
+.wording-after h3::before {content:'+ ';color:var(--positive)}
+.factual-wording mark {background:transparent;color:inherit;font-weight:700;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px}
+.wording-before mark {text-decoration-color:var(--negative)}
+.wording-after mark {text-decoration-color:var(--positive)}
+.review-bulk {display:flex;flex-wrap:wrap;align-items:center;gap:8px;position:sticky;top:-20px;background:var(--panel);padding:12px 0;z-index:1}
+.review-bulk>span {margin-right:auto;color:var(--muted)}
+.factual-options label {background:var(--surface);padding:10px 12px;border-radius:10px;margin:0;cursor:pointer}
+.factual-options label:has(input:checked) {background:var(--accent-light);outline:1px solid var(--accent)}
+.factual-options input,.factual-confirm input {width:16px;min-width:16px;height:16px;accent-color:var(--accent)}
+.review-source-preview {height:320px;margin-top:12px}
+.requirement-card {border:0;border-top:1px solid var(--line);padding:16px 0}
+.requirement-card legend {font-weight:600}
+#requirements-dialog .requirements-source {max-height:52vh}
+@media(max-width:760px) {
+ .workflow-heading {flex-direction:column}.workflow-heading>.actions {max-width:100%;justify-content:flex-start}
+ .workflow-action {flex-direction:column;align-items:stretch;padding:16px;gap:12px}
+ #factual-review-panel[open],#requirements-dialog[open] {width:calc(100vw - 16px);height:calc(100dvh - 16px);max-height:calc(100dvh - 16px)}
+ .review-heading,#requirements-dialog>.dialog-heading {padding:12px 16px}
+ .review-scroll {padding:12px 16px}.review-controls {padding:10px 16px}
+ .review-controls .panel-footer>span {display:none}
+ .review-controls .panel-footer,.review-controls .dialog-footer {flex-wrap:wrap;gap:8px}
+ .review-controls .panel-footer .actions {display:flex;flex-wrap:wrap;width:100%}
+ .review-controls .panel-footer button {width:auto;flex:1;font-size:13px;white-space:normal}
+ .review-controls .dialog-footer button {flex:1;font-size:13px;white-space:normal}
+ .factual-wording {grid-template-columns:minmax(0,1fr)}
+ .review-controls .factual-confirm,#requirements-confirm-label {font-size:12px}
+ .review-bulk {top:-12px}
+}
+@media(prefers-reduced-transparency:reduce) {.topbar,.review-heading,.review-controls {background:var(--panel);backdrop-filter:none}}
+@media(prefers-reduced-motion:reduce) {button:active:not(:disabled) {transform:none}}
+
+/* Small functional labels retain a readable floor in both appearances. */
+.workspace-note>span,.search kbd,.tabs span,.pill,.dag-status,.dag-time,.dag-model,.pdf-page-label,.workflow-options .step-ai-summary {font-size:12px}
+.diagnostics-table {padding:4px}
+.dag-symbol {width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}

@@ -192,6 +192,7 @@ def main():
             page.get_by_role('button', name='Open independent-steps', exact=True).click()
             page.get_by_role('tab', name='Job details & AI', exact=False).click()
             page.locator('#provider').select_option('openai');page.locator('#model').fill('fixture-model');page.locator('#model').press('Tab')
+            prior_steps=set()
             for step in ('extract', 'analyze', 'adapt', 'review', 'cover', 'validating'):
                 node = page.locator(f'.dag-node[data-step={step}]')
                 node.click()
@@ -205,7 +206,11 @@ def main():
                 expect(page.locator('#workflow-run')).to_have_value(record['id'])
                 expect(node).to_have_attribute('data-status', 'succeeded')
                 expect(page.locator('.dag-node[data-status=succeeded]')).to_have_count(1 if step == 'validating' else 2)
-                expect(page.locator('.dag-node[data-status=skipped]')).to_have_count(5 if step == 'validating' else 4)
+                prior_count=len(prior_steps-{step,'validating'})
+                expect(page.locator('.dag-node[data-status=skipped]')).to_have_count((5 if step == 'validating' else 4)-prior_count)
+                expect(page.locator('.dag-node[data-status=previous]')).to_have_count(prior_count)
+                assert sum(t['status']=='skipped' for t in server.workspace.get_job(record['id'])['stages'])==(5 if step=='validating' else 4)
+                prior_steps.add(step)
                 assert server.workspace.get_job(record['id'])['status'] == 'succeeded'
                 if step in ('extract','analyze'):
                     assert server.workspace.read('independent-steps', 'main.tex') == SOURCE

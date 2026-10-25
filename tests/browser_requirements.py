@@ -58,8 +58,8 @@ def main():
             expect(page.locator('#requirements-status')).to_have_text('Review required · dependent steps are paused.')
             page.locator('#requirements-confirm').focus();page.keyboard.press('Space')
             page.locator('#requirements-dialog').screenshot(path=str(artifacts/'requirements-light.png'))
-            page.locator('#requirements-approve').click();expect(page.locator('#requirements-status')).to_contain_text('Approved definition')
-            page.locator('#requirements-cancel').click();page.locator('#step-ai-cancel').click()
+            page.locator('#requirements-approve').click();expect(page.locator('#requirements-dialog')).not_to_be_visible()
+            page.locator('#step-ai-cancel').click()
             # A recorded assessment uses its captured definition forever.
             captured=review.view(server.workspace,'requirements')['definition'];now=time.time()
             run={'id':'c'*32,'branch':'requirements','status':'succeeded','step':'completed','message':'Synthetic assessment',

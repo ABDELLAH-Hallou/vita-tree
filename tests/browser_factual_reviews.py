@@ -30,12 +30,13 @@ def main():
     source=Path(vita.__file__).resolve().parent.parent
     server=VitaTreeServer(('127.0.0.1',0),root,'main.tex',source,log_dir=root/'.git/test-logs')
     command=[sys.executable,str(Path(__file__).parent/'smoke/factual_ai.py')]
+    control=root/'.git/factual-control';control.mkdir()
     branch=server.workspace.create('master','facts',json.dumps({'label':'facts','pipeline':True}),digest(SOURCE))
     from requirements_fixtures import seed
     seed(server.workspace,'facts')
     worker=threading.Thread(target=server.serve_forever,daemon=True);worker.start();errors=[];applications=[]
     try:
-        with patch.object(server.workspace,'vita_command',return_value=command),sync_playwright() as pw:
+        with patch.object(server.workspace,'vita_command',return_value=command),patch.dict(os.environ,{'VITA_TEST_CANONICAL':'1','VITA_TEST_CONTROL':str(control)}),sync_playwright() as pw:
             run=server.workspace.start_ai('facts',branch['revision'],branch['jobRevision'],provider='codex',workflow={'steps':['adapt','cover']})
             browser=pw.chromium.launch(channel='chrome' if args.browser=='chrome' else None)
             page=browser.new_page(viewport={'width':1500,'height':1050})
@@ -48,10 +49,11 @@ def main():
             # Graph clicks continue opening ordinary captured AI settings.
             page.locator('.dag-node[data-step=adapt]').click()
             expect(page.locator('#step-ai-dialog')).to_be_visible();page.locator('#step-ai-cancel').click()
-            page.locator('#review-facts').click()
+            expect(page.locator('.dag-node[data-step=adapt]')).to_have_attribute('data-status','review')
+            page.locator('#workflow-next').click()
             cards=page.locator('.factual-change');expect(cards).to_have_count(3)
             expect(cards.first).to_contain_text('main.tex');expect(cards.first).to_contain_text('Original wording')
-            expect(cards.nth(1)).to_contain_text('acronym');expect(cards.nth(1)).to_contain_text('not verified')
+            expect(cards.nth(1)).to_contain_text('abbreviation');expect(cards.nth(1)).to_contain_text('not verified')
             cards.first.locator('input[value=accept]').focus();page.keyboard.press('Space')
             page.locator('#cancel-factual-review').click();expect(page.locator('#factual-review-panel')).to_be_hidden()
             assert not applications
@@ -64,24 +66,16 @@ def main():
             page.locator('#confirm-factual-meaning').focus();page.keyboard.press('Space')
             page.locator('#factual-review-panel').screenshot(path=str(artifacts/'factual-review-light.png'))
             page.locator('#apply-factual-review').click()
-            expect(page.locator('#factual-review-title')).to_have_text('Your factual decisions')
-            expect(page.locator('#factual-provenance')).to_contain_text('Explicit local-user review')
+            expect(page.locator('#factual-review-panel')).to_be_hidden()
             assert len(applications)==1
-            assert server.workspace.read('facts','main.tex')==SOURCE
-            page.reload();expect(page.locator('#branch-title')).to_have_text('facts')
-            page.locator('#review-facts').click();expect(page.locator('#factual-provenance')).to_be_visible()
-            page.locator('#cancel-factual-review').click()
-            page.locator('#resume-run').click();expect(page.locator('#resume-reuse')).to_contain_text('Tailor CV')
-            page.locator('#confirm-resume').click()
+            assert page.locator('.dag-failure').count()==0
             expect(page.locator('.dag-node[data-step=cover] .dag-status')).to_have_text('Needs factual review')
             page.locator('#review-facts').click();expect(page.locator('.factual-change')).to_have_count(1)
             cover=server.workspace.factual_review(server.workspace.list_jobs()['runs'][0]['id'])
             assert 'dependable systems' in cover['proposed'] and 'TypeScript' in cover['proposed']
             assert 'Built OOP services' not in cover['proposed']
             page.locator('.factual-change input[value=accept]').check();page.locator('#confirm-factual-meaning').check()
-            page.locator('#apply-factual-review').click();expect(page.locator('#factual-review-title')).to_have_text('Your factual decisions')
-            page.locator('#cancel-factual-review').click();page.locator('#resume-run').click()
-            expect(page.locator('#resume-reuse')).to_contain_text('Cover letter');page.locator('#confirm-resume').click()
+            page.locator('#apply-factual-review').click();expect(page.locator('#factual-review-panel')).to_be_hidden()
             expect(page.locator('.dag-node[data-step=validating]')).to_have_attribute('data-status','succeeded')
             page.locator('#view-run').click();page.locator('#open-run-cover-pdf').click()
             expect(page.locator('#cover-pdf .textLayer').first).to_be_visible()
@@ -89,6 +83,8 @@ def main():
             pdf=server.workspace.cover_pdf_result(final['id'])
             extracted='\n'.join(p.extract_text() or '' for p in PdfReader(pdf['pdf']).pages)
             assert 'dependable' in extracted and 'TypeScript' in extracted and 'OOP' not in extracted
+            assert 'TypeScript' in server.workspace.read('facts','main.tex')
+            assert 'Built OOP services' not in server.workspace.read('facts','main.tex')
             # An external edit after capture produces an actionable conflict.
             stale=server.workspace.create('master','stale-facts',json.dumps({'label':'stale','pipeline':True}),digest(SOURCE))
             seed(server.workspace,'stale-facts')
@@ -99,22 +95,67 @@ def main():
             page.locator('#review-facts').click()
             expect(page.locator('.factual-change')).to_have_count(3)
             (Path(stale['worktree'])/'main.tex').write_text(SOURCE+'\n% external user draft',encoding='utf-8')
-            for radio in page.locator('.factual-change input[value=accept]').all():radio.check()
+            page.locator('#accept-all-facts').click();expect(page.locator('.factual-change input[value=accept]:checked')).to_have_count(3)
             page.locator('#confirm-factual-meaning').check();page.locator('#apply-factual-review').click()
             expect(page.locator('#factual-review-error')).to_contain_text('application changed')
             assert 'external user draft' in server.workspace.read('stale-facts','main.tex')
-            set_theme(page,'dark');page.locator('#factual-review-panel').screenshot(path=str(artifacts/'factual-review-dark.png'))
+            page.locator('#cancel-factual-review').click();set_theme(page,'dark');page.locator('#review-facts').click();page.locator('#factual-review-panel').screenshot(path=str(artifacts/'factual-review-dark.png'))
             page.set_viewport_size({'width':390,'height':844})
             assert page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1')
             assert page.locator('#factual-review-panel .panel-footer').evaluate('el => el.scrollWidth <= el.clientWidth + 1')
+            page.locator('#factual-review-panel .review-scroll').evaluate('el=>el.scrollTop=el.scrollHeight')
+            for control in ['#close-factual-review','#apply-factual-review','#cancel-factual-review']:
+                box=page.locator(control).bounding_box();assert box and box['y']>=0 and box['y']+box['height']<=844,box
             page.locator('#factual-review-panel').screenshot(path=str(artifacts/'factual-review-mobile.png'))
             response=page.request.post(f'http://127.0.0.1:{server.server_port}/api/factual-review/apply',data={})
             assert response.status==403
             public=json.dumps(server.workspace.list_jobs())
             assert 'Built OOP services' not in public and SOURCE not in public
+            page.locator('#cancel-factual-review').click()
+            assert page.evaluate('''async()=>{const {renderGraph}=await import('/workflow.js');const host=document.createElement('div');renderGraph(host,{run:{id:'new',createdAt:2,stages:[{id:'extract',status:'skipped'}]},history:[{id:'old',createdAt:1,stages:[{id:'extract',status:'succeeded'}]}],options:{steps:[]},available:{},select:()=>{}});return host.querySelector('[data-step=extract]').dataset.status==='previous'&&host.textContent.includes('Done earlier');}''')
+            page.set_viewport_size({'width':1500,'height':1050});page.screenshot(path=str(artifacts/'guided-workspace-dark.png'))
+            # Requirements approval also starts the remaining steps without a Retry dialog.
+            guided=server.workspace.create('master','guided-requirements-ui',json.dumps({'label':'guided-requirements-ui','pipeline':True}),digest(SOURCE))
+            page.locator('#back').click();page.locator('#refresh').click()
+            page.get_by_role('button',name='Open guided-requirements-ui',exact=True).click()
+            page.get_by_role('tab',name='Job details & AI',exact=False).click()
+            page.locator('#provider').select_option('codex');page.locator('#model').fill('fixture-model');page.locator('#model').press('Tab')
+            expect(page.locator('#review-policy')).to_have_value('manual')
+            for step in ('analyze','review','cover'):page.locator('#step-'+step).uncheck()
+            for step in ('extract','adapt'):page.locator('#step-'+step).check()
+            page.locator('#run-adapt').click()
+            expect(page.locator('#workflow-next')).to_have_text('Review job requirements',timeout=90000)
+            page.locator('#workflow-next').click();expect(page.locator('#requirements-dialog')).to_be_visible()
+            page.locator('#requirements-confirm').check();page.locator('#requirements-approve').click()
+            expect(page.locator('#requirements-dialog')).not_to_be_visible()
+            expect(page.locator('#workflow-next')).to_have_text('Review CV changes',timeout=90000)
+            page.locator('#workflow-next').click();page.locator('#accept-all-facts').click();page.locator('#confirm-factual-meaning').check()
+            page.locator('#apply-factual-review').click();expect(page.locator('#factual-review-panel')).to_be_hidden()
+            expect(page.locator('.dag-node[data-step=validating]')).to_have_attribute('data-status','succeeded',timeout=90000)
+            assert 'dependable systems' in server.workspace.read('guided-requirements-ui','main.tex')
+            # Automatic mode is an explicit UI choice; the real contract still gates publication.
+            automatic=server.workspace.create('master','automatic-ui',json.dumps({'label':'automatic-ui','pipeline':True}),digest(SOURCE))
+            seed(server.workspace,'automatic-ui')
+            page.locator('#back').click();page.locator('#refresh').click()
+            page.get_by_role('button',name='Open automatic-ui',exact=True).click()
+            page.get_by_role('tab',name='Job details & AI',exact=False).click()
+            page.locator('#provider').select_option('codex');page.locator('#model').fill('fixture-model');page.locator('#model').press('Tab')
+            for step in ('extract','analyze','review'):page.locator('#step-'+step).uncheck()
+            for step in ('adapt','cover'):page.locator('#step-'+step).check()
+            page.locator('#review-policy').select_option('automatic')
+            page.locator('#run-adapt').click()
+            expect(page.locator('.dag-node[data-step=validating]')).to_have_attribute('data-status','succeeded',timeout=180000)
+            expect(page.locator('#factual-review-panel')).to_be_hidden()
+            auto=server.workspace.list_jobs()['runs'][0]
+            assert auto['reviewPolicy']=='automatic' and auto['attempt']==3,auto
+            assert 'Built OOP services' in server.workspace.read('automatic-ui','main.tex')
+            assert 'Built OOP services' in server.workspace.read('automatic-ui','cover-letter.tex')
+            assert auto['stages'][2]['reusedFrom']
+            page.locator('#back').click();page.get_by_role('button',name='Open facts',exact=True).click()
+            expect(page.locator('#review-policy')).to_have_value('manual')
             assert not errors,errors
             browser.close()
-            print('PASS: keyboard accept/reject/edit, source-linked review, cancellation, explicit approval, restart-visible provenance, checkpoint retries, rejected wording excluded from Cover, real selectable PDF, stale-draft conflict, themes/mobile, graph configuration and auth boundary; no providers.')
+            print('PASS: fixed review controls; keyboard and bulk accept/reject/edit; requirements approval continues to Adapt; approved wording reaches main.tex and Cover; explicit automatic mode and manual reset; historical completion labels; real selectable PDF; stale-draft conflict; light/dark/mobile; graph configuration; authentication; no providers.')
     finally:
         server.shutdown();server.server_close();worker.join(timeout=5)
 

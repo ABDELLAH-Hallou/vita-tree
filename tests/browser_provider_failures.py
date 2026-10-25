@@ -58,12 +58,13 @@ def main():
             page.on('requestfinished',lambda r:request_log('done',r))
             page.on('requestfailed',lambda r:request_log('failed',r))
             url=f'http://127.0.0.1:{server.server_port}';page.goto(url)
-            # Graph/history show all typed failures without diagnosing every error as credentials.
+            assert page.locator('.dag-failure').count()==0
+            # Action panel/history show all typed failures without diagnosing every error as credentials.
             page.get_by_role('button',name='Open master',exact=True).click()
             for record,category in cases:
                 page.locator('#workflow-run').select_option(record['id'])
-                expect(page.locator('.dag-node[data-step=analyze] .dag-failure')).to_contain_text(category.replace('_',' '))
-                expect(page.locator('.dag-node[data-step=analyze]')).to_contain_text('Effective: gemini / fixture-model')
+                expect(page.locator('#workflow-next-help')).to_contain_text(category.replace('_',' '))
+                expect(page.locator('#workflow-next-help')).to_contain_text('Effective: gemini / fixture-model')
                 expect(page.locator('#workflow-summary')).to_contain_text('3 provider attempts')
                 before=len(workspace_requests)
                 page.locator('#view-run').click()
@@ -119,7 +120,7 @@ def main():
             for step in ('extract','analyze','adapt','review','cover'):page.locator('#step-'+step).set_checked(step in ('extract','analyze'))
             page.locator('#run-adapt').click()
             expect(page.locator('.dag-node[data-step=analyze]')).to_have_attribute('data-status','failed')
-            expect(page.locator('.dag-node[data-step=analyze]')).to_contain_text('Effective: codex / fixture-codex')
+            expect(page.locator('#workflow-next-help')).to_contain_text('Effective: codex / fixture-codex')
             expect(page.locator('#workflow-summary')).to_contain_text('Wait a little')
             page.locator('#workflow-graph').screenshot(path=str(artifacts/'provider-failed-graph.png'))
             page.locator('#model').fill('new-shared-model');page.locator('#model').press('Tab')
@@ -134,7 +135,7 @@ def main():
             page.locator('#confirm-resume').click()
             expect(page.locator('#workflow-run')).to_contain_text('Attempt 2')
             expect(page.locator('.dag-node[data-step=analyze]')).to_have_attribute('data-status','failed')
-            expect(page.locator('.dag-node[data-step=analyze]')).to_contain_text('Effective: codex / fixture-codex')
+            expect(page.locator('#workflow-next-help')).to_contain_text('Effective: codex / fixture-codex')
             page.locator('#view-run').click()
             expect(page.locator('#attempt-history')).to_contain_text('Captured setup preserved')
             # Explicit changed-config attempt; Extract remains reusable and local CV untouched.

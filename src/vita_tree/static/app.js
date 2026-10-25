@@ -11,8 +11,8 @@ import {createFactualReview} from './factual-review.js';
 import {createRequirements} from './requirements.js';
 import {createSetupChecks} from './preflight.js';
 const setupChecks=createSetupChecks({api,getState:()=>state,getBranches:()=>state.branches,getSteps:()=>workflowOptions().steps});
-const requirements=createRequirements({api,getState:()=>state,changed:()=>runMonitor.refresh(),notice});
-const factualReview=createFactualReview({api,getState:()=>state,changed:()=>runMonitor.refresh(),notice});
+const requirements=createRequirements({api,getState:()=>state,changed:()=>runMonitor.refresh(),continued:continueApproved,notice});
+const factualReview=createFactualReview({api,getState:()=>state,changed:()=>runMonitor.refresh(),continued:continueApproved,notice});
 state.filter='all';
 state.syncedCommits=new Map();
 const applicationName=name=>state.branches.find(item=>item.name===name)?.displayName||(state.snapshot?.branch===name?state.snapshot.displayName:null)||name;
@@ -94,7 +94,7 @@ function renderBranches() {
     const runs=state.runs.filter(run=>run.branch===b.name), latest=runs[0];
     return filter==='all' || (filter==='running' && runs.some(isActiveRun)) ||
       (filter==='review' && runs.some(run=>run.status==='succeeded'&&!run.reviewed)) ||
-      (filter==='failed' && latest && ['failed','interrupted'].includes(latest.status));
+      (filter==='failed' && latest && !needsDecision(latest) && ['failed','interrupted'].includes(latest.status));
   };
   for(const filter of ['all','running','review','failed']) $('#filter-'+filter).textContent=state.branches.filter(b=>matchesFilter(b,filter)).length;
   const branches = state.branches.filter(b => matchesFilter(b,state.filter) && `${b.displayName||b.name} ${b.name} ${b.subject} ${b.author}`.toLowerCase().includes(query));
@@ -116,9 +116,9 @@ function renderBranches() {
     const branchRuns=state.runs.filter(run=>run.branch===b.name);
     const run=branchRuns.find(isActiveRun)||branchRuns.find(item=>!item.reviewed)||branchRuns[0];
     if(run&&(isActiveRun(run)||!run.reviewed||['failed','interrupted'].includes(run.status))){
-      const badge=document.createElement('span');badge.className='branch-run';badge.dataset.status=run.status;
+      const badge=document.createElement('span');badge.className='branch-run';badge.dataset.status=needsDecision(run)?'review':run.status;
       badge.textContent=runLabel(run)+(!isActiveRun(run)&&!run.reviewed?' · To review':'');row.querySelector('.branch-info').append(badge);
-      if(runFailureText(run)){const info=document.createElement('span');info.className='branch-failure';info.textContent=runFailureText(run);row.querySelector('.branch-info').append(info);}
+      if(!needsDecision(run)&&runFailureText(run)){const info=document.createElement('span');info.className='branch-failure';info.textContent=runFailureText(run);row.querySelector('.branch-info').append(info);}
     }
   }
   if(!branches.length) $('#branch-list').innerHTML=state.filter==='review'&&!query ? '<p class="empty">No completed preparations need review.</p>' : '<p class="empty">No applications found. Try another filter or create a new application.</p>';
@@ -160,6 +160,7 @@ async function openBranch(name, force=false) {
     const [data,catalog,settings,connections]=await Promise.all([api('/api/workspace?branch='+encodeURIComponent(name)),api('/api/providers?branch='+encodeURIComponent(name)),api('/api/ai-settings?branch='+encodeURIComponent(name)),api('/api/connections')]);
     if(generation!==state.generation) return;
     state.snapshot=data; state.catalog=catalog; state.dirty=false; state.jobDirty=false; state.pdfs={};state.pdfDocument='cv';$('#pdf-document').value='cv';state.pdfGeneration++;
+    $('#review-policy').value=data.running?.reviewPolicy||'manual';
     aiSetup.load(name,catalog,settings,connections);
     renderProviders();
     history.replaceState(null,'','?branch='+encodeURIComponent(name));
@@ -362,6 +363,17 @@ $('#edit-form').onsubmit=async event=>{
   try{await api('/api/save',{branch:s.branch,...state.editOrigin,leaf:state.leaf,text:$('#edit-text').value});$('#edit-dialog').close();await openBranch(s.branch,true);toast('CV draft updated on this computer');}
   catch(error){$('#edit-error').textContent=error.message;}finally{event.submitter.disabled=false;}
 };
+const needsDecision=run=>!!(run?.requirementsApprovalNeeded||run?.factualReview?.state==='pending');
+async function continueApproved(ident, branch=state.snapshot?.branch){
+  const s=state.snapshot;
+  if(!s||s.branch!==branch||state.dirty||state.jobDirty)throw new Error('Approval saved. Reopen this application with saved drafts to continue.');
+  const run=ident?state.runs.find(r=>r.id===ident):state.runs.find(r=>r.branch===branch&&r.requirementsDraft&&!isActiveRun(r));
+  if(!ident&&!run){await runMonitor.refresh();return;}
+  const job=await api('/api/review-continue',{id:ident||run.id,revision:s.revision,jobRevision:s.jobRevision});
+  if(state.snapshot?.branch===branch){state.snapshot.running=isActiveRun(job)?job:null;state.graphRunId=job.id;}
+  await runMonitor.refresh();renderWorkflow();configureWorkflow();updateSaveState();
+  notice(isActiveRun(job)?'Approved. Continuing preparation…':job.message);
+}
 async function runAdapt(steps=workflowOptions().steps){
   if(!state.snapshot||state.snapshot.running||state.launching)return;
   if(!steps.length){notice('Select at least one step.',true);return;}
@@ -369,7 +381,7 @@ async function runAdapt(steps=workflowOptions().steps){
   state.launching=true;$('#run-adapt').disabled=true;$('#run-all').disabled=true;$('#task-run').disabled=true;editors.current.setReadOnly(true);$('#job-description').readOnly=true;$('#save-job').disabled=true;$('#branch-from').disabled=true;const s=state.snapshot;
   renderProviders();
   for(const id of aiSteps.map(id=>'step-'+id))$('#'+id).disabled=true;
-  try{const issue=aiSetup.problem(steps);if(issue)throw new Error(issue);const job=await api('/api/adapt',{branch:s.branch,revision:s.revision,jobRevision:s.jobRevision,aiConfig:aiSetup.value(),language:$('#language').value,workflow:{steps},engine:setupChecks.engine()});s.running=job;if(state.snapshot===s){state.graphRunId=job.id;renderProviders();configureWorkflow();renderWorkflow();updateSaveState();$('#ai-status').textContent=job.message;}await runMonitor.refresh();}
+  try{const issue=aiSetup.problem(steps);if(issue)throw new Error(issue);const job=await api('/api/adapt',{branch:s.branch,revision:s.revision,jobRevision:s.jobRevision,aiConfig:aiSetup.value(),language:$('#language').value,workflow:{steps},engine:setupChecks.engine(),reviewPolicy:$('#review-policy').value});s.running=job;if(state.snapshot===s){state.graphRunId=job.id;renderProviders();configureWorkflow();renderWorkflow();updateSaveState();$('#ai-status').textContent=job.message;}await runMonitor.refresh();}
   catch(error){if(state.snapshot===s){notice(error.message,true);configureWorkflow();editors.current.setReadOnly(!s.editable||currentFile()?.exists===false);$('#job-description').readOnly=!s.editable;$('#save-job').disabled=!s.editable;$('#branch-from').disabled=false;}}
   finally{state.launching=false;if(state.snapshot){renderProviders();configureWorkflow();renderWorkflow();}}
 }
@@ -386,7 +398,7 @@ async function runsChanged(runs){
     const finished=runs.find(run=>run.id===s.running.id);s.running=null;
     if(!state.dirty&&!state.jobDirty&&!state.publishing){
       const loaded=await openBranch(s.branch,true);
-      if(loaded&&finished){$('#ai-status').textContent=finished.message;notice(finished.message,finished.status!=='succeeded');}
+      if(loaded&&finished){$('#ai-status').textContent=finished.message;notice(finished.message,finished.status!=='succeeded'&&!needsDecision(finished));}
     }else{
       editors.current.setReadOnly(!s.editable||currentFile()?.exists===false);$('#job-description').readOnly=!s.editable;
       $('#save-job').disabled=!s.editable;$('#branch-from').disabled=false;
@@ -463,7 +475,13 @@ function renderWorkflow(){
   reviewButton.disabled=!!run?.reviewed||!!state.reviewingRunId;
   reviewButton.textContent=run?.reviewed?'Reviewed':state.reviewingRunId===run?.id?'Saving review…':'Mark as reviewed';
    $('#workflow-summary').textContent=run ? (run.factualReview?run.message:runFailureText(run)||run.message) : 'Choose the steps for your next preparation. Only selected AI steps will use your AI service.';
-  renderGraph($('#workflow-graph'),{run,options:workflowOptions(),available:state.session.workflow,selected:state.selectedTask,select:selectTask,config:run?.stepConfig||Object.fromEntries(aiSteps.map(step=>[step,aiSetup.route(step)]))});
+  if(run?.reviewPolicy==='automatic')$('#workflow-summary').textContent+=' Automatic approvals selected for this preparation.';
+  renderGraph($('#workflow-graph'),{run,history:runs,options:workflowOptions(),available:state.session.workflow,selected:state.selectedTask,select:selectTask,config:run?.stepConfig||Object.fromEntries(aiSteps.map(step=>[step,aiSetup.route(step)]))});
+  const next=$('#workflow-next');next.disabled=!!state.snapshot.running||!!state.launching;
+  next.textContent=run?.requirementsApprovalNeeded?'Review job requirements':run?.factualReview?.state==='pending'?'Review CV changes':run?.resumeAvailable?'Continue preparation':finished&&run.status==='succeeded'?'Preview your PDF':'Prepare application';
+  $('#workflow-action').dataset.state=needsDecision(run)?'review':run?.status==='failed'?'failed':'ready';
+  $('#workflow-next-help').textContent=needsDecision(run)?'One review, then the remaining steps continue automatically.':run?.status==='failed'?(runFailureText(run)||run.message):finished&&run.status==='succeeded'?'Your application is updated. Check the final layout before saving.':'Prepare everything, or choose individual steps in Job details & AI.';
+  $('#review-policy').disabled=!!state.snapshot.running||!!state.launching;
   if(state.selectedTask)updateInspector();
 }
 function updateInspector(){
@@ -493,6 +511,16 @@ function selectTask(task){
     allowNext:!state.snapshot.running&&!state.launching&&state.snapshot.editable,
   });
 }
+$('#workflow-next').onclick=()=>{
+  const run=state.displayedRun;
+  if(run?.requirementsApprovalNeeded)return requirements.open().catch(e=>notice(e.message,true));
+  if(run?.factualReview?.state==='pending')return factualReview.open(run).catch(e=>notice(e.message,true));
+  if(run?.resumeAvailable){state.resumeCaptured=true;$('#resume-current-config').checked=false;return reviewResume();}
+  if(run?.status==='succeeded'){setView('pdf');return;}
+  const steps=aiSteps.filter(stepAvailable);
+  if(aiSetup.problem(steps)||!state.snapshot.job.trim()){setView('ai');$('#ai-panel').scrollIntoView({block:'start'});notice('Add the job description and choose your AI setup, then prepare the application.');return;}
+  return runAdapt(steps);
+};
 $('#view-run').onclick=async()=>{
   const run=state.displayedRun;if(!run||isActiveRun(run)||state.openingRunId)return;
   state.openingRunId=run.id;renderWorkflow();
