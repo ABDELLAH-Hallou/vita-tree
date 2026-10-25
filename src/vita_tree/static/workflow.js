@@ -1,4 +1,3 @@
-import {failureText} from './provider-failures.js';
 export const tasks = [
   {id:'extract', title:'Identify job requirements', detail:'Identify the skills and experience the employer wants.', output:'Job requirements'},
   {id:'analyze', title:'Check CV match', detail:'Compare your CV with the job requirements.', output:'CV match analysis'},
@@ -7,8 +6,7 @@ export const tasks = [
   {id:'cover', title:'Cover letter', detail:'Write a letter using the current CV and job context. Compiles a PDF before finishing. Adaptation is not required.', output:'Cover letter and PDF'},
   {id:'validating', title:'Final checks', detail:'Check the document files and protect your existing edits. CV PDF previews are created separately.', output:'Application files'},
 ];
-export const statusNames = {pending:'Not started', running:'In progress', succeeded:'Done', failed:'Couldn’t finish', blocked:'Waiting for an earlier step', interrupted:'Stopped before finishing', skipped:'Skipped', unavailable:'Not available', unknown:'No earlier details'};
-const symbols = {pending:'○', running:'◉', succeeded:'✓', failed:'!', blocked:'−', interrupted:'!', skipped:'−', unavailable:'−', unknown:'?'};
+export const statusNames = {pending:'Not started', running:'In progress', succeeded:'Done', failed:'Couldn’t finish', blocked:'Waiting for an earlier step', interrupted:'Stopped before finishing', skipped:'Skipped', unavailable:'Not available', unknown:'No earlier details',review:'Needs your review',previous:'Done earlier'};
 export function graphStages(run, options={}, available={}) {
   return tasks.map(task => {
     let stage = run?.stages?.find(item => item.id === task.id);
@@ -21,8 +19,15 @@ export function graphStages(run, options={}, available={}) {
     return {...task, ...stage};
   });
 }
-export function renderGraph(container, {run, options, available, selected, select, config={}}) {
-  const stages = graphStages(run, options, available);
+export function renderGraph(container, {run, options, available, selected, select, history=[], config={}}) {
+  const stages = graphStages(run, options, available).map(task=>{
+    if(run?.factualReview?.state==='pending'&&run.factualReview.step===task.id||task.id==='extract'&&run?.requirementsApprovalNeeded)return {...task,status:'review'};
+    if(task.status==='skipped'){
+      const prior=history.find(item=>item.id!==run?.id&&(!run||item.createdAt<run.createdAt)&&item.stages?.some(stage=>stage.id===task.id&&stage.status==='succeeded'));
+      if(prior)return {...task,status:'previous',previousRun:prior.id};
+    }
+    return task;
+  });
   // Keep keyboard focus stable while a poll updates status text.
   const focused = container.contains(document.activeElement) ? document.activeElement.dataset.step : null;
   container.replaceChildren();
@@ -39,7 +44,9 @@ export function renderGraph(container, {run, options, available, selected, selec
       button.title=run?'View the AI settings captured for this step':'Configure the AI for this step';
     }
     button.setAttribute('aria-label',`${task.title}: ${statusNames[task.status] || task.status}. ${task.detail}`);
-    const icon=document.createElement('span'); icon.className='dag-symbol'; icon.textContent=symbols[task.status] || '?'; icon.setAttribute('aria-hidden','true');
+    const icon=document.createElementNS('http://www.w3.org/2000/svg','svg');icon.classList.add('dag-symbol');icon.setAttribute('viewBox','0 0 24 24');icon.setAttribute('aria-hidden','true');
+    const shape=document.createElementNS('http://www.w3.org/2000/svg','path');
+    shape.setAttribute('d',['succeeded','previous'].includes(task.status)?'m5 12 4 4L19 6':['failed','interrupted'].includes(task.status)?'M12 5v9m0 4v.1':['skipped','unavailable','blocked'].includes(task.status)?'M6 12h12':'M21 12a9 9 0 1 1-9-9 9 9 0 0 1 9 9');icon.append(shape);
     const title=document.createElement('strong'); title.textContent=task.title;
     const state=document.createElement('span'); state.className='dag-status'; state.textContent=(statusNames[task.status] || task.status)+(task.reusedFrom?' · reused':'');
     if(run?.factualReview?.step===task.id)state.textContent=({pending:'Needs factual review',resolved:'Factual decisions saved',unavailable:'Review unavailable'}[run.factualReview.state]||'Review unavailable');
@@ -48,12 +55,10 @@ export function renderGraph(container, {run, options, available, selected, selec
     const time=document.createElement('span'); time.className='dag-time';
     if(task.startedAt&&!task.finishedAt&&task.status==='running')time.dataset.startedAt=task.startedAt;
     time.textContent=task.startedAt ? `${Math.max(0,Math.floor((task.finishedAt || Date.now()/1000)-task.startedAt))}s` : task.output;
-    button.append(icon,title,state,time); button.onclick=()=>select(task); container.append(button);
+    if(task.previousRun){time.textContent='Earlier preparation · not rerun';button.title='Completed in an earlier preparation. This is history, not a claim that its artifacts match current inputs.';}button.append(icon,title,state,time); button.onclick=()=>select(task); container.append(button);
     if(run?.requirementsRevision&&task.id!=='validating'){
       const revision=document.createElement('span');revision.className='dag-requirements';revision.textContent='Requirements '+run.requirementsRevision.slice(0,12);revision.title=run.requirementsRevision;button.append(revision);
     }
-    const failure=run?.factualReview?.step===task.id?'':failureText(run,task.id);
-    if(failure){const info=document.createElement('span');info.className='dag-failure';info.textContent=failure;button.append(info);button.setAttribute('aria-label',button.getAttribute('aria-label')+' '+failure);}
     if(config[task.id]) {
       const route=config[task.id], model=document.createElement('span');model.className='dag-model';
       model.textContent=route.model||route.provider+' default';model.title=`${route.provider} · ${route.reasoning||'Automatic reasoning'}`;button.append(model);

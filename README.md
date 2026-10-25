@@ -151,9 +151,19 @@ Extraction and structured evaluation reports require Vita CV 2.5+. The UI detect
 
 Vita CV 2.5 writes `analysis.md`/`analysis.json`, `review.md`/`review.json`, and comparable `delta.md`/`delta.json` reports. Vita Tree retains these along with `job.json` and `job.toon`. Reports render as readable Markdown with tables; raw HTML is treated as text. Historical runs without recorded task progress display **Not recorded**, never inferred success.
 
-The **Appearance** selector in the header offers Light, Dark, and System. Your preference is saved in this browser; System follows OS appearance changes. Reading pages and compiled PDFs remain white in dark mode.
+The theme icon in the header switches between Light and Dark. Your preference is saved in this browser. Reading pages and compiled PDFs remain white in dark mode.
 
 For a pipx editable installation, source changes take effect when you restart `vt`; no reinstall is needed. To reinstall its environment explicitly, run `pipx reinstall vita-tree`, then restart the command above.
+
+## Review and continue
+
+The workflow's **Your next step** action opens the required review or starts preparation. **Approve & continue** saves your decisions and resumes with the captured AI setup; you do not need to retry manually. Your CV is updated after the remaining steps and final checks succeed. A conflict preserves your edits and the reviewed draft.
+
+Review sheets keep Close and approval controls visible while you scroll. Factual changes show highlighted original/proposed LaTeX; **Accept all** or **Keep all originals** selects decisions in bulk, with individual edits still available. Confirm the meaning before approving. The full proposed-source preview includes syntax diagnostics; compilation remains authoritative.
+
+**Review mode** defaults to **Review before continuing**. Select **Automatic · accept AI proposals** before starting a run to accept extracted requirements and proposed factual changes without pausing. Automatic decisions retain separate provenance and attempt history. Provider errors, compilation failures, and conflicts still stop the run. Restarted work is not silently resumed, and neither mode commits or pushes automatically.
+
+Unselected graph steps can show **Done earlier** when execution history exists. This label preserves history; it does not claim the old result matches changed inputs or will be reused. Checkpoint reuse still requires matching inputs and configuration.
 
 ## What is supported and what is limited
 

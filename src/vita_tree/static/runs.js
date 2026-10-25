@@ -1,7 +1,7 @@
 import {tasks} from './workflow.js';
 // Global background run monitor. Polling is independent of branch navigation.
 export const isActiveRun = run => run && ['queued', 'running'].includes(run.status);
-export const runLabel = run => run.factualReview?({pending:'Needs factual review',resolved:'Ready to continue',unavailable:'Review unavailable'}[run.factualReview.state]||'Review unavailable'):({queued:'Queued', preparing:'Preparing', extract:'Identifying requirements', review:'Reviewing CV', cover:'Writing cover letter', analyze:'Checking CV match', adapt:'Tailoring CV',
+export const runLabel = run => run.requirementsApprovalNeeded?'Needs requirements review':run.factualReview?({pending:'Needs factual review',resolved:'Ready to continue',unavailable:'Review unavailable'}[run.factualReview.state]||'Review unavailable'):({queued:'Queued', preparing:'Preparing', extract:'Identifying requirements', review:'Reviewing CV', cover:'Writing cover letter', analyze:'Checking CV match', adapt:'Tailoring CV',
   preflight:'Checking setup', validating:'Checking results', completed:'Completed', failed:'Couldn’t finish', interrupted:'Stopped before finishing'}[run.step] || run.status);
 export const runSteps = run => {
   const selected=(run.stages || []).filter(stage=>stage.status!=='skipped'&&stage.id!=='validating');

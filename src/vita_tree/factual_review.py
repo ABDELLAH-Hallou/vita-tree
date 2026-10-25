@@ -159,7 +159,7 @@ def _stage_matches(stage, manifest):
         return False
 
 
-def apply(workspace, ident, revision, token, decisions, confirmed=False):
+def apply(workspace, ident, revision, token, decisions, confirmed=False, *, automatic=False):
     from .workspace import ConflictError, safe_path, read_text
     from .latex import parse_document
     from .pdf import compile_document
@@ -191,7 +191,7 @@ def apply(workspace, ident, revision, token, decisions, confirmed=False):
                 raise ValueError('The backend did not apply the reviewed document. Your application is unchanged.')
             if expected is not None and (parse_document(expected)['error'] or r'\begin{document}' not in expected):
                 raise ValueError('The reviewed text is not a valid LaTeX document. Adjust the edited wording before applying.')
-            provenance = {'schemaVersion': 1, 'method': 'explicit_ui_review', 'actor': 'local_user',
+            provenance = {'schemaVersion': 1, 'method': 'automatic_run_policy' if automatic else 'explicit_ui_review', 'actor': 'automatic_policy' if automatic else 'local_user',
                           'runId': ident, 'step': report['step'], 'revision': revision,
                           'resolvedRevision': resolved['revision'], 'decidedAt': time.time(),
                           'decisions': decisions, 'documentHash': checkpoints.fingerprint(expected)}

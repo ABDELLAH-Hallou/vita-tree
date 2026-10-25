@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import sys
 import unittest
+import time
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -63,6 +64,59 @@ class FactualWorkflowTests(unittest.TestCase):
         plan = self.workspace.resume_ai(run['id'], snap['revision'], snap['jobRevision'], preview=True, **changes)
         child = self.workspace.resume_ai(run['id'], snap['revision'], snap['jobRevision'], token=plan['token'], **changes)
         return plan, self.finished(child['id'])
+
+    def test_approve_continue_publishes_once_and_repeated_submit_reuses_child(self):
+        branch, parent = self.prepare(['adapt'])
+        self.apply(parent)
+        child = self.workspace.continue_review(parent['id'], branch['revision'], branch['jobRevision'])
+        duplicate = self.workspace.continue_review(parent['id'], branch['revision'], branch['jobRevision'])
+        self.assertEqual(child['id'], duplicate['id'])
+        final = self.finished(child['id'])
+        self.assertEqual(final['status'], 'succeeded', final)
+        self.assertEqual(final['parentRunId'], parent['id'])
+        self.assertIn('adapt', final['checkpointSteps'])
+        self.assertIn('TypeScript', self.workspace.read('facts', 'main.tex'))
+        self.assertNotIn('Built OOP services', self.workspace.read('facts', 'main.tex'))
+
+    def test_automatic_full_pipeline_records_policy_and_publishes_after_validation(self):
+        branch = self.workspace.create('master', 'automatic', json.dumps({'label':'automatic','pipeline':True}), digest(SOURCE))
+        self.labels.append('automatic');self.release('automatic')
+        with patch.dict(os.environ, {'VITA_TEST_CANONICAL':'1'}):
+            run = self.workspace.start_ai('automatic',branch['revision'],branch['jobRevision'],provider='codex',
+                workflow={'steps':['extract','analyze','adapt','cover']},review_policy='automatic')
+            deadline=time.monotonic()+180
+            while self.workspace._ai_threads and time.monotonic()<deadline:time.sleep(.1)
+            self.assertFalse(self.workspace._ai_threads, 'Automatic chain did not finish within 180 seconds')
+        runs = [r for r in self.workspace.list_jobs()['runs'] if r['branch']=='automatic']
+        final = runs[0]
+        self.assertEqual(final['status'],'succeeded',runs)
+        self.assertEqual(len(runs),4,runs)
+        self.assertTrue(all(r['reviewPolicy']=='automatic' for r in runs))
+        self.assertEqual(final['rootRunId'],run['id'])
+        self.assertEqual(self.workspace.snapshot('automatic')['original'],SOURCE)
+        self.assertIn('dependable systems',self.workspace.read('automatic','main.tex'))
+        self.assertIn('Built OOP services',self.workspace.read('automatic','cover-letter.tex'))
+        for record in runs:
+            if record.get('factualReview'):
+                provenance=self.workspace.factual_review(record['id'])['provenance']
+                self.assertEqual(provenance['method'],'automatic_run_policy')
+                self.assertEqual(provenance['actor'],'automatic_policy')
+        from vita_tree import requirements_review
+        context=requirements_review.context_for(self.workspace,'automatic')
+        _,_,marker=requirements_review.paths(self.workspace,context)
+        self.assertEqual(requirements_review.read(marker)['method'],'automatic_run_policy')
+
+    def test_approved_draft_changed_before_continuation_stops_safely(self):
+        branch,parent=self.prepare(['adapt'])
+        self.apply(parent)
+        self.workspace.save('facts','main.tex',branch['revision'],SOURCE+'\n% local draft')
+        with self.assertRaises(ConflictError):
+            self.workspace.continue_review(parent['id'],branch['revision'],branch['jobRevision'])
+        snapshot=self.workspace.snapshot('facts')
+        with self.assertRaisesRegex(ConflictError,'no longer matches'):
+            self.workspace.continue_review(parent['id'],snapshot['revision'],snapshot['jobRevision'])
+        self.assertIn('local draft',self.workspace.read('facts','main.tex'))
+        self.assertEqual(len(self.workspace.list_jobs()['runs']),1)
 
     def test_mixed_decisions_matching_cover_restart_and_atomic_publication(self):
         branch, parent = self.prepare()

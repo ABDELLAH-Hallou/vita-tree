@@ -154,7 +154,7 @@ def run_status(workspace, record):
         return 'unavailable'
 
 
-def change(workspace, branch, token, revision, items=None, approve=False, confirmed=False):
+def change(workspace, branch, token, revision, items=None, approve=False, confirmed=False, *, automatic=False):
     from .workspace import ConflictError, digest
     with workspace.lock:
         workspace.busy(branch)
@@ -177,10 +177,10 @@ def change(workspace, branch, token, revision, items=None, approve=False, confir
             write(approval, {'schema_version':1,'source_sha256':digest(context['job']), 'revision':data['revision']})
         write(marker, {'state':'approved' if approve else 'pending', 'revision':data['revision'],
                        'parentRevision':revision if revision != data['revision'] else current['parentRevision'],
-                       'originBranch':branch, 'decidedAt':time.time(), 'method':'explicit_ui_review' if approve else 'ui_correction'})
+                       'originBranch':branch, 'decidedAt':time.time(), 'method':('automatic_run_policy' if automatic else 'explicit_ui_review') if approve else 'ui_correction'})
         # Immutable provenance survives future approvals for the same source.
         write(workspace.root/'requirements-history'/(data['revision']+'-'+str(time.time_ns())+'.json'),
-              {'revision':data['revision'], 'parentRevision':revision, 'branch':branch,'approved':approve,'at':time.time(),'actor':'local_user'})
+              {'revision':data['revision'], 'parentRevision':revision, 'branch':branch,'approved':approve,'at':time.time(),'actor':'automatic_policy' if automatic else 'local_user'})
         return view(workspace, branch)
 
 
