@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.15.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.14.0...v1.15.0) (2026-10-25)
+
+
+### Features
+
+* simplify reviews and continue preparation automatically ([62e2858](https://github.com/ABDELLAH-Hallou/vita-tree/commit/62e2858b7ce8f6f58507df7f52ee33a1d241d6ba))
+* simplify reviews and continue preparation automatically ([0caa30b](https://github.com/ABDELLAH-Hallou/vita-tree/commit/0caa30bd855050897ec4ecd6b5ab56e4f3a5b6df))
+
 ## [1.14.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.13.0...v1.14.0) (2026-10-24)
 
 
