@@ -2,6 +2,7 @@
 from email.parser import BytesParser
 from email.utils import getaddresses
 import hashlib
+import json
 from pathlib import Path, PurePosixPath
 import sys
 import tarfile
@@ -50,6 +51,15 @@ def check(directory):
             assert f'vita_tree-{version}/{path}' in source_names, path
         for name in expected:
             assert f'vita_tree-{version}/src/{name}' in source_names, name
+        # The source archive must contain the exact licensed corpus needed to
+        # reproduce compatibility evidence; test assets stay out of the wheel.
+        corpus = root/'tests/fixtures/template_matrix'
+        manifest = json.loads((corpus/'manifest.json').read_text(encoding='utf-8'))
+        for fixture in manifest['fixtures']:
+            for ref in fixture['files'].values():
+                name = f'vita_tree-{version}/tests/fixtures/template_matrix/'+ref['fixture']
+                assert name in source_names, name
+                assert hashlib.sha256(sdist.extractfile(name).read()).hexdigest() == ref['sha256'], name
     for name in names | source_names:
         parts = PurePosixPath(name).parts
         assert not set(parts) & {'.env', '.git', '.venv', '.pypirc', '.test-artifacts', 'node_modules', '__pycache__'}, name

@@ -119,6 +119,20 @@ class TemplateMatrixTests(unittest.TestCase):
         documents, _ = structure(fixture, sources(fixture))
         self.assertTrue(documents['main.tex']['error'])
 
+    def test_only_declared_arabic_glyph_joins_are_exempt_from_overlap_checks(self):
+        xml = '''<page width="100" height="100">
+          <word xMin="10" yMin="10" xMax="30" yMax="20">ت</word>
+          <word xMin="12" yMin="10" xMax="32" yMax="20">ا</word>
+          <word xMin="10" yMin="40" xMax="30" yMax="50">Latin</word>
+          <word xMin="12" yMin="40" xMax="32" yMax="50">Collision</word></page>'''
+        # XML page normally has a document parent, matching Poppler output.
+        xml = '<doc>'+xml+'</doc>'
+        _, all_problems = inspect_boxes(xml, dict(required=[]))
+        _, declared = inspect_boxes(xml, dict(required=[], joinedGlyphScripts=['Arabic']))
+        self.assertEqual(len(all_problems), 2)
+        self.assertEqual(len(declared), 1)
+        self.assertEqual(declared[0]['text'], 'Latin')
+
     def test_compiler_cannot_mutate_the_snapshot_even_when_compilation_fails(self):
         fixture = copy.deepcopy(load_corpus()['fixtures'][0])
         def mutate(folder, *args):

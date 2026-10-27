@@ -44,7 +44,7 @@ jobs:
           Acquire::https::Timeout "30";
           EOF
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends texlive-latex-extra texlive-xetex texlive-luatex texlive-lang-arabic fonts-hosny-amiri poppler-utils
+          sudo apt-get install -y --no-install-recommends texlive-latex-extra texlive-fonts-recommended texlive-xetex texlive-luatex texlive-lang-arabic fonts-hosny-amiri poppler-utils
       - name: Verify all engine and snapshot contracts; render every PDF page
         run: python tests/run_template_matrix.py --output .test-artifacts/template-matrix-ci --require-dependencies
       - name: Install test browser

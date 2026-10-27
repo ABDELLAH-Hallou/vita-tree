@@ -10,7 +10,8 @@ their own licenses; they are test prerequisites, not redistributed assets.
 hashes, engine expectations, visible markers, page counts, include diagnostics,
 mapped edits, and declared compatibility limits. `.fixture` files are copied to
 their manifest filenames in isolated temporary repositories. They are inert test
-assets in Git, not user CVs or files in the distributable Python package.
+assets in Git, not user CVs. They ship in the source archive for reproducibility,
+not in the installed runtime wheel.
 
 | Fixture | Coverage | Engines | Structure limit |
 | --- | --- | --- | --- |

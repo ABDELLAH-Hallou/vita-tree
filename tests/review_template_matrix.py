@@ -20,7 +20,7 @@ def captured_pages(report):
                 for page in run['pages']:
                     result.append(dict(id=f"{fixture['id']}/{engine}/{run['snapshot']}/{page['number']}",
                                        image=page['image'], imageSha256=page['imageSha256'],
-                                       status='pending', notes=''))
+                                       visualOnlyMarkers=run.get('visualOnlyMarkers', []), status='pending', notes=''))
     return result
 
 
@@ -40,7 +40,7 @@ def review_report(path, verify=False):
         assert review['reviewer'].strip(), 'Set the reviewer'
         assert len(review['pages']) == len(pages) > 0, 'Review must cover every rendered page'
         for expected, actual in zip(pages, review['pages']):
-            assert all(actual[key] == expected[key] for key in ('id', 'image', 'imageSha256')), 'Page identity changed'
+            assert all(actual[key] == expected[key] for key in ('id', 'image', 'imageSha256', 'visualOnlyMarkers')), 'Page identity changed'
             assert actual['status'] == 'pass', f"Page not approved: {expected['id']}"
             assert actual['notes'].strip(), 'Record observations, not just a pass flag'
         return len(pages)
@@ -50,7 +50,9 @@ def review_report(path, verify=False):
                                      pages=pages), indent=2)+'\n', encoding='utf-8')
     cards = []
     for page in pages:
-        cards.append(f'<figure><figcaption>{escape(page["id"])}</figcaption>'
+        markers = ''.join('<li><bdi>'+escape(value)+'</bdi></li>' for value in page['visualOnlyMarkers'])
+        cards.append(f'<figure><figcaption>{escape(page["id"])}'+
+                     ('<p>Check visually; extraction cannot verify:</p><ul>'+markers+'</ul>' if markers else '')+'</figcaption>'
                      f'<a href="{escape(page["image"], quote=True)}"><img loading="lazy" '
                      f'src="{escape(page["image"], quote=True)}" alt="{escape(page["id"], quote=True)}"></a></figure>')
     (root/'review.html').write_text('<!doctype html><html lang="en"><meta charset="utf-8">'

@@ -529,13 +529,22 @@
         "required": [
           "Arabic profile",
           "RTL source target",
-          "مهندس برمجيات",
           "Untouched conclusion."
         ],
         "perPage": {},
-        "associations": []
+        "associations": [],
+        "visualOnlyMarkers": [
+          "مهندس برمجيات",
+          "خبرة في تطوير الأنظمة"
+        ],
+        "joinedGlyphScripts": [
+          "Arabic"
+        ],
+        "inspectionLimits": [
+          "Poppler extracts partial Arabic presentation glyphs. Visual inspection is required for the Arabic phrases; text selection, search and reading order are not verified. Joined Arabic glyph bounds may overlap."
+        ]
       },
-      "limits": "XeLaTeX with polyglossia, bidi and Amiri only. Structure displays logical Unicode text approximately; native RTL shaping, font layout and PDF reading order require separate checks."
+      "limits": "XeLaTeX with polyglossia, bidi and Amiri only. Structure displays logical Unicode text approximately; native RTL shaping, font layout and PDF reading order require separate checks. PDF Arabic text extraction is partial; Arabic phrases require explicit visual review."
     },
     {
       "id": "long-document",

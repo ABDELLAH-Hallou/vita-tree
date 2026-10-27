@@ -25,7 +25,7 @@ inspection tool is unavailable. Without it, absent dependencies remain explicit
 in the report and are not counted as verified PDFs.
 
 Install TeX and Poppler yourself. The dedicated Ubuntu 24.04 CI job explicitly
-provisions `texlive-latex-extra`, `texlive-xetex`, `texlive-luatex`,
+provisions `texlive-latex-extra`, `texlive-fonts-recommended`, `texlive-xetex`, `texlive-luatex`,
 `texlive-lang-arabic`, `fonts-hosny-amiri` and `poppler-utils`. This is test-machine
 setup, not product behavior. Vita Tree never installs a missing package or
 enables shell escape to make these tests pass. Windows/MiKTeX installations need
@@ -75,6 +75,14 @@ promise. PDF timestamps also vary.
 of PDF compilation success. Arbitrary macro expansion, computed includes, exact
 table/column geometry and bidi layout remain limited. The Unicode case covers
 accented Latin text; it does not establish emoji, CJK or all writing-system support.
+
+In the Arabic/Amiri fixture, the PDF paints the complete Arabic phrases but Poppler
+extracts fragmented presentation glyphs. Those phrases are explicit
+`visualOnlyMarkers`, displayed in the review gallery and ledger. Their omission
+checks require visual inspection; selection, search and reading order are **not**
+verified for this case. Joined Arabic glyph bounds intentionally overlap, so this
+fixture explicitly permits Arabic-to-Arabic box joins. Latin overlaps and page
+bounds remain checked. This is a recorded compatibility limit, not a parser fix.
 
 Word boxes are font metrics, not painted pixels. For example, bitmap T1 fonts can
 have oversized boxes that overlap between clean-looking lines. Investigate the

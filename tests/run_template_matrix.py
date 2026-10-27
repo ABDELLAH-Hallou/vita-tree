@@ -8,6 +8,7 @@ import re
 import shutil
 import subprocess
 import sys
+import unicodedata
 import xml.etree.ElementTree as ET
 from unittest.mock import patch
 
@@ -94,7 +95,14 @@ def inspect_boxes(xml, expectation):
                     break
                 dx, dy = min(a[2], b[2])-max(a[0], b[0]), min(a[3], b[3])-max(a[1], b[1])
                 area = min((a[2]-a[0])*(a[3]-a[1]), (b[2]-b[0])*(b[3]-b[1]))
-                if dx > 2 and dy > 2 and dx*dy > .2*area:
+                # Joined Arabic glyphs intentionally share bounds. Only an
+                # explicit fixture contract opts in; Latin collisions and all
+                # clipping checks remain enforced.
+                def arabic(value):
+                    letters = [c for c in value if c.isalpha()]
+                    return bool(letters) and all('ARABIC' in unicodedata.name(c, '') for c in letters)
+                joined = 'Arabic' in expectation.get('joinedGlyphScripts', []) and arabic(text) and arabic(other)
+                if dx > 2 and dy > 2 and dx*dy > .2*area and not joined:
                     problems.append({'kind': 'overlap', 'page': number, 'text': text, 'other': other})
         content = normalized(' '.join(value for _, value in words))
         if not words:
@@ -185,7 +193,9 @@ def compile_case(output, fixture, files, engine, snapshot, tools):
     for page, path in zip(pages, pngs):
         page.pop('text')  # Sources/markers are synthetic, but reports need no document body.
         page.update(image=path.relative_to(output).as_posix(), imageSha256=sha(path.read_bytes()), visualReview='pending')
-    result.update(pages=pages, problems=problems, status='layout_defect' if problems else 'verified_automatically')
+    result.update(pages=pages, problems=problems, visualOnlyMarkers=fixture['pdf'].get('visualOnlyMarkers', []),
+                  inspectionLimits=fixture['pdf'].get('inspectionLimits', []),
+                  status='layout_defect' if problems else 'verified_automatically')
     return result
 
 
