@@ -28,17 +28,19 @@ def main():
                       corpusSha256=sha((CORPUS/'manifest.json').read_bytes()), browserVersion=browser.version,
                       harnessSha256=sha(Path(__file__).read_bytes()),
                       appSha256=sha((ROOT/'src/vita_tree/static/app.js').read_bytes()), results=evidence)
-        page = browser.new_page(viewport={'width': 1440, 'height': 1050})
-        held = []
-        pause_refresh = False
-        page.route('**/api/workspace?*', lambda route: held.append(route) if pause_refresh else route.continue_())
-        page.on('pageerror', lambda error: errors.append(error.stack))
         for fixture in load_corpus()['fixtures']:
             root = make_repository(args.output/fixture['id'], fixture)
             expected = sources(fixture)
             server = VitaTreeServer(('127.0.0.1', 0), root, 'main.tex', None, log_dir=root/'.git/test-logs')
             thread = threading.Thread(target=server.serve_forever, daemon=True)
             thread.start()
+            # Each fixture is a different local project/server. Dispose its
+            # polling page before stopping that server or reusing a port.
+            page = browser.new_page(viewport={'width': 1440, 'height': 1050})
+            held = []
+            pause_refresh = False
+            page.route('**/api/workspace?*', lambda route: held.append(route) if pause_refresh else route.continue_())
+            page.on('pageerror', lambda error: errors.append(error.stack))
             try:
                 page.goto(f'http://127.0.0.1:{server.server_port}/?branch=master')
                 expect(page.locator('#branch-title')).to_have_text('master')
@@ -102,6 +104,7 @@ def main():
                 (args.output/'browser-results.json').write_text(json.dumps(report, indent=2)+'\n', encoding='utf-8')
                 print('PASS: Structure/source-map UI '+fixture['id'], flush=True)
             finally:
+                page.close()
                 server.shutdown()
                 server.server_close()
                 thread.join(timeout=5)
