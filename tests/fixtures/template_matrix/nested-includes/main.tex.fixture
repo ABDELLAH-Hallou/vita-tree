@@ -1,0 +1,12 @@
+\documentclass[10pt]{article}
+\usepackage[margin=0.7in]{geometry}
+\pagestyle{empty}
+\listfiles
+\begin{document}
+\section*{Included project}
+\input{sections/profile}
+\include{sections/roles}
+\section*{Final section}
+Untouched conclusion.
+
+\end{document}

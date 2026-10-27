@@ -1,0 +1,1076 @@
+{
+  "schemaVersion": 1,
+  "corpusVersion": "1.0.0",
+  "license": "MIT",
+  "provenance": "Synthetic fixtures authored for Vita Tree. No third-party CVs, personal data or fonts are distributed.",
+  "fixtures": [
+    {
+      "id": "native-environments",
+      "version": "1.0.0",
+      "features": [
+        "local-class",
+        "custom-environments",
+        "nested-definition-arguments"
+      ],
+      "entry": "main.tex",
+      "files": {
+        "matrixcv.cls": {
+          "fixture": "native-environments/matrixcv.cls.fixture",
+          "sha256": "49c88bc72c97fd9cbd0f2865393a91de6ae8ef1a7c8c3820d50e3cb753b41711"
+        },
+        "main.tex": {
+          "fixture": "native-environments/main.tex.fixture",
+          "sha256": "363a27607d177bc0acd6dedaeaafa2331573760801db10d2ae992a8e4d8b0d1f"
+        }
+      },
+      "engines": {
+        "pdflatex": {
+          "status": "success",
+          "pages": 1
+        },
+        "xelatex": {
+          "status": "success",
+          "pages": 1
+        },
+        "lualatex": {
+          "status": "success",
+          "pages": 1
+        }
+      },
+      "structure": {
+        "status": "approximate",
+        "required": [
+          "Synthetic template",
+          "Experience",
+          "Environment target",
+          "Untouched conclusion."
+        ],
+        "absent": [],
+        "diagnostics": []
+      },
+      "edits": [
+        {
+          "path": "main.tex",
+          "find": "Environment target",
+          "replacement": "Reviewed environment target",
+          "replacementSource": "Reviewed environment target",
+          "kind": "macro_argument",
+          "occurrence": 0
+        }
+      ],
+      "pdf": {
+        "required": [
+          "Synthetic template",
+          "Experience",
+          "Environment target",
+          "Untouched conclusion.",
+          "Experience",
+          "Environment target"
+        ],
+        "perPage": {},
+        "associations": [
+          [
+            "Experience",
+            "Environment target"
+          ]
+        ]
+      },
+      "limits": "Structure preserves visible text but does not reproduce TeX layout."
+    },
+    {
+      "id": "macro-arguments",
+      "version": "1.0.0",
+      "features": [
+        "macro-arguments",
+        "nested-formatting",
+        "optional-arguments",
+        "unsupported-expansion"
+      ],
+      "entry": "main.tex",
+      "files": {
+        "main.tex": {
+          "fixture": "macro-arguments/main.tex.fixture",
+          "sha256": "5df612f0fc277b6d513e06740c8810ca0c07b3e4e3317d73f19f1b03e97047b4"
+        }
+      },
+      "engines": {
+        "pdflatex": {
+          "status": "success",
+          "pages": 1
+        },
+        "xelatex": {
+          "status": "success",
+          "pages": 1
+        },
+        "lualatex": {
+          "status": "success",
+          "pages": 1
+        }
+      },
+      "structure": {
+        "status": "approximate",
+        "required": [
+          "Macro arguments",
+          "Macro role target",
+          "Nested argument target",
+          "Link label target",
+          "Badge argument target",
+          "Untouched conclusion."
+        ],
+        "absent": [
+          "ExpansionOnlyMarker"
+        ],
+        "diagnostics": []
+      },
+      "edits": [
+        {
+          "path": "main.tex",
+          "find": "Macro role target",
+          "replacement": "Reviewed macro role",
+          "replacementSource": "Reviewed macro role",
+          "kind": "macro_argument",
+          "occurrence": 0
+        },
+        {
+          "path": "main.tex",
+          "find": "Nested argument target",
+          "replacement": "Reviewed nested argument",
+          "replacementSource": "Reviewed nested argument",
+          "kind": "macro_argument",
+          "occurrence": 0
+        },
+        {
+          "path": "main.tex",
+          "find": "Link label target",
+          "replacement": "Reviewed link label",
+          "replacementSource": "Reviewed link label",
+          "kind": "macro_argument",
+          "occurrence": 0
+        }
+      ],
+      "pdf": {
+        "required": [
+          "Macro arguments",
+          "Macro role target",
+          "Nested argument target",
+          "Link label target",
+          "Badge argument target",
+          "Untouched conclusion.",
+          "ExpansionOnlyMarker"
+        ],
+        "perPage": {},
+        "associations": []
+      },
+      "limits": "Known resume macros expose mapped arguments. Arbitrary expansion and inserted literal text (ExpansionOnlyMarker) are not executed in Structure."
+    },
+    {
+      "id": "escaped-text",
+      "version": "1.0.0",
+      "features": [
+        "escaped-text",
+        "special-macro-leaves",
+        "brace-preservation"
+      ],
+      "entry": "main.tex",
+      "files": {
+        "main.tex": {
+          "fixture": "escaped-text/main.tex.fixture",
+          "sha256": "3a178537fdae2993b8a3734efa64a4da1c798e566066ac9f315c6f1194762b91"
+        }
+      },
+      "engines": {
+        "pdflatex": {
+          "status": "success",
+          "pages": 1
+        },
+        "xelatex": {
+          "status": "success",
+          "pages": 1
+        },
+        "lualatex": {
+          "status": "success",
+          "pages": 1
+        }
+      },
+      "structure": {
+        "status": "approximate",
+        "required": [
+          "Escaped text",
+          "Escape target",
+          "Untouched conclusion."
+        ],
+        "absent": [],
+        "diagnostics": []
+      },
+      "edits": [
+        {
+          "path": "main.tex",
+          "find": "%",
+          "replacement": "75%",
+          "replacementSource": "75\\%",
+          "kind": "escaped_macro",
+          "occurrence": 0
+        },
+        {
+          "path": "main.tex",
+          "find": "&",
+          "replacement": "and & tools",
+          "replacementSource": "and \\& tools",
+          "kind": "escaped_macro",
+          "occurrence": 0
+        },
+        {
+          "path": "main.tex",
+          "find": "Escape target",
+          "replacement": "Safe {edit} & 50%",
+          "replacementSource": "Safe \\{edit\\} \\& 50\\%",
+          "kind": "macro_argument",
+          "occurrence": 0
+        }
+      ],
+      "pdf": {
+        "required": [
+          "Escaped text",
+          "Escape target",
+          "Untouched conclusion."
+        ],
+        "perPage": {},
+        "associations": []
+      },
+      "limits": "Structure preserves visible text but does not reproduce TeX layout."
+    },
+    {
+      "id": "tables-columns",
+      "version": "1.0.0",
+      "features": [
+        "tables",
+        "tabularx",
+        "minipage-columns"
+      ],
+      "entry": "main.tex",
+      "files": {
+        "main.tex": {
+          "fixture": "tables-columns/main.tex.fixture",
+          "sha256": "8b2a9f6f3f722439068a9aed38942cd48036a561d38b5c98733e9df9762f6fb8"
+        }
+      },
+      "engines": {
+        "pdflatex": {
+          "status": "success",
+          "pages": 1
+        },
+        "xelatex": {
+          "status": "success",
+          "pages": 1
+        },
+        "lualatex": {
+          "status": "success",
+          "pages": 1
+        }
+      },
+      "structure": {
+        "status": "approximate",
+        "required": [
+          "Tables and columns",
+          "Table cell target",
+          "LeftColumn",
+          "RightColumn",
+          "Untouched conclusion."
+        ],
+        "absent": [],
+        "diagnostics": []
+      },
+      "edits": [
+        {
+          "path": "main.tex",
+          "find": "Table cell target",
+          "replacement": "Reviewed table cell",
+          "replacementSource": "Reviewed table cell",
+          "kind": "macro_argument",
+          "occurrence": 0
+        },
+        {
+          "path": "main.tex",
+          "find": "\n\nLeft column target.\n\nLeft column end.\n",
+          "replacement": "\n\nReviewed left column.\n\nLeft column end.\n",
+          "replacementSource": "\n\nReviewed left column.\n\nLeft column end.\n",
+          "kind": "column_body",
+          "occurrence": 0
+        }
+      ],
+      "pdf": {
+        "required": [
+          "Tables and columns",
+          "Table cell target",
+          "LeftColumn",
+          "RightColumn",
+          "Untouched conclusion.",
+          "TableKey",
+          "Table cell target",
+          "LeftColumn",
+          "Left column end.",
+          "RightColumn",
+          "Right column end."
+        ],
+        "perPage": {},
+        "associations": [
+          [
+            "TableKey",
+            "Table cell target"
+          ],
+          [
+            "LeftColumn",
+            "Left column end."
+          ],
+          [
+            "RightColumn",
+            "Right column end."
+          ]
+        ]
+      },
+      "limits": "Table cells are mapped. Column positions, widths and minipage layout are approximate in Structure; PDF is the layout authority."
+    },
+    {
+      "id": "nested-includes",
+      "version": "1.0.0",
+      "features": [
+        "literal-input",
+        "literal-include",
+        "nested-files",
+        "duplicate-text"
+      ],
+      "entry": "main.tex",
+      "files": {
+        "main.tex": {
+          "fixture": "nested-includes/main.tex.fixture",
+          "sha256": "72a53aa782a95a70b851091f1ddb3fe0d186c5706f74ea19a6e038ae2fe4b2a0"
+        },
+        "sections/profile.tex": {
+          "fixture": "nested-includes/sections/profile.tex.fixture",
+          "sha256": "1c87d7a3e5bb721aaafe61abb8357c20f3466e0fdf600ff3ea20377cbdaa7c18"
+        },
+        "sections/roles.tex": {
+          "fixture": "nested-includes/sections/roles.tex.fixture",
+          "sha256": "8baff6c192e59b3c62b027c48c70c8e840394b892cb913ecc0430e2fb2010ee6"
+        },
+        "sections/details.tex": {
+          "fixture": "nested-includes/sections/details.tex.fixture",
+          "sha256": "906876cba535a698b92a325ef2c0dc9346c4fbf938d8f355bd6f1152ea35a7a2"
+        }
+      },
+      "engines": {
+        "pdflatex": {
+          "status": "success",
+          "pages": 3
+        },
+        "xelatex": {
+          "status": "success",
+          "pages": 3
+        },
+        "lualatex": {
+          "status": "success",
+          "pages": 3
+        }
+      },
+      "structure": {
+        "status": "approximate",
+        "required": [
+          "Included project",
+          "Duplicate organization",
+          "Nested achievement target",
+          "Untouched conclusion."
+        ],
+        "absent": [],
+        "diagnostics": []
+      },
+      "edits": [
+        {
+          "path": "sections/roles.tex",
+          "find": "Duplicate organization",
+          "replacement": "Reviewed organization",
+          "replacementSource": "Reviewed organization",
+          "kind": "included_macro_argument",
+          "occurrence": 0
+        },
+        {
+          "path": "sections/details.tex",
+          "find": "Nested achievement target",
+          "replacement": "Reviewed nested achievement",
+          "replacementSource": "Reviewed nested achievement",
+          "kind": "nested_include",
+          "occurrence": 0
+        }
+      ],
+      "pdf": {
+        "required": [
+          "Included project",
+          "Duplicate organization",
+          "Nested achievement target",
+          "Untouched conclusion."
+        ],
+        "perPage": {
+          "1": [
+            "Included project",
+            "ProfileComplete."
+          ],
+          "2": [
+            "Experience",
+            "RolesComplete."
+          ],
+          "3": [
+            "Final section",
+            "Untouched conclusion."
+          ]
+        },
+        "associations": []
+      },
+      "limits": "Literal includes are navigated as separate files with file-local offsets; Structure does not flatten the document. Duplicate text in another file must stay unchanged."
+    },
+    {
+      "id": "unicode",
+      "version": "1.0.0",
+      "features": [
+        "unicode",
+        "accents",
+        "non-bmp-offsets"
+      ],
+      "entry": "main.tex",
+      "files": {
+        "main.tex": {
+          "fixture": "unicode/main.tex.fixture",
+          "sha256": "7ae2dc1795fa76539f761f5e589bccb950788e91beeddb614b1947b7bd522a1c"
+        }
+      },
+      "engines": {
+        "xelatex": {
+          "status": "success",
+          "pages": 1
+        },
+        "lualatex": {
+          "status": "success",
+          "pages": 1
+        }
+      },
+      "structure": {
+        "status": "approximate",
+        "required": [
+          "Unicode profile",
+          "Résumé naïve Straße",
+          "Untouched conclusion."
+        ],
+        "absent": [],
+        "diagnostics": []
+      },
+      "edits": [
+        {
+          "path": "main.tex",
+          "find": "Résumé naïve Straße",
+          "replacement": "Résumé révisé & sûr",
+          "replacementSource": "Résumé révisé \\& sûr",
+          "kind": "unicode_macro_argument",
+          "occurrence": 0
+        }
+      ],
+      "pdf": {
+        "required": [
+          "Unicode profile",
+          "Résumé naïve Straße",
+          "Untouched conclusion."
+        ],
+        "perPage": {},
+        "associations": []
+      },
+      "limits": "Latin accents and a non-BMP comment preceding mapped offsets are tested. Emoji glyphs, CJK and arbitrary script/font coverage are not established."
+    },
+    {
+      "id": "rtl-arabic",
+      "version": "1.0.0",
+      "features": [
+        "unicode",
+        "rtl",
+        "font-dependency",
+        "bidi"
+      ],
+      "entry": "main.tex",
+      "files": {
+        "main.tex": {
+          "fixture": "rtl-arabic/main.tex.fixture",
+          "sha256": "7adc838d7a068d2f55949bf46f88767fed3ecda83d989b65cfca3dfaebecee5c"
+        }
+      },
+      "engines": {
+        "xelatex": {
+          "status": "success",
+          "pages": 1
+        }
+      },
+      "structure": {
+        "status": "approximate",
+        "required": [
+          "Arabic profile",
+          "RTL source target",
+          "مهندس برمجيات",
+          "Untouched conclusion."
+        ],
+        "absent": [],
+        "diagnostics": []
+      },
+      "edits": [
+        {
+          "path": "main.tex",
+          "find": "RTL source target",
+          "replacement": "Reviewed RTL source",
+          "replacementSource": "Reviewed RTL source",
+          "kind": "macro_argument",
+          "occurrence": 0
+        }
+      ],
+      "pdf": {
+        "required": [
+          "Arabic profile",
+          "RTL source target",
+          "مهندس برمجيات",
+          "Untouched conclusion."
+        ],
+        "perPage": {},
+        "associations": []
+      },
+      "limits": "XeLaTeX with polyglossia, bidi and Amiri only. Structure displays logical Unicode text approximately; native RTL shaping, font layout and PDF reading order require separate checks."
+    },
+    {
+      "id": "long-document",
+      "version": "1.0.0",
+      "features": [
+        "long-document",
+        "page-breaks",
+        "all-page-coverage"
+      ],
+      "entry": "main.tex",
+      "files": {
+        "main.tex": {
+          "fixture": "long-document/main.tex.fixture",
+          "sha256": "fcc8e868b9d954171bca9dd71494cbb7c6df22ad82c99217ba8f32d8fe8d2c74"
+        }
+      },
+      "engines": {
+        "pdflatex": {
+          "status": "success",
+          "pages": 8
+        },
+        "xelatex": {
+          "status": "success",
+          "pages": 8
+        },
+        "lualatex": {
+          "status": "success",
+          "pages": 8
+        }
+      },
+      "structure": {
+        "status": "approximate",
+        "required": [
+          "Long document",
+          "Untouched conclusion.",
+          "Page01Row01",
+          "Page01Row02",
+          "Page01Row03",
+          "Page01Row04",
+          "Page01Row05",
+          "Page01Row06",
+          "Page01Row07",
+          "Page01Row08",
+          "Page01Row09",
+          "Page01Row10",
+          "Page01Row11",
+          "Page01Row12",
+          "Page02Row01",
+          "Page02Row02",
+          "Page02Row03",
+          "Page02Row04",
+          "Page02Row05",
+          "Page02Row06",
+          "Page02Row07",
+          "Page02Row08",
+          "Page02Row09",
+          "Page02Row10",
+          "Page02Row11",
+          "Page02Row12",
+          "Page03Row01",
+          "Page03Row02",
+          "Page03Row03",
+          "Page03Row04",
+          "Page03Row05",
+          "Page03Row06",
+          "Page03Row07",
+          "Page03Row08",
+          "Page03Row09",
+          "Page03Row10",
+          "Page03Row11",
+          "Page03Row12",
+          "Page04Row01",
+          "Page04Row02",
+          "Page04Row03",
+          "Page04Row04",
+          "Page04Row05",
+          "Page04Row06",
+          "Page04Row07",
+          "Page04Row08",
+          "Page04Row09",
+          "Page04Row10",
+          "Page04Row11",
+          "Page04Row12",
+          "Page05Row01",
+          "Page05Row02",
+          "Page05Row03",
+          "Page05Row04",
+          "Page05Row05",
+          "Page05Row06",
+          "Page05Row07",
+          "Page05Row08",
+          "Page05Row09",
+          "Page05Row10",
+          "Page05Row11",
+          "Page05Row12",
+          "Page06Row01",
+          "Page06Row02",
+          "Page06Row03",
+          "Page06Row04",
+          "Page06Row05",
+          "Page06Row06",
+          "Page06Row07",
+          "Page06Row08",
+          "Page06Row09",
+          "Page06Row10",
+          "Page06Row11",
+          "Page06Row12",
+          "Page07Row01",
+          "Page07Row02",
+          "Page07Row03",
+          "Page07Row04",
+          "Page07Row05",
+          "Page07Row06",
+          "Page07Row07",
+          "Page07Row08",
+          "Page07Row09",
+          "Page07Row10",
+          "Page07Row11",
+          "Page07Row12",
+          "Page08Row01",
+          "Page08Row02",
+          "Page08Row03",
+          "Page08Row04",
+          "Page08Row05",
+          "Page08Row06",
+          "Page08Row07",
+          "Page08Row08",
+          "Page08Row09",
+          "Page08Row10",
+          "Page08Row11",
+          "Page08Row12"
+        ],
+        "absent": [],
+        "diagnostics": []
+      },
+      "edits": [
+        {
+          "path": "main.tex",
+          "find": "Page04Row06",
+          "replacement": "ReviewedPage04Row06",
+          "replacementSource": "ReviewedPage04Row06",
+          "kind": "macro_argument",
+          "occurrence": 0
+        }
+      ],
+      "pdf": {
+        "required": [
+          "Long document",
+          "Untouched conclusion.",
+          "Page01Row01",
+          "Page01Row02",
+          "Page01Row03",
+          "Page01Row04",
+          "Page01Row05",
+          "Page01Row06",
+          "Page01Row07",
+          "Page01Row08",
+          "Page01Row09",
+          "Page01Row10",
+          "Page01Row11",
+          "Page01Row12",
+          "Page02Row01",
+          "Page02Row02",
+          "Page02Row03",
+          "Page02Row04",
+          "Page02Row05",
+          "Page02Row06",
+          "Page02Row07",
+          "Page02Row08",
+          "Page02Row09",
+          "Page02Row10",
+          "Page02Row11",
+          "Page02Row12",
+          "Page03Row01",
+          "Page03Row02",
+          "Page03Row03",
+          "Page03Row04",
+          "Page03Row05",
+          "Page03Row06",
+          "Page03Row07",
+          "Page03Row08",
+          "Page03Row09",
+          "Page03Row10",
+          "Page03Row11",
+          "Page03Row12",
+          "Page04Row01",
+          "Page04Row02",
+          "Page04Row03",
+          "Page04Row04",
+          "Page04Row05",
+          "Page04Row06",
+          "Page04Row07",
+          "Page04Row08",
+          "Page04Row09",
+          "Page04Row10",
+          "Page04Row11",
+          "Page04Row12",
+          "Page05Row01",
+          "Page05Row02",
+          "Page05Row03",
+          "Page05Row04",
+          "Page05Row05",
+          "Page05Row06",
+          "Page05Row07",
+          "Page05Row08",
+          "Page05Row09",
+          "Page05Row10",
+          "Page05Row11",
+          "Page05Row12",
+          "Page06Row01",
+          "Page06Row02",
+          "Page06Row03",
+          "Page06Row04",
+          "Page06Row05",
+          "Page06Row06",
+          "Page06Row07",
+          "Page06Row08",
+          "Page06Row09",
+          "Page06Row10",
+          "Page06Row11",
+          "Page06Row12",
+          "Page07Row01",
+          "Page07Row02",
+          "Page07Row03",
+          "Page07Row04",
+          "Page07Row05",
+          "Page07Row06",
+          "Page07Row07",
+          "Page07Row08",
+          "Page07Row09",
+          "Page07Row10",
+          "Page07Row11",
+          "Page07Row12",
+          "Page08Row01",
+          "Page08Row02",
+          "Page08Row03",
+          "Page08Row04",
+          "Page08Row05",
+          "Page08Row06",
+          "Page08Row07",
+          "Page08Row08",
+          "Page08Row09",
+          "Page08Row10",
+          "Page08Row11",
+          "Page08Row12"
+        ],
+        "perPage": {
+          "1": [
+            "Page01Start.",
+            "Page01Row01",
+            "Page01Row02",
+            "Page01Row03",
+            "Page01Row04",
+            "Page01Row05",
+            "Page01Row06",
+            "Page01Row07",
+            "Page01Row08",
+            "Page01Row09",
+            "Page01Row10",
+            "Page01Row11",
+            "Page01Row12",
+            "Page01End."
+          ],
+          "2": [
+            "Page02Start.",
+            "Page02Row01",
+            "Page02Row02",
+            "Page02Row03",
+            "Page02Row04",
+            "Page02Row05",
+            "Page02Row06",
+            "Page02Row07",
+            "Page02Row08",
+            "Page02Row09",
+            "Page02Row10",
+            "Page02Row11",
+            "Page02Row12",
+            "Page02End."
+          ],
+          "3": [
+            "Page03Start.",
+            "Page03Row01",
+            "Page03Row02",
+            "Page03Row03",
+            "Page03Row04",
+            "Page03Row05",
+            "Page03Row06",
+            "Page03Row07",
+            "Page03Row08",
+            "Page03Row09",
+            "Page03Row10",
+            "Page03Row11",
+            "Page03Row12",
+            "Page03End."
+          ],
+          "4": [
+            "Page04Start.",
+            "Page04Row01",
+            "Page04Row02",
+            "Page04Row03",
+            "Page04Row04",
+            "Page04Row05",
+            "Page04Row06",
+            "Page04Row07",
+            "Page04Row08",
+            "Page04Row09",
+            "Page04Row10",
+            "Page04Row11",
+            "Page04Row12",
+            "Page04End."
+          ],
+          "5": [
+            "Page05Start.",
+            "Page05Row01",
+            "Page05Row02",
+            "Page05Row03",
+            "Page05Row04",
+            "Page05Row05",
+            "Page05Row06",
+            "Page05Row07",
+            "Page05Row08",
+            "Page05Row09",
+            "Page05Row10",
+            "Page05Row11",
+            "Page05Row12",
+            "Page05End."
+          ],
+          "6": [
+            "Page06Start.",
+            "Page06Row01",
+            "Page06Row02",
+            "Page06Row03",
+            "Page06Row04",
+            "Page06Row05",
+            "Page06Row06",
+            "Page06Row07",
+            "Page06Row08",
+            "Page06Row09",
+            "Page06Row10",
+            "Page06Row11",
+            "Page06Row12",
+            "Page06End."
+          ],
+          "7": [
+            "Page07Start.",
+            "Page07Row01",
+            "Page07Row02",
+            "Page07Row03",
+            "Page07Row04",
+            "Page07Row05",
+            "Page07Row06",
+            "Page07Row07",
+            "Page07Row08",
+            "Page07Row09",
+            "Page07Row10",
+            "Page07Row11",
+            "Page07Row12",
+            "Page07End."
+          ],
+          "8": [
+            "Page08Start.",
+            "Page08Row01",
+            "Page08Row02",
+            "Page08Row03",
+            "Page08Row04",
+            "Page08Row05",
+            "Page08Row06",
+            "Page08Row07",
+            "Page08Row08",
+            "Page08Row09",
+            "Page08Row10",
+            "Page08Row11",
+            "Page08Row12",
+            "Page08End."
+          ]
+        },
+        "associations": []
+      },
+      "limits": "Eight explicit pages and 96 numbered entries are checked. This is not evidence for arbitrarily large or deeply nested projects."
+    },
+    {
+      "id": "dynamic-include",
+      "version": "1.0.0",
+      "features": [
+        "unsupported-dynamic-include",
+        "macro-expansion"
+      ],
+      "entry": "main.tex",
+      "files": {
+        "main.tex": {
+          "fixture": "dynamic-include/main.tex.fixture",
+          "sha256": "0fc45bad71b22089114b7c847328d69061bbbfa4fca016f0f96f707132777a59"
+        },
+        "sections/hidden.tex": {
+          "fixture": "dynamic-include/sections/hidden.tex.fixture",
+          "sha256": "19747b4bdd5d58e742ebd988b2b06d2959eead16287bb9b53a717b5d88d427aa"
+        }
+      },
+      "engines": {
+        "pdflatex": {
+          "status": "success",
+          "pages": 1
+        },
+        "xelatex": {
+          "status": "success",
+          "pages": 1
+        },
+        "lualatex": {
+          "status": "success",
+          "pages": 1
+        }
+      },
+      "structure": {
+        "status": "unsupported",
+        "required": [
+          "Dynamic include",
+          "Dynamic source target",
+          "Untouched conclusion."
+        ],
+        "absent": [
+          "ExpansionHiddenMarker"
+        ],
+        "diagnostics": [
+          "unsupported"
+        ]
+      },
+      "edits": [
+        {
+          "path": "main.tex",
+          "find": "Dynamic source target",
+          "replacement": "Reviewed dynamic source",
+          "replacementSource": "Reviewed dynamic source",
+          "kind": "macro_argument",
+          "occurrence": 0
+        }
+      ],
+      "pdf": {
+        "required": [
+          "Dynamic include",
+          "Dynamic source target",
+          "Untouched conclusion.",
+          "ExpansionHiddenMarker."
+        ],
+        "perPage": {},
+        "associations": []
+      },
+      "limits": "TeX expands the dynamic input for PDF. Structure cannot resolve or navigate it and must emit an unsupported-include diagnostic; edit it externally or use literal inputs."
+    },
+    {
+      "id": "missing-dependency",
+      "version": "1.0.0",
+      "features": [
+        "dependency-control"
+      ],
+      "entry": "main.tex",
+      "files": {
+        "main.tex": {
+          "fixture": "missing-dependency/main.tex.fixture",
+          "sha256": "95c974ae979137ebe3fe721fc68f1c84af8d2a3657b5682d527560a809330a48"
+        }
+      },
+      "engines": {
+        "pdflatex": {
+          "status": "missing_package",
+          "pages": 0
+        },
+        "xelatex": {
+          "status": "missing_package",
+          "pages": 0
+        },
+        "lualatex": {
+          "status": "missing_package",
+          "pages": 0
+        }
+      },
+      "structure": {
+        "status": "supported",
+        "required": [
+          "Dependency control."
+        ],
+        "absent": [],
+        "diagnostics": []
+      },
+      "edits": [],
+      "pdf": {
+        "required": [
+          "Dependency control."
+        ],
+        "perPage": {},
+        "associations": []
+      },
+      "limits": "Intentional missing package control. This is a setup failure, not a parser defect; the runtime must not install it."
+    },
+    {
+      "id": "invalid-source",
+      "version": "1.0.0",
+      "features": [
+        "invalid-source-control"
+      ],
+      "entry": "main.tex",
+      "files": {
+        "main.tex": {
+          "fixture": "invalid-source/main.tex.fixture",
+          "sha256": "77fd43c7bc0f4ca22cc0af2356e2f4aab7dea3e5b4c4678a716772e248a03abc"
+        }
+      },
+      "engines": {
+        "pdflatex": {
+          "status": "compile_failed",
+          "pages": 0
+        },
+        "xelatex": {
+          "status": "compile_failed",
+          "pages": 0
+        },
+        "lualatex": {
+          "status": "compile_failed",
+          "pages": 0
+        }
+      },
+      "structure": {
+        "status": "invalid",
+        "required": [],
+        "absent": [],
+        "diagnostics": [
+          "syntax"
+        ]
+      },
+      "edits": [],
+      "pdf": {
+        "required": [],
+        "perPage": {},
+        "associations": []
+      },
+      "limits": "Intentionally malformed braces must be distinguished from limited Structure support and missing packages."
+    }
+  ]
+}

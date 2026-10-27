@@ -145,7 +145,7 @@ async function openBranch(name, force=false) {
   const previous=state.snapshot?.branch;
   if(previous&&previous!==name)state.filePath=null;
   const generation=++state.generation;
-  state.pdfGeneration++;state.snapshot=null;state.displayedRun=null;state.graphRunId=null;state.selectedTask=null;$('#task-inspector').hidden=true;
+  state.pdfGeneration++;state.snapshot=null;state.displayedRun=null;state.graphRunId=null;state.selectedTask=null;$('#task-inspector').hidden=true;$('#cv-file').disabled=true;
   for(const node of document.querySelectorAll('.dag-node'))node.disabled=true;
   $('#selected-run').hidden=true;$('#attempt-history').replaceChildren();
   aiSetup.setDisabled(true);
@@ -208,6 +208,7 @@ function currentFile(){
 }
 function renderFileNavigation(){
   const s=state.snapshot,file=currentFile();state.filePath=file.path;
+  $('#cv-file').disabled=false;
   $('#cv-file').replaceChildren(...(s.files||[s]).map(item=>{
     const option=document.createElement('option');option.value=item.path;option.textContent=item.path+(item.exists===false?' · unavailable':'')+(item.diff?' · changed':'');return option;
   }));$('#cv-file').value=file.path;
@@ -221,6 +222,7 @@ function renderFileNavigation(){
   }));
 }
 function selectFile(path,view=state.view){
+  if(!state.snapshot)return;
   if(!canLeave()){$('#cv-file').value=state.filePath;return;}
   state.filePath=path;state.dirty=false;state.jobDirty=false;updateSnapshot();setView(view);
 }

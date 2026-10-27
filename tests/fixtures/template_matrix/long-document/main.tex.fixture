@@ -1,0 +1,151 @@
+\documentclass[10pt]{article}
+\usepackage[margin=0.7in]{geometry}
+\pagestyle{empty}
+\listfiles
+\begin{document}
+\section*{Long document 1}
+Page01Start.
+\begin{itemize}
+\item \textbf{Page01Row01} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page01Row02} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page01Row03} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page01Row04} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page01Row05} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page01Row06} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page01Row07} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page01Row08} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page01Row09} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page01Row10} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page01Row11} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page01Row12} Synthetic achievement with stable spacing and complete source mapping.
+\end{itemize}
+Page01End.
+\newpage
+\section*{Long document 2}
+Page02Start.
+\begin{itemize}
+\item \textbf{Page02Row01} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page02Row02} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page02Row03} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page02Row04} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page02Row05} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page02Row06} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page02Row07} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page02Row08} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page02Row09} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page02Row10} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page02Row11} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page02Row12} Synthetic achievement with stable spacing and complete source mapping.
+\end{itemize}
+Page02End.
+\newpage
+\section*{Long document 3}
+Page03Start.
+\begin{itemize}
+\item \textbf{Page03Row01} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page03Row02} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page03Row03} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page03Row04} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page03Row05} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page03Row06} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page03Row07} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page03Row08} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page03Row09} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page03Row10} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page03Row11} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page03Row12} Synthetic achievement with stable spacing and complete source mapping.
+\end{itemize}
+Page03End.
+\newpage
+\section*{Long document 4}
+Page04Start.
+\begin{itemize}
+\item \textbf{Page04Row01} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page04Row02} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page04Row03} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page04Row04} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page04Row05} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page04Row06} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page04Row07} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page04Row08} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page04Row09} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page04Row10} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page04Row11} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page04Row12} Synthetic achievement with stable spacing and complete source mapping.
+\end{itemize}
+Page04End.
+\newpage
+\section*{Long document 5}
+Page05Start.
+\begin{itemize}
+\item \textbf{Page05Row01} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page05Row02} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page05Row03} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page05Row04} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page05Row05} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page05Row06} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page05Row07} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page05Row08} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page05Row09} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page05Row10} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page05Row11} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page05Row12} Synthetic achievement with stable spacing and complete source mapping.
+\end{itemize}
+Page05End.
+\newpage
+\section*{Long document 6}
+Page06Start.
+\begin{itemize}
+\item \textbf{Page06Row01} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page06Row02} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page06Row03} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page06Row04} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page06Row05} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page06Row06} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page06Row07} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page06Row08} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page06Row09} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page06Row10} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page06Row11} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page06Row12} Synthetic achievement with stable spacing and complete source mapping.
+\end{itemize}
+Page06End.
+\newpage
+\section*{Long document 7}
+Page07Start.
+\begin{itemize}
+\item \textbf{Page07Row01} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page07Row02} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page07Row03} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page07Row04} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page07Row05} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page07Row06} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page07Row07} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page07Row08} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page07Row09} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page07Row10} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page07Row11} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page07Row12} Synthetic achievement with stable spacing and complete source mapping.
+\end{itemize}
+Page07End.
+\newpage
+\section*{Long document 8}
+Page08Start.
+\begin{itemize}
+\item \textbf{Page08Row01} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page08Row02} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page08Row03} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page08Row04} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page08Row05} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page08Row06} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page08Row07} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page08Row08} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page08Row09} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page08Row10} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page08Row11} Synthetic achievement with stable spacing and complete source mapping.
+\item \textbf{Page08Row12} Synthetic achievement with stable spacing and complete source mapping.
+\end{itemize}
+Page08End.
+\section*{Untouched section}
+Untouched conclusion.
+\end{document}
