@@ -1,0 +1,17 @@
+\documentclass[10pt]{article}
+\usepackage[margin=0.7in]{geometry}
+\pagestyle{empty}
+\listfiles
+\usepackage{fontspec}
+\setmainfont{Latin Modern Roman}
+\begin{document}
+% Non-BMP offset guard: 😀
+\section*{Unicode profile}
+\textbf{Résumé naïve Straße}
+
+Crème brûlée and façade; Unicode target.
+
+\section*{Untouched section}
+Untouched conclusion.
+
+\end{document}

@@ -1,0 +1,9 @@
+\documentclass[10pt]{article}
+\usepackage[margin=0.7in]{geometry}
+\pagestyle{empty}
+\listfiles
+\usepackage{vita-tree-matrix-absent-package}
+\begin{document}
+Dependency control.
+
+\end{document}

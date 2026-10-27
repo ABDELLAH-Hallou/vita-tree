@@ -1,0 +1,74 @@
+name: Template compatibility
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: template-matrix-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  PYTHONUTF8: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
+
+jobs:
+  matrix:
+    name: Synthetic templates / three engines and browser
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+      - run: python -m pip install '.[test]'
+      - name: Provision explicit test-only TeX, fonts and rasterizer dependencies
+        timeout-minutes: 10
+        run: |
+          for source in /etc/apt/apt-mirrors.txt /etc/apt/sources.list /etc/apt/sources.list.d/ubuntu.sources; do
+            if [ -f "$source" ]; then
+              sudo sed -i -E 's|https?://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' "$source"
+            fi
+          done
+          sudo tee /etc/apt/apt.conf.d/80-template-network > /dev/null <<'EOF'
+          Acquire::Retries "3";
+          Acquire::http::Timeout "30";
+          Acquire::https::Timeout "30";
+          EOF
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends texlive-latex-extra texlive-fonts-recommended texlive-xetex texlive-luatex texlive-lang-arabic fonts-hosny-amiri poppler-utils
+      - name: Verify all engine and snapshot contracts; render every PDF page
+        run: python tests/run_template_matrix.py --output .test-artifacts/template-matrix-ci --require-dependencies
+      - name: Install test browser
+        timeout-minutes: 5
+        run: python -m playwright install --with-deps --only-shell chromium
+      - name: Exercise Structure editing and every long-document PDF page in the UI
+        run: python tests/browser_template_matrix.py --browser chromium --output .test-artifacts/template-matrix-browser-ci
+      - name: Prepare all-page visual review without automatic approval
+        if: always()
+        run: |
+          if [ -f .test-artifacts/template-matrix-ci/results.json ]; then
+            python tests/review_template_matrix.py .test-artifacts/template-matrix-ci/results.json
+          fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: template-matrix-evidence
+          path: |
+            .test-artifacts/template-matrix-ci/results.json
+            .test-artifacts/template-matrix-ci/review.html
+            .test-artifacts/template-matrix-ci/visual-review.json
+            .test-artifacts/template-matrix-ci/**/pages/*.png
+            .test-artifacts/template-matrix-ci/**/pdf/*.pdf
+            .test-artifacts/template-matrix-browser-ci/*.png
+            .test-artifacts/template-matrix-browser-ci/browser-results.json
+          include-hidden-files: true
+          retention-days: 14

@@ -181,6 +181,30 @@ class FileCompilerBoundaryTests(unittest.TestCase):
             compile_document(self.repo,'main.tex',output=output)
         self.assertEqual(len(calls),3)
 
+    def test_lualatex_flags_keep_restrictions_without_unsupported_first_line_switch(self):
+        output=self.repo/'lua-out'
+        for version in (b'MiKTeX LuaHBTeX', b'LuaHBTeX TeX Live'):
+            with self.subTest(version=version):
+                def compiler(args,**options):
+                    if '--version' not in args:
+                        self.assertIn('-no-shell-escape',args)
+                        self.assertNotIn('--dont-parse-first-line',args)
+                        self.assertNotIn('-no-parse-first-line',args)
+                        self.assertEqual(options['env']['openin_any'],'p')
+                        if b'MiKTeX' in version:
+                            self.assertIn('--disable-installer',args)
+                            self.assertIn('--disable-write18',args)
+                        (output/'main.pdf').write_bytes(b'%PDF-1.7\nsynthetic')
+                    return subprocess.CompletedProcess(args,0,version,b'')
+                with patch('vita_tree.pdf.engine_executable',return_value='trusted-fixture'),patch('vita_tree.pdf.subprocess.run',side_effect=compiler):
+                    compile_document(self.repo,'main.tex',engine='lualatex',output=output)
+        for directive in ('%&unsafe', '\ufeff %&unsafe --shell-escape'):
+            (self.repo/'main.tex').write_text(directive+'\n'+SOURCE,encoding='utf-8')
+            with patch('vita_tree.pdf.subprocess.run') as compiler:
+                with self.assertRaisesRegex(ValueError,'first-line directives'):
+                    compile_document(self.repo,'main.tex',engine='lualatex',output=output)
+                compiler.assert_not_called()
+
     def test_provider_environments_only_receive_the_selected_credentials(self):
         base={'OPENAI_API_KEY':'SYNTHETIC-OPENAI','ANTHROPIC_API_KEY':'SYNTHETIC-ANTHROPIC',
               'AWS_SECRET_ACCESS_KEY':'SYNTHETIC-AWS','GITHUB_TOKEN':'SYNTHETIC-GIT','OPENAI_ADMIN_KEY':'SYNTHETIC-ADMIN',

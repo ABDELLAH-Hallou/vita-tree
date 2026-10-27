@@ -84,6 +84,11 @@ def compile_document(folder: Path, document_path: str, engine='auto', output=Non
         raise FileNotFoundError('No saved LaTeX document is available to compile.')
     if engine == 'auto':
         engine = 'xelatex' if any(x in source for x in ('fontspec','polyglossia','unicode-math')) else 'pdflatex'
+    # LuaTeX does not implement pdfTeX's first-line suppression switch (MiKTeX
+    # rejects it). Refuse format/option directives instead of silently dropping
+    # the protection or modifying the captured document.
+    if engine == 'lualatex' and source.splitlines()[0].lstrip('\ufeff \t').startswith('%&'):
+        raise ValueError('LuaLaTeX previews do not support %& first-line directives. Remove the directive and select the engine in PDF settings.')
     output = output or folder / '__vt_output'
     if output.is_symlink() or getattr(output,'is_junction',lambda:False)():
         raise ValueError('Linked compiler output folders are not supported')
@@ -106,8 +111,10 @@ def compile_document(folder: Path, document_path: str, engine='auto', output=Non
                              stdin=subprocess.DEVNULL, capture_output=True, timeout=10).stdout.decode(errors="replace")
     flags = ["-interaction=nonstopmode", "-halt-on-error", "-file-line-error", "-no-shell-escape"]
     if "MiKTeX" in version:
-        flags += ["--disable-installer", "--disable-write18", "--dont-parse-first-line"]
-    else:
+        flags += ["--disable-installer", "--disable-write18"]
+        if engine != 'lualatex':
+            flags += ["--dont-parse-first-line"]
+    elif engine != 'lualatex':
         flags += ["-no-parse-first-line"]
     command = [executable, *flags, "-output-directory=" + str(output), "./" + document_path]
     log = ""
