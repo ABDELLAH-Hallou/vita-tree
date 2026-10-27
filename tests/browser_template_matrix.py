@@ -1,5 +1,6 @@
 """Real Structure editing and all-page long-PDF UI over the synthetic corpus."""
 import argparse
+import base64
 import json
 from pathlib import Path
 import sys
@@ -94,10 +95,24 @@ def main():
                             layer = page.locator(f'#{side}-pdf .textLayer').nth(number-1)
                             expect(layer).to_contain_text(f'Page{number:02}Start.')
                             expect(layer).to_contain_text(f'Page{number:02}End.')
+                            # A screenshot of an overflowing page can contain
+                            # unrelated UI outside the scrollport. Capture the
+                            # complete PDF.js canvas, then independently prove
+                            # that both page ends can be reached in the real UI.
                             path = args.output/f'long-{side}-page-{number}.png'
-                            layer.locator('..').screenshot(path=str(path))
+                            canvas = layer.locator('..').locator('canvas')
+                            encoded = canvas.evaluate("node => node.toDataURL('image/png').split(',')[1]")
+                            path.write_bytes(base64.b64decode(encoded, validate=True))
+                            frames = []
+                            for anchor in ('Start', 'End'):
+                                marker = layer.get_by_text(f'Page{number:02}{anchor}.', exact=True)
+                                marker.scroll_into_view_if_needed()
+                                expect(marker).to_be_in_viewport()
+                                frame = args.output/f'long-{side}-page-{number}-{anchor.lower()}-viewport.png'
+                                page.locator(f'#{side}-pdf').locator('..').screenshot(path=str(frame))
+                                frames.append(dict(anchor=anchor, image=frame.name, imageSha256=sha(frame.read_bytes())))
                             record['pages'].append({'side': side, 'number': number, 'image': path.name,
-                                                    'imageSha256': sha(path.read_bytes())})
+                                                    'imageSha256': sha(path.read_bytes()), 'viewportFrames': frames})
                     expect(page.locator('#current-pdf .textLayer').nth(3)).to_contain_text('ReviewedPage04Row06')
                     expect(page.locator('#original-pdf .textLayer').nth(3)).not_to_contain_text('ReviewedPage04Row06')
                 evidence.append(record)
