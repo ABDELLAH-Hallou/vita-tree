@@ -5,6 +5,30 @@ tests Structure, file-aware source mapping and restricted PDF compilation agains
 the **same captured files**. It is a regression suite, not a claim that arbitrary
 LaTeX templates reproduce their PDF layout in Structure.
 
+## Recorded baseline
+
+The [hash-bound baseline](../tests/fixtures/template_matrix/baseline.json) records
+the tested source snapshots, engine/package versions, outcomes and every inspected
+page image hash. The successful Linux run is linked there with its downloadable
+CI evidence (14-day retention).
+
+| Environment | Saved edits / leaf sweep | PDFs / pages visually inspected | Expected diagnostic controls | Missing dependency outcomes |
+| --- | --- | --- | --- | --- |
+| Ubuntu 24.04, TeX Live 2023/Debian: pdfTeX 1.40.25, XeTeX 0.999995, LuaHBTeX 1.17.0 | 15 / 306 | 48 / 102 | 12 | 0 |
+| Windows, MiKTeX 24.4: pdfTeX 4.19, XeTeX 4.11 | 15 / 306 | 30 / 66 | 8 | 22 |
+
+The Windows LuaLaTeX executable exists but its `lualatex.fmt` is missing; Amiri is
+also unavailable. Those 22 original/edited outcomes are explicitly unverified,
+including controls that could not reach compilation. They are not passing PDFs.
+No dependencies were installed to repair that machine. The Linux browser run
+also passed all 11 fixtures, all 15 named edits, the delayed-refresh regression,
+and both eight-page selectable previews.
+
+Every rendered baseline page was inspected by Codex for apparent clipping,
+overlap, omissions and heading/entry association. This is agent visual inspection,
+not human sign-off or typography certification. Arabic painted output is complete
+in the inspected fixture; its extraction limitation below remains unresolved.
+
 ## Reproduce
 
 From the repository root, install the explicit test extra in a virtual environment:
