@@ -25,7 +25,7 @@ def benchmark(output, name, pdf, enforce=False, replica=1):
         at=datetime.datetime.now(datetime.timezone.utc).isoformat(),python=platform.python_version(),platform=platform.system(),
         treeCommit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
         sourceSha256=sha(LOAD_SOURCE),includeSha256=sha('Untouched included section.\n'),fixtureSha256=sha((ROOT/'tests/load_provider.py').read_bytes()),
-        codeSha256={p:sha((ROOT/p).read_bytes()) for p in ('src/vita_tree/workspace.py','src/vita_tree/processes.py','src/vita_tree/pdf.py',
+        codeSha256={p:sha((ROOT/p).read_bytes()) for p in ('src/vita_tree/workspace.py','src/vita_tree/processes.py','src/vita_tree/pdf.py','src/vita_tree/execution.py',
             'src/vita_tree/_process_child.py','src/vita_tree/factual_review.py','src/vita_tree/requirements_review.py',
             'src/vita_tree/static/runs.js','src/vita_tree/static/app.js',
             'tests/fake_ai_process.py','tests/load_server.py','tests/run_load_profile.py','tests/load_support.py')},

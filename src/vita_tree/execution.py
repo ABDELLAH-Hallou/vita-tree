@@ -515,6 +515,14 @@ class ExecutionInspector:
             if folder.name in active|reserved|{current}:
                 continue
             no_links(folder)
+            # Most saves cannot evict these young traces. Check eligibility
+            # before reopening and parsing every completed trace's records;
+            # ownership validation remains mandatory before any deletion.
+            try:
+                if size < LIMIT-2*1024*1024 and len(folders)<100 and time.time()-folder.stat().st_mtime<7*86400:
+                    continue
+            except OSError:
+                continue
             tree_files = list(folder.glob('tree-*.json'))
             if not tree_files:
                 continue  # Tree does not own standalone Vita CV traces.
@@ -535,8 +543,6 @@ class ExecutionInspector:
                         raise ValueError('Unverified process identity')
                     states.append(data.get('status'))
                 if not states or any(s not in {'succeeded','failed','interrupted','success'} for s in states):
-                    continue
-                if size < LIMIT-2*1024*1024 and len(folders)<100 and time.time()-folder.stat().st_mtime<7*86400:
                     continue
                 # Verify every descendant before recursive deletion.
                 for path in folder.rglob('*'):

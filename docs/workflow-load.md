@@ -170,6 +170,11 @@ After the test host has stopped, the entire chosen evidence directory can be
 removed. Normal application checkpoint/history retention is unchanged by this
 benchmark; retained storage is measured, not silently deleted.
 
+Execution trace cleanup checks age/count/space eligibility before parsing
+completed trace bodies. Active/reserved traces stay protected, global size/link
+checks still run, and ownership is verified before every deletion. This avoids
+reparsing all young completed traces on every unrelated workflow phase.
+
 Application checkpoints still have the existing 7-day, 20-terminal-run and
 256-MiB total limits (32 MiB per checkpoint). Active attempts and immediate
 resume parents are protected. Cleanup runs at startup, launch and completion,
