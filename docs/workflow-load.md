@@ -27,6 +27,15 @@ included file. Additional scenarios exercise repeated Cover failure and retry,
 external include edits, unrelated draft saves, connection removal, clean
 worktree release, graceful shutdown, abrupt server death and recovery.
 
+The measured preparation subset is Extract → Analyze → Adapt → Cover, followed
+by validation/publication. Human decision time and AI Review throughput are not
+measured by these profiles. The API still returns the full history; archives
+beyond the declared sizes and concurrency are not qualified by these results.
+
+Measured, sanitized results (including failed budgets) are retained in
+[`benchmarks/workflow-load.json`](benchmarks/workflow-load.json). Runs on separate
+CI hosts are descriptive observations, not statistically controlled effect sizes.
+
 | Budget | `ci` | `sustained` |
 | --- | ---: | ---: |
 | Submit p95 | 5 s | 10 s |
@@ -119,10 +128,14 @@ limit. CPU, memory, provider accounts and TeX still impose practical limits.
 Capture and publication share the workspace lock. History takes a deep snapshot
 of records and redaction context under that lock, then reads review statuses and
 formats results outside it. Pending requirement drafts briefly reacquire it to
-resolve their application context. Review files are rechecked on every poll;
-there is no long-lived status cache. A separate history-read lock serializes
-expensive history formatting across HTTP clients without blocking application
-writes or worker updates. PDF preview compilation has its own serialization lock. HTTP polling
+resolve their application context. Overlapping HTTP readers share one in-flight
+history refresh instead of repeating thousands of path checks. Each caller gets
+its own result copy. A request arriving after that refresh completes reads review
+files again; there is no cache reused across completed refreshes. Followers wait
+at most 30 seconds and receive an error if the refresh fails. A shared snapshot
+can be one refresh behind ongoing writes; mutation/retry endpoints revalidate
+current state. This backpressure never gates AI starts, draft saves or worker
+updates. PDF preview compilation has its own serialization lock. HTTP polling
 waits for completion before scheduling the next 1.5-second poll, so it does not
 pile up requests inside one browser. Multiple browser clients can still create
 contention. The stress clients deliberately poll every 750 ms after completion.

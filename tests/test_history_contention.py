@@ -4,12 +4,67 @@ import tempfile
 import threading
 import unittest
 from unittest.mock import patch
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 
 from support import SOURCE, init_repo, cleanup_repo
 from vita_tree.workspace import Workspace, digest
 
 
 class HistoryContentionTests(unittest.TestCase):
+    def reader_workspace(self):
+        # Exercise the refresh protocol without Git/PDF setup; the other test
+        # below verifies its real workspace locking and source-write boundary.
+        workspace=Workspace.__new__(Workspace)
+        workspace._history_lock=threading.Lock()
+        workspace._history_read=None
+        return workspace
+
+    def test_overlapping_readers_share_only_the_current_refresh(self):
+        workspace=self.reader_workspace()
+        entered,release=threading.Event(),threading.Event()
+        barrier=threading.Barrier(4)
+        calls=[]
+        def format_history():
+            calls.append(len(calls)+1);entered.set()
+            if not release.wait(5):raise TimeoutError('Test refresh was not released')
+            return {'runs':[{'revision':len(calls)}]}
+        def read():barrier.wait(timeout=5);return workspace.list_jobs()
+        with patch.object(workspace,'_list_jobs',side_effect=format_history),ThreadPoolExecutor(max_workers=3) as pool:
+            futures=[pool.submit(read) for _ in range(3)]
+            try:
+                barrier.wait(timeout=5);self.assertTrue(entered.wait(5))
+                for future in futures:
+                    with self.assertRaises(FutureTimeout):future.result(timeout=.1)
+            finally:release.set()
+            rows=[future.result(timeout=5) for future in futures]
+            self.assertEqual(calls,[1])
+            self.assertTrue(all(row['runs'][0]['revision']==1 for row in rows))
+            rows[0]['runs'][0]['revision']=999
+            self.assertEqual(rows[1]['runs'][0]['revision'],1)
+            self.assertEqual(workspace.list_jobs()['runs'][0]['revision'],2)
+            self.assertEqual(calls,[1,2],'A completed refresh was cached')
+
+    def test_failed_refresh_unblocks_readers_and_next_request_can_recover(self):
+        workspace=self.reader_workspace()
+        entered,release=threading.Event(),threading.Event()
+        barrier=threading.Barrier(3)
+        def fail():
+            entered.set();release.wait(5)
+            raise ValueError('Synthetic history failure')
+        def read():barrier.wait(timeout=5);return workspace.list_jobs()
+        with patch.object(workspace,'_list_jobs',side_effect=fail) as refresh,ThreadPoolExecutor(max_workers=2) as pool:
+            futures=[pool.submit(read) for _ in range(2)]
+            try:
+                barrier.wait(timeout=5);self.assertTrue(entered.wait(5))
+                for future in futures:
+                    with self.assertRaises(FutureTimeout):future.result(timeout=.1)
+            finally:release.set()
+            for future in futures:
+                with self.assertRaises((ValueError,RuntimeError)):future.result(timeout=5)
+            self.assertEqual(refresh.call_count,1)
+        with patch.object(workspace,'_list_jobs',return_value={'runs':[]}):
+            self.assertEqual(workspace.list_jobs(),{'runs':[]})
+
     def test_slow_history_formatting_allows_draft_save_and_keeps_snapshot(self):
         temporary=tempfile.TemporaryDirectory(prefix='.vita-tree-test-',dir=Path.cwd())
         workspace=Workspace(init_repo(Path(temporary.name)))

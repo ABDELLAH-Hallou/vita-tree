@@ -95,6 +95,7 @@ class Workspace:
         self.root = (repository / common).resolve() / "vita-tree"
         self.lock = threading.RLock()
         self._history_lock = threading.Lock()
+        self._history_read = None
         self.connections = Connections()
         self.jobs: dict[str, dict] = {}
         self._ai_threads = set()
@@ -472,11 +473,31 @@ class Workspace:
         return result
 
     def list_jobs(self):
-        # Keep simultaneous history readers from competing over thousands of
-        # path checks and JSON records. This lock never gates AI admission,
-        # draft saves or worker progress. Acquire it before the workspace lock.
+        from copy import deepcopy
+        # Overlapping readers share one in-flight refresh. The result is not
+        # cached after completion: the next new request reads review files
+        # again. Never hold the orchestration lock while a reader is waiting.
         with self._history_lock:
-            return self._list_jobs()
+            refresh = self._history_read
+            leader = refresh is None
+            if leader:
+                refresh = {'ready': threading.Event(), 'result': None, 'failed': False}
+                self._history_read = refresh
+        if not leader:
+            if not refresh['ready'].wait(timeout=30) or refresh['failed']:
+                raise RuntimeError('Preparation history could not be refreshed. Try refreshing again.')
+            return deepcopy(refresh['result'])
+        try:
+            result = self._list_jobs()
+            refresh['result'] = result
+            return deepcopy(result)
+        except BaseException:
+            refresh['failed'] = True
+            raise
+        finally:
+            with self._history_lock:
+                self._history_read = None
+                refresh['ready'].set()
 
     def _list_jobs(self):
         from copy import deepcopy
