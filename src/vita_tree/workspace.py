@@ -290,7 +290,10 @@ class Workspace:
                   "reasoning", "language", "createdAt", "startedAt", "finishedAt", "reviewed", "stages", "stepConfig", "parentRunId", "rootRunId", "attempt", "checkpointSteps", "outcomes", "traceId", "requirementsRevision", "requirementsDraft", "preflight", "compileEngine", "reviewPolicy")
     ACTIVE_STATUSES = {"queued", "running"}
 
-    def _public_job(self, record):
+    def _job_secrets(self):
+        return [item['key'] for item in self.connections.items.values()] + list(getattr(getattr(self, 'inspector', None), 'secrets', ()))
+
+    def _public_job(self, record, *, parents=None, secrets=None):
         result = {key: record.get(key) for key in self.JOB_FIELDS}
         result['reviewPolicy'] = 'automatic' if record.get('reviewPolicy') == 'automatic' else 'manual'
         start = record.get("startedAt")
@@ -298,11 +301,12 @@ class Workspace:
         result['resumeAvailable'] = record.get('status') in {'failed', 'interrupted'} and bool(record.get('attempt'))
         result['checkpointSteps'] = [step for step in record.get('checkpointSteps') or []
                                      if (self.root/'checkpoints'/record['id']/step/'manifest.json').is_file()]
-        parent = self.jobs.get(record.get('parentRunId'))
+        parent = (self.jobs if parents is None else parents).get(record.get('parentRunId'))
         route_fields = ('provider','model','reasoning','connection')
         route_values = lambda item: {step: {k: route.get(k) for k in route_fields} for step, route in (item.get('stepConfig') or {}).items()}
         result['configurationChanged'] = bool(parent and (route_values(record) != route_values(parent) or record.get('language') != parent.get('language')))
-        secrets = [item['key'] for item in self.connections.items.values()] + list(getattr(getattr(self, 'inspector', None), 'secrets', ()))
+        if secrets is None:
+            secrets = self._job_secrets()
         result['preflight'] = preflight.public_result(record.get('preflight'), secrets)
         result['outcomes'] = self._safe_outcomes(record.get('outcomes'), secrets)
         result['failures'] = {step: info for step, outcome in result['outcomes'].items()
@@ -312,7 +316,8 @@ class Workspace:
             result['requirementsStatus'] = requirements_review.run_status(self, record)
         if record.get('requirementsDraft'):
             try:
-                review = requirements_review.state(self, requirements_review.context_for(self, record['branch']))
+                with self.lock:
+                    review = requirements_review.state(self, requirements_review.context_for(self, record['branch']))
                 result['requirementsApprovalNeeded'] = review['state'] != 'approved'
             except (OSError, ValueError):
                 result['requirementsApprovalNeeded'] = True
@@ -466,9 +471,16 @@ class Workspace:
         return result
 
     def list_jobs(self):
+        from copy import deepcopy
         with self.lock:
-            return {"runs": [self._public_job(j) for j in sorted(self.jobs.values(),
-                    key=lambda j: j.get("createdAt") or 0, reverse=True)]}
+            # Capture mutable records and redaction context together. Formatting
+            # thousands of file-backed review statuses must not starve workers,
+            # draft saves or new submissions that need the workspace lock.
+            records = deepcopy(list(self.jobs.values()))
+            secrets = self._job_secrets()
+        parents = {record['id']: record for record in records}
+        return {"runs": [self._public_job(record, parents=parents, secrets=secrets)
+                         for record in sorted(records, key=lambda item: item.get('createdAt') or 0, reverse=True)]}
 
     def get_job(self, ident):
         with self.lock:

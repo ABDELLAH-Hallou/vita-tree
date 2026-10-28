@@ -116,8 +116,11 @@ per application is enforced; conflicting edits/duplicate starts return 409.
 The declared test concurrency is the number the test launches, not a product
 limit. CPU, memory, provider accounts and TeX still impose practical limits.
 
-Capture and publication share the workspace lock; history formatting also uses
-that lock. PDF preview compilation has its own serialization lock. HTTP polling
+Capture and publication share the workspace lock. History takes a deep snapshot
+of records and redaction context under that lock, then reads review statuses and
+formats results outside it. Pending requirement drafts briefly reacquire it to
+resolve their application context. Review files are rechecked on every poll;
+there is no long-lived status cache. PDF preview compilation has its own serialization lock. HTTP polling
 waits for completion before scheduling the next 1.5-second poll, so it does not
 pile up requests inside one browser. Multiple browser clients can still create
 contention. The stress clients deliberately poll every 750 ms after completion.

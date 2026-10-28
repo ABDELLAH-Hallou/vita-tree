@@ -151,7 +151,7 @@ class WorkspaceTests(unittest.TestCase):
             def fake(args,**kwargs):
                 if args[0]=='fake-vita':return subprocess.CompletedProcess(args,0,b'Failed',b'')
                 return actual(args,**kwargs)
-            with patch('vita_tree.workspace.subprocess.run',side_effect=fake):
+            with patch.object(self.workspace.processes,'run',side_effect=fake):
                 job=self.workspace.start_ai(branch['branch'],branch['revision'],branch['jobRevision'])
                 self.wait_job(job['id'])
         self.assertEqual(self.workspace.jobs[job['id']]['status'],'failed')
@@ -173,7 +173,7 @@ class WorkspaceTests(unittest.TestCase):
             (results/(args[1]+'.md')).write_text('# '+args[1]+' report')
             if args[1]=='adapt':(cwd/'main.tex').write_text(SOURCE.replace('reliable','adapted'))
             return subprocess.CompletedProcess(args,0,b'',b'')
-        with patch.object(self.workspace,'vita_command',return_value=['fake-vita']),patch('vita_tree.workspace.subprocess.run',side_effect=fake):
+        with patch.object(self.workspace,'vita_command',return_value=['fake-vita']),patch.object(self.workspace.processes,'run',side_effect=fake):
             job=self.workspace.start_ai(branch['branch'],branch['revision'],branch['jobRevision'])
             self.wait_job(job['id'])
         self.assertEqual(self.workspace.jobs[job['id']]['status'],'succeeded',self.workspace.jobs[job['id']])

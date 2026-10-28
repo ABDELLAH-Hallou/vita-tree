@@ -136,3 +136,11 @@ time.sleep(60)
                 output.seek(0,2)
                 self.assertEqual(output.tell(),2000000)
         finally:registry.close()
+
+    def test_unsupported_pipes_are_rejected_before_starting_a_process(self):
+        from vita_tree.processes import ProcessRegistry
+        registry=ProcessRegistry()
+        for options in ({'stdin':subprocess.PIPE},{'stdout':subprocess.PIPE},{'stderr':subprocess.PIPE}):
+            with self.assertRaises(ValueError):
+                registry.run([sys.executable,'-c','pass'],timeout=1,**options)
+        self.assertEqual(registry.active(),[])

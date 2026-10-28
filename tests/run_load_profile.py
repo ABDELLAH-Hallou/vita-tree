@@ -24,9 +24,10 @@ def benchmark(output, name, pdf, enforce=False):
     report=dict(schemaVersion=1,profile=name,profileVersion='1.0.0',profileSha256=sha(PROFILES.read_bytes()),
         at=datetime.datetime.now(datetime.timezone.utc).isoformat(),python=platform.python_version(),platform=platform.system(),
         treeCommit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
-        sourceSha256=sha(LOAD_SOURCE),fixtureSha256=sha((ROOT/'tests/load_provider.py').read_bytes()),
+        sourceSha256=sha(LOAD_SOURCE),includeSha256=sha('Untouched included section.\n'),fixtureSha256=sha((ROOT/'tests/load_provider.py').read_bytes()),
         codeSha256={p:sha((ROOT/p).read_bytes()) for p in ('src/vita_tree/workspace.py','src/vita_tree/processes.py','src/vita_tree/pdf.py',
-            'src/vita_tree/static/runs.js','src/vita_tree/static/app.js','tests/run_load_profile.py','tests/load_support.py')},
+            'src/vita_tree/_process_child.py','src/vita_tree/static/runs.js','src/vita_tree/static/app.js',
+            'tests/fake_ai_process.py','tests/load_server.py','tests/run_load_profile.py','tests/load_support.py')},
         declared=dict(concurrency=config['concurrency'],waves=config['waves'],history=config['history'],historyBranches=config['historyBranches'],
             historyRequirementsFraction=.5,historyFactualFraction=.2,pollers=config['pollers'],pollIntervalMs=config['pollIntervalMs'],pdfMode=pdf),
         budgets=config['budgets'],runs=[],checks=[],shutdowns=[],startupMs=[],phases={},failures=[],providerOverlapSamples=[],
@@ -57,6 +58,9 @@ def benchmark(output, name, pdf, enforce=False):
             stop.wait(config['pollIntervalMs']/1000)
     def save_report():
         (output/'results.json').write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8')
+    def phase(name):
+        report['currentPhase']=name
+        print(json.dumps(dict(phase=name,elapsedSeconds=round(time.monotonic()-began,2))),flush=True)
     def capture(run, expected='succeeded', reason='normal'):
         result=server.finished(run)
         run_ids.append(run['id'])
@@ -85,6 +89,7 @@ def benchmark(output, name, pdf, enforce=False):
             return {row['label'] for row in rows if row['step']==step} >= set(labels)
         wait_for(all_started,45)
     try:
+        phase('fixture_setup')
         setup_started=time.monotonic()
         prepare(root,config)
         report['fixtureSetupMs']=(time.monotonic()-setup_started)*1000
@@ -96,6 +101,7 @@ def benchmark(output, name, pdf, enforce=False):
         idle=server.create('editing')
         idle_source=idle['content']
         for wave in range(config['waves']):
+            phase('wave_'+str(wave))
             assert time.monotonic()-began<config['deadlineSeconds'],'Profile wall-clock deadline'
             group=[];labels=[];prepared=[]
             for index in range(config['concurrency']):
@@ -149,6 +155,7 @@ def benchmark(output, name, pdf, enforce=False):
             save_report()
 
         # External edits during generation must block atomic publication.
+        phase('concurrent_edit')
         cfg,key=server.connection('conflict');branch=server.create('conflict',gate='conflict',keySha256=sha(key))
         conflict=server.launch(branch,cfg);started(['conflict'])
         target=Path(branch['worktree'])/'sections/extra.tex'
@@ -159,6 +166,7 @@ def benchmark(output, name, pdf, enforce=False):
         check('stale adaptation not published',server.snapshot('conflict')['content']==LOAD_SOURCE)
 
         # Removing a session key affects future submissions, never captured work.
+        phase('connection_removal')
         cfg,key=server.connection('removed');branch=server.create('removed',gate='removed',keySha256=sha(key))
         removed=server.launch(branch,cfg);started(['removed'])
         server.api('/api/connections/remove',dict(id=cfg['default']['connection']))
@@ -172,6 +180,7 @@ def benchmark(output, name, pdf, enforce=False):
         for t in pollers:t.join(timeout=35)
         resources.append(sampler.finish());sampler=None
         for abrupt in (False,True):
+            phase('abrupt_restart' if abrupt else 'graceful_restart')
             label='crash' if abrupt else 'shutdown'
             cfg,key=server.connection(label)
             branch=server.create(label,gate=label,keySha256=sha(key),spawnChild=True)
@@ -205,7 +214,7 @@ def benchmark(output, name, pdf, enforce=False):
         check('idle clean worktree releases',server.api('/api/release-worktree',dict(branch='clean-idle'))['released'])
         check('ordinary Git can open released branch',git(root,'worktree','list','--porcelain').count('refs/heads/clean-idle')==0)
     except Exception as error:
-        report['failures'].append(dict(category=type(error).__name__,phase='load_profile'))
+        report['failures'].append(dict(category=type(error).__name__,phase=report.get('currentPhase','load_profile')))
         print('FAIL:',type(error).__name__,str(error),file=sys.stderr)
     finally:
         stop.set()

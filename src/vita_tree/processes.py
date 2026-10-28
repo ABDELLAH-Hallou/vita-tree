@@ -77,6 +77,9 @@ class ProcessRegistry:
             except ProcessLookupError:pass
 
     def run(self, args, *, timeout, cwd=None, env=None, stdin=None, stdout=None, stderr=None):
+        """Run a noninteractive command with file-backed or discarded output."""
+        if stdin not in (None, subprocess.DEVNULL) or stdout == subprocess.PIPE or stderr == subprocess.PIPE:
+            raise ValueError('Owned commands require noninteractive input and file-backed or discarded output.')
         # The helper cannot launch the actual command before assignment to its
         # Windows job. This closes the usual Popen/AssignProcess spawn race.
         with self.lock:

@@ -1,0 +1,981 @@
+{
+  "schemaVersion": 1,
+  "description": "Sanitized measured evidence. Failed budgets are retained; no live provider calls.",
+  "runs": [
+    {
+      "profile": "ci",
+      "profileVersion": "1.0.0",
+      "profileSha256": "ff20741df61c843cfd7f5e7f4706a8d12defec79231a8eee7cd7650b34756dde",
+      "at": "2026-10-28T10:53:56.321088+00:00",
+      "python": "3.12.15",
+      "platform": "Linux",
+      "treeCommit": "ab660b74e4c2062f2bbac00230d3a771f484e9dc",
+      "sourceSha256": "2430122f6a1a6b61644ad25bd50fc0646940244f190e86d297af4c65cfa2adcb",
+      "fixtureSha256": "786df9d6bd120169abb031abaf067ffcd6622a5d1d16edeff6cc8855b913d6a8",
+      "codeSha256": {
+        "src/vita_tree/workspace.py": "76aa74e2abdf37f46a3838594fc273469a048d82848d9f924a7ef7c1290e4f8b",
+        "src/vita_tree/processes.py": "62c60e4c19d3ce1652a2a70a8a71873fb1489819a214e734a0e69d6e00064a60",
+        "src/vita_tree/pdf.py": "7856a8c14d259157c35112d37fe75b5e56396969b8674d26c9491f110c66b95f",
+        "src/vita_tree/static/runs.js": "88c2d848f320cc7a12a84b38aaeaded39ba4e496091934805cb8d3495e1dffe1",
+        "src/vita_tree/static/app.js": "44365c4d4a12d9cc773bd2dc69ddc9a8e4ac2a6d89f0310740074502b72c765c",
+        "tests/run_load_profile.py": "cf452f71ab9737721d024f2b3a75f21df0b3441d3c6b35f701886725483c74ca",
+        "tests/load_support.py": "aa6c82a9410ad9c232d453babc30a6ed9ba246d3d5f6476649aca45f92d70345"
+      },
+      "declared": {
+        "concurrency": 3,
+        "waves": 2,
+        "history": 250,
+        "historyBranches": 24,
+        "historyRequirementsFraction": 0.5,
+        "historyFactualFraction": 0.2,
+        "pollers": 2,
+        "pollIntervalMs": 750,
+        "pdfMode": "simulated"
+      },
+      "machine": {
+        "logicalCpus": 4,
+        "physicalCpus": 2,
+        "totalMemoryMiB": 15983.91015625,
+        "psutil": "7.2.2",
+        "osRelease": "7.0.0-1017-azure"
+      },
+      "engine": {
+        "mode": "simulated",
+        "version": null
+      },
+      "budgets": {
+        "submitP95Ms": 5000,
+        "pollP95Ms": 1500,
+        "orchestrationP95Ms": 8000,
+        "pdfP95Ms": 15000,
+        "shutdownMs": 10000,
+        "serverPeakRssMiB": 512,
+        "serverRssGrowthMiB": 128,
+        "peakDescendants": 32,
+        "handleGrowth": 64,
+        "uiInteractionP95Ms": 200,
+        "uiHeapMiB": 128,
+        "unexpectedFailures": 0,
+        "orphans": 0,
+        "cleanWorktreeLeaks": 0
+      },
+      "budgetResults": {
+        "submitP95Ms": {
+          "actual": 283.38761899999554,
+          "maximum": 5000,
+          "passed": true
+        },
+        "pollP95Ms": {
+          "actual": 271.9387010000105,
+          "maximum": 1500,
+          "passed": true
+        },
+        "orchestrationP95Ms": {
+          "actual": 2049.5452573082293,
+          "maximum": 8000,
+          "passed": true
+        },
+        "pdfP95Ms": {
+          "actual": 41.44142100000181,
+          "maximum": 15000,
+          "passed": true
+        },
+        "shutdownMs": {
+          "actual": 518.1019320000075,
+          "maximum": 10000,
+          "passed": true
+        },
+        "unexpectedFailures": {
+          "actual": 0,
+          "maximum": 0,
+          "passed": true
+        },
+        "orphans": {
+          "actual": 0,
+          "maximum": 0,
+          "passed": true
+        },
+        "cleanWorktreeLeaks": {
+          "actual": 0,
+          "maximum": 0,
+          "passed": true
+        },
+        "serverPeakRssMiB": {
+          "actual": 44.65234375,
+          "maximum": 512,
+          "passed": true
+        },
+        "serverRssGrowthMiB": {
+          "actual": 7.72265625,
+          "maximum": 128,
+          "passed": true
+        },
+        "peakDescendants": {
+          "actual": 6,
+          "maximum": 32,
+          "passed": true
+        },
+        "handleGrowth": {
+          "actual": 0,
+          "maximum": 64,
+          "passed": true
+        }
+      },
+      "distributions": {
+        "/api/adapt": {
+          "count": 13,
+          "p50": 94.39567800001214,
+          "p95": 283.38761899999554,
+          "maximum": 283.38761899999554
+        },
+        "/api/connections": {
+          "count": 14,
+          "p50": 0.8837979999896106,
+          "p95": 100.72417099999598,
+          "maximum": 100.72417099999598
+        },
+        "/api/connections/remove": {
+          "count": 1,
+          "p50": 1.125161000004482,
+          "p95": 1.125161000004482,
+          "maximum": 1.125161000004482
+        },
+        "/api/create": {
+          "count": 13,
+          "p50": 122.28821900001208,
+          "p95": 245.30022799999074,
+          "maximum": 245.30022799999074
+        },
+        "/api/execution": {
+          "count": 16,
+          "p50": 18.007371999999577,
+          "p95": 232.1032760000037,
+          "maximum": 232.1032760000037
+        },
+        "/api/job": {
+          "count": 396,
+          "p50": 2.0779000000175074,
+          "p95": 124.22825699999862,
+          "maximum": 276.97935399999096
+        },
+        "/api/jobs": {
+          "count": 56,
+          "p50": 156.83427500002267,
+          "p95": 271.9387010000105,
+          "maximum": 329.48652400000356
+        },
+        "/api/release-worktree": {
+          "count": 13,
+          "p50": 15.684894000003169,
+          "p95": 43.753323999993654,
+          "maximum": 43.753323999993654
+        },
+        "/api/resume": {
+          "count": 6,
+          "p50": 91.97688099999368,
+          "p95": 101.49118800001133,
+          "maximum": 101.49118800001133
+        },
+        "/api/resume-preview": {
+          "count": 6,
+          "p50": 84.03086800001347,
+          "p95": 174.4918519999885,
+          "maximum": 174.4918519999885
+        },
+        "/api/save": {
+          "count": 4,
+          "p50": 2.6481099999955404,
+          "p95": 134.69944499999542,
+          "maximum": 134.69944499999542
+        },
+        "/api/session": {
+          "count": 3,
+          "p50": 1.6598850000093535,
+          "p95": 22.21049999999991,
+          "maximum": 22.21049999999991
+        },
+        "/api/workspace": {
+          "count": 51,
+          "p50": 80.26042099999131,
+          "p95": 183.85225500000502,
+          "maximum": 284.87845400002243
+        }
+      },
+      "phaseDistributions": {
+        "staging": {
+          "count": 16,
+          "p50": 19.399,
+          "p95": 69.602,
+          "maximum": 69.602
+        },
+        "validation": {
+          "count": 71,
+          "p50": 39.939,
+          "p95": 178.666,
+          "maximum": 263.41
+        },
+        "subprocess": {
+          "count": 45,
+          "p50": 303.096,
+          "p95": 703.217,
+          "maximum": 775.253
+        },
+        "checkpoint": {
+          "count": 52,
+          "p50": 21.74,
+          "p95": 108.495,
+          "maximum": 130.378
+        },
+        "pdf": {
+          "count": 10,
+          "p50": 40.845,
+          "p95": 104.57,
+          "maximum": 104.57
+        },
+        "publication": {
+          "count": 9,
+          "p50": 19.436,
+          "p95": 36.493,
+          "maximum": 36.493
+        }
+      },
+      "wallMs": {
+        "count": 16,
+        "p50": 2071.3417530059814,
+        "p95": 3951.2434005737305,
+        "maximum": 3951.2434005737305
+      },
+      "outcomes": {
+        "succeeded": 9,
+        "failed": 5,
+        "interrupted": 2,
+        "failedFraction": 0.3125
+      },
+      "requestFailures": {
+        "timeouts": 0,
+        "unexpectedStatuses": 0
+      },
+      "resources": [
+        {
+          "samples": 443,
+          "intervalMs": 50.0,
+          "serverPeakRssMiB": 44.65234375,
+          "descendantsPeakRssMiB": 83.7890625,
+          "serverRssGrowthMiB": 7.72265625,
+          "peakDescendants": 6,
+          "handleGrowth": -2,
+          "serverCpuSeconds": 17.59,
+          "sampledDescendantCpuSeconds": 1.68,
+          "note": "CPU is a sampled lower bound; short-lived processes may finish between samples. Descendant RSS sums shared pages."
+        },
+        {
+          "samples": 56,
+          "intervalMs": 50.0,
+          "serverPeakRssMiB": 33.5,
+          "descendantsPeakRssMiB": 37.6015625,
+          "serverRssGrowthMiB": 2.59765625,
+          "peakDescendants": 3,
+          "handleGrowth": -2,
+          "serverCpuSeconds": 1.3800000000000001,
+          "sampledDescendantCpuSeconds": 0.19,
+          "note": "CPU is a sampled lower bound; short-lived processes may finish between samples. Descendant RSS sums shared pages."
+        },
+        {
+          "samples": 54,
+          "intervalMs": 50.0,
+          "serverPeakRssMiB": 34.19140625,
+          "descendantsPeakRssMiB": 38.77734375,
+          "serverRssGrowthMiB": 3.10546875,
+          "peakDescendants": 3,
+          "handleGrowth": 0,
+          "serverCpuSeconds": 1.3900000000000001,
+          "sampledDescendantCpuSeconds": 0.17,
+          "note": "CPU is a sampled lower bound; short-lived processes may finish between samples. Descendant RSS sums shared pages."
+        }
+      ],
+      "shutdowns": [
+        {
+          "abrupt": false,
+          "ms": 318.2778110000015,
+          "orphans": 0,
+          "zombies": 0
+        },
+        {
+          "abrupt": true,
+          "ms": 37.55981099999417,
+          "orphans": 0,
+          "zombies": 0
+        },
+        {
+          "abrupt": false,
+          "ms": 518.1019320000075,
+          "orphans": 0,
+          "zombies": 0
+        }
+      ],
+      "elapsedMs": 32885.33742500002,
+      "passed": true,
+      "providerOverlapSamples": [
+        3,
+        3
+      ],
+      "label": "Before history contention fix",
+      "actionsRun": "https://github.com/ABDELLAH-Hallou/vita-tree/actions/runs/40675684630",
+      "reportSha256": "8d709e2b020f04a0ed38830e2dcf9f50fccdac8018dc290d70b7b98429802c9b",
+      "checksPassed": 76,
+      "checksFailed": 0,
+      "failures": []
+    },
+    {
+      "profile": "ci",
+      "profileVersion": "1.0.0",
+      "profileSha256": "ff20741df61c843cfd7f5e7f4706a8d12defec79231a8eee7cd7650b34756dde",
+      "at": "2026-10-28T10:56:00.879247+00:00",
+      "python": "3.12.15",
+      "platform": "Linux",
+      "treeCommit": "ab660b74e4c2062f2bbac00230d3a771f484e9dc",
+      "sourceSha256": "2430122f6a1a6b61644ad25bd50fc0646940244f190e86d297af4c65cfa2adcb",
+      "fixtureSha256": "786df9d6bd120169abb031abaf067ffcd6622a5d1d16edeff6cc8855b913d6a8",
+      "codeSha256": {
+        "src/vita_tree/workspace.py": "76aa74e2abdf37f46a3838594fc273469a048d82848d9f924a7ef7c1290e4f8b",
+        "src/vita_tree/processes.py": "62c60e4c19d3ce1652a2a70a8a71873fb1489819a214e734a0e69d6e00064a60",
+        "src/vita_tree/pdf.py": "7856a8c14d259157c35112d37fe75b5e56396969b8674d26c9491f110c66b95f",
+        "src/vita_tree/static/runs.js": "88c2d848f320cc7a12a84b38aaeaded39ba4e496091934805cb8d3495e1dffe1",
+        "src/vita_tree/static/app.js": "44365c4d4a12d9cc773bd2dc69ddc9a8e4ac2a6d89f0310740074502b72c765c",
+        "tests/run_load_profile.py": "cf452f71ab9737721d024f2b3a75f21df0b3441d3c6b35f701886725483c74ca",
+        "tests/load_support.py": "aa6c82a9410ad9c232d453babc30a6ed9ba246d3d5f6476649aca45f92d70345"
+      },
+      "declared": {
+        "concurrency": 3,
+        "waves": 2,
+        "history": 250,
+        "historyBranches": 24,
+        "historyRequirementsFraction": 0.5,
+        "historyFactualFraction": 0.2,
+        "pollers": 2,
+        "pollIntervalMs": 750,
+        "pdfMode": "real"
+      },
+      "machine": {
+        "logicalCpus": 4,
+        "physicalCpus": 2,
+        "totalMemoryMiB": 15989.69921875,
+        "psutil": "7.2.2",
+        "osRelease": "6.17.0-1022-azure"
+      },
+      "engine": {
+        "mode": "real",
+        "version": "pdfTeX 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian)"
+      },
+      "budgets": {
+        "submitP95Ms": 5000,
+        "pollP95Ms": 1500,
+        "orchestrationP95Ms": 8000,
+        "pdfP95Ms": 15000,
+        "shutdownMs": 10000,
+        "serverPeakRssMiB": 512,
+        "serverRssGrowthMiB": 128,
+        "peakDescendants": 32,
+        "handleGrowth": 64,
+        "uiInteractionP95Ms": 200,
+        "uiHeapMiB": 128,
+        "unexpectedFailures": 0,
+        "orphans": 0,
+        "cleanWorktreeLeaks": 0
+      },
+      "budgetResults": {
+        "submitP95Ms": {
+          "actual": 253.98658299997123,
+          "maximum": 5000,
+          "passed": true
+        },
+        "pollP95Ms": {
+          "actual": 297.20225199997685,
+          "maximum": 1500,
+          "passed": true
+        },
+        "orchestrationP95Ms": {
+          "actual": 2637.138580882953,
+          "maximum": 8000,
+          "passed": true
+        },
+        "pdfP95Ms": {
+          "actual": 779.2308329999855,
+          "maximum": 15000,
+          "passed": true
+        },
+        "shutdownMs": {
+          "actual": 517.9275820000271,
+          "maximum": 10000,
+          "passed": true
+        },
+        "unexpectedFailures": {
+          "actual": 0,
+          "maximum": 0,
+          "passed": true
+        },
+        "orphans": {
+          "actual": 0,
+          "maximum": 0,
+          "passed": true
+        },
+        "cleanWorktreeLeaks": {
+          "actual": 0,
+          "maximum": 0,
+          "passed": true
+        },
+        "serverPeakRssMiB": {
+          "actual": 46.515625,
+          "maximum": 512,
+          "passed": true
+        },
+        "serverRssGrowthMiB": {
+          "actual": 9.6953125,
+          "maximum": 128,
+          "passed": true
+        },
+        "peakDescendants": {
+          "actual": 10,
+          "maximum": 32,
+          "passed": true
+        },
+        "handleGrowth": {
+          "actual": -2,
+          "maximum": 64,
+          "passed": true
+        }
+      },
+      "distributions": {
+        "/api/adapt": {
+          "count": 13,
+          "p50": 91.65183400000387,
+          "p95": 253.98658299997123,
+          "maximum": 253.98658299997123
+        },
+        "/api/connections": {
+          "count": 14,
+          "p50": 0.868018000005577,
+          "p95": 109.58330599999044,
+          "maximum": 109.58330599999044
+        },
+        "/api/connections/remove": {
+          "count": 1,
+          "p50": 1.1069650000194997,
+          "p95": 1.1069650000194997,
+          "maximum": 1.1069650000194997
+        },
+        "/api/create": {
+          "count": 13,
+          "p50": 122.44402199996784,
+          "p95": 227.1574789999704,
+          "maximum": 227.1574789999704
+        },
+        "/api/execution": {
+          "count": 16,
+          "p50": 20.02035599997498,
+          "p95": 208.03802199998245,
+          "maximum": 208.03802199998245
+        },
+        "/api/job": {
+          "count": 543,
+          "p50": 2.0717400000194175,
+          "p95": 114.82488399997237,
+          "maximum": 329.5416340000088
+        },
+        "/api/jobs": {
+          "count": 71,
+          "p50": 147.17914200002724,
+          "p95": 297.20225199997685,
+          "maximum": 355.4005499999562
+        },
+        "/api/release-worktree": {
+          "count": 13,
+          "p50": 14.896247000024232,
+          "p95": 123.44860799998969,
+          "maximum": 123.44860799998969
+        },
+        "/api/resume": {
+          "count": 6,
+          "p50": 101.81262200001129,
+          "p95": 202.2689899999932,
+          "maximum": 202.2689899999932
+        },
+        "/api/resume-preview": {
+          "count": 6,
+          "p50": 83.94678100000874,
+          "p95": 94.8905949999812,
+          "maximum": 94.8905949999812
+        },
+        "/api/save": {
+          "count": 4,
+          "p50": 2.434566999966137,
+          "p95": 32.52795899999228,
+          "maximum": 32.52795899999228
+        },
+        "/api/session": {
+          "count": 3,
+          "p50": 1.5621339999825068,
+          "p95": 24.493640999992294,
+          "maximum": 24.493640999992294
+        },
+        "/api/workspace": {
+          "count": 51,
+          "p50": 79.26425700003392,
+          "p95": 181.1784550000084,
+          "maximum": 291.9406259999846
+        }
+      },
+      "phaseDistributions": {
+        "staging": {
+          "count": 16,
+          "p50": 16.604,
+          "p95": 97.963,
+          "maximum": 97.963
+        },
+        "validation": {
+          "count": 71,
+          "p50": 67.485,
+          "p95": 831.058,
+          "maximum": 1047.26
+        },
+        "subprocess": {
+          "count": 45,
+          "p50": 349.955,
+          "p95": 782.305,
+          "maximum": 1025.118
+        },
+        "checkpoint": {
+          "count": 52,
+          "p50": 21.236,
+          "p95": 126.129,
+          "maximum": 183.33
+        },
+        "pdf": {
+          "count": 10,
+          "p50": 345.907,
+          "p95": 412.66,
+          "maximum": 412.66
+        },
+        "publication": {
+          "count": 9,
+          "p50": 19.172,
+          "p95": 23.478,
+          "maximum": 23.478
+        }
+      },
+      "wallMs": {
+        "count": 16,
+        "p50": 2895.723342895508,
+        "p95": 5801.005601882935,
+        "maximum": 5801.005601882935
+      },
+      "outcomes": {
+        "succeeded": 9,
+        "failed": 5,
+        "interrupted": 2,
+        "failedFraction": 0.3125
+      },
+      "requestFailures": {
+        "timeouts": 0,
+        "unexpectedStatuses": 0
+      },
+      "resources": [
+        {
+          "samples": 570,
+          "intervalMs": 50.0,
+          "serverPeakRssMiB": 46.515625,
+          "descendantsPeakRssMiB": 148.140625,
+          "serverRssGrowthMiB": 9.6953125,
+          "peakDescendants": 10,
+          "handleGrowth": -2,
+          "serverCpuSeconds": 20.930000000000003,
+          "sampledDescendantCpuSeconds": 8.24,
+          "note": "CPU is a sampled lower bound; short-lived processes may finish between samples. Descendant RSS sums shared pages."
+        },
+        {
+          "samples": 81,
+          "intervalMs": 50.0,
+          "serverPeakRssMiB": 34.03515625,
+          "descendantsPeakRssMiB": 50.05078125,
+          "serverRssGrowthMiB": 3.00390625,
+          "peakDescendants": 3,
+          "handleGrowth": -6,
+          "serverCpuSeconds": 1.47,
+          "sampledDescendantCpuSeconds": 1.06,
+          "note": "CPU is a sampled lower bound; short-lived processes may finish between samples. Descendant RSS sums shared pages."
+        },
+        {
+          "samples": 69,
+          "intervalMs": 50.0,
+          "serverPeakRssMiB": 34.140625,
+          "descendantsPeakRssMiB": 49.96484375,
+          "serverRssGrowthMiB": 3.05078125,
+          "peakDescendants": 3,
+          "handleGrowth": -6,
+          "serverCpuSeconds": 1.46,
+          "sampledDescendantCpuSeconds": 0.68,
+          "note": "CPU is a sampled lower bound; short-lived processes may finish between samples. Descendant RSS sums shared pages."
+        }
+      ],
+      "shutdowns": [
+        {
+          "abrupt": false,
+          "ms": 267.8652319999628,
+          "orphans": 0,
+          "zombies": 0
+        },
+        {
+          "abrupt": true,
+          "ms": 10.832670000013422,
+          "orphans": 0,
+          "zombies": 0
+        },
+        {
+          "abrupt": false,
+          "ms": 517.9275820000271,
+          "orphans": 0,
+          "zombies": 0
+        }
+      ],
+      "elapsedMs": 42449.58019299997,
+      "passed": true,
+      "providerOverlapSamples": [
+        3,
+        3
+      ],
+      "label": "Before history contention fix",
+      "actionsRun": "https://github.com/ABDELLAH-Hallou/vita-tree/actions/runs/40675684630",
+      "reportSha256": "d5a969752a23ba822848fb21c9db7796a3f044dba71f54e47ea4ae0c5505ad2c",
+      "checksPassed": 76,
+      "checksFailed": 0,
+      "failures": []
+    },
+    {
+      "profile": "sustained",
+      "profileVersion": "1.0.0",
+      "profileSha256": "ff20741df61c843cfd7f5e7f4706a8d12defec79231a8eee7cd7650b34756dde",
+      "at": "2026-10-28T10:53:51.446279+00:00",
+      "python": "3.12.15",
+      "platform": "Linux",
+      "treeCommit": "ab660b74e4c2062f2bbac00230d3a771f484e9dc",
+      "sourceSha256": "2430122f6a1a6b61644ad25bd50fc0646940244f190e86d297af4c65cfa2adcb",
+      "fixtureSha256": "786df9d6bd120169abb031abaf067ffcd6622a5d1d16edeff6cc8855b913d6a8",
+      "codeSha256": {
+        "src/vita_tree/workspace.py": "76aa74e2abdf37f46a3838594fc273469a048d82848d9f924a7ef7c1290e4f8b",
+        "src/vita_tree/processes.py": "62c60e4c19d3ce1652a2a70a8a71873fb1489819a214e734a0e69d6e00064a60",
+        "src/vita_tree/pdf.py": "7856a8c14d259157c35112d37fe75b5e56396969b8674d26c9491f110c66b95f",
+        "src/vita_tree/static/runs.js": "88c2d848f320cc7a12a84b38aaeaded39ba4e496091934805cb8d3495e1dffe1",
+        "src/vita_tree/static/app.js": "44365c4d4a12d9cc773bd2dc69ddc9a8e4ac2a6d89f0310740074502b72c765c",
+        "tests/run_load_profile.py": "cf452f71ab9737721d024f2b3a75f21df0b3441d3c6b35f701886725483c74ca",
+        "tests/load_support.py": "aa6c82a9410ad9c232d453babc30a6ed9ba246d3d5f6476649aca45f92d70345"
+      },
+      "declared": {
+        "concurrency": 6,
+        "waves": 5,
+        "history": 2000,
+        "historyBranches": 64,
+        "historyRequirementsFraction": 0.5,
+        "historyFactualFraction": 0.2,
+        "pollers": 3,
+        "pollIntervalMs": 750,
+        "pdfMode": "simulated"
+      },
+      "machine": {
+        "logicalCpus": 4,
+        "physicalCpus": 2,
+        "totalMemoryMiB": 15988.7109375,
+        "psutil": "7.2.2",
+        "osRelease": "6.17.0-1022-azure"
+      },
+      "engine": {
+        "mode": "simulated",
+        "version": null
+      },
+      "budgets": {
+        "submitP95Ms": 10000,
+        "pollP95Ms": 2500,
+        "orchestrationP95Ms": 15000,
+        "pdfP95Ms": 20000,
+        "shutdownMs": 10000,
+        "serverPeakRssMiB": 768,
+        "serverRssGrowthMiB": 192,
+        "peakDescendants": 64,
+        "handleGrowth": 96,
+        "uiInteractionP95Ms": 250,
+        "uiHeapMiB": 192,
+        "unexpectedFailures": 0,
+        "orphans": 0,
+        "cleanWorktreeLeaks": 0
+      },
+      "budgetResults": {
+        "submitP95Ms": {
+          "actual": 2108.5848140000107,
+          "maximum": 10000,
+          "passed": true
+        },
+        "pollP95Ms": {
+          "actual": 2147.247795999988,
+          "maximum": 2500,
+          "passed": true
+        },
+        "orchestrationP95Ms": {
+          "actual": 37413.63110347731,
+          "maximum": 15000,
+          "passed": false
+        },
+        "pdfP95Ms": {
+          "actual": 41.97775500000489,
+          "maximum": 20000,
+          "passed": true
+        },
+        "shutdownMs": {
+          "actual": 516.8724559999873,
+          "maximum": 10000,
+          "passed": true
+        },
+        "unexpectedFailures": {
+          "actual": 0,
+          "maximum": 0,
+          "passed": true
+        },
+        "orphans": {
+          "actual": 0,
+          "maximum": 0,
+          "passed": true
+        },
+        "cleanWorktreeLeaks": {
+          "actual": 0,
+          "maximum": 0,
+          "passed": true
+        },
+        "serverPeakRssMiB": {
+          "actual": 126.4296875,
+          "maximum": 768,
+          "passed": true
+        },
+        "serverRssGrowthMiB": {
+          "actual": 82.63671875,
+          "maximum": 192,
+          "passed": true
+        },
+        "peakDescendants": {
+          "actual": 12,
+          "maximum": 64,
+          "passed": true
+        },
+        "handleGrowth": {
+          "actual": 0,
+          "maximum": 96,
+          "passed": true
+        }
+      },
+      "distributions": {
+        "/api/adapt": {
+          "count": 40,
+          "p50": 748.8353269999948,
+          "p95": 2108.5848140000107,
+          "maximum": 2379.836624999996
+        },
+        "/api/connections": {
+          "count": 38,
+          "p50": 560.86797399999,
+          "p95": 588.8788159999763,
+          "maximum": 595.7732230000374
+        },
+        "/api/connections/remove": {
+          "count": 1,
+          "p50": 1172.2483769999599,
+          "p95": 1172.2483769999599,
+          "maximum": 1172.2483769999599
+        },
+        "/api/create": {
+          "count": 37,
+          "p50": 661.4659510000038,
+          "p95": 1252.3627140000003,
+          "maximum": 1335.3819469999735
+        },
+        "/api/execution": {
+          "count": 46,
+          "p50": 1130.6625990000043,
+          "p95": 2203.9419769999995,
+          "maximum": 3565.4704600000005
+        },
+        "/api/job": {
+          "count": 408,
+          "p50": 587.2512650000203,
+          "p95": 1934.6222539999758,
+          "maximum": 5055.6905039999265
+        },
+        "/api/jobs": {
+          "count": 872,
+          "p50": 1166.807824000017,
+          "p95": 2147.247795999988,
+          "maximum": 3461.6684669999813
+        },
+        "/api/release-worktree": {
+          "count": 61,
+          "p50": 581.3744260000249,
+          "p95": 617.7715049999506,
+          "maximum": 1176.2404779999542
+        },
+        "/api/resume": {
+          "count": 12,
+          "p50": 651.001444000002,
+          "p95": 687.4390049999874,
+          "maximum": 687.4390049999874
+        },
+        "/api/resume-preview": {
+          "count": 12,
+          "p50": 653.8243789999569,
+          "p95": 1253.6158600000817,
+          "maximum": 1253.6158600000817
+        },
+        "/api/save": {
+          "count": 10,
+          "p50": 600.7265679999989,
+          "p95": 622.7509439999608,
+          "maximum": 622.7509439999608
+        },
+        "/api/session": {
+          "count": 3,
+          "p50": 1.5518240001028971,
+          "p95": 28.900805999995782,
+          "maximum": 28.900805999995782
+        },
+        "/api/workspace": {
+          "count": 144,
+          "p50": 630.6354989999932,
+          "p95": 954.9182490000021,
+          "maximum": 1455.569636000007
+        }
+      },
+      "phaseDistributions": {
+        "staging": {
+          "count": 46,
+          "p50": 47.778,
+          "p95": 154.727,
+          "maximum": 240.947
+        },
+        "validation": {
+          "count": 227,
+          "p50": 1231.096,
+          "p95": 2291.954,
+          "maximum": 2973.14
+        },
+        "subprocess": {
+          "count": 147,
+          "p50": 667.814,
+          "p95": 12773.217,
+          "maximum": 15601.059
+        },
+        "checkpoint": {
+          "count": 166,
+          "p50": 109.53,
+          "p95": 596.78,
+          "maximum": 671.688
+        },
+        "pdf": {
+          "count": 34,
+          "p50": 41.352,
+          "p95": 381.452,
+          "maximum": 388.7
+        },
+        "publication": {
+          "count": 33,
+          "p50": 14.393,
+          "p95": 16.732,
+          "maximum": 22.022
+        }
+      },
+      "wallMs": {
+        "count": 46,
+        "p50": 32461.29274368286,
+        "p95": 52913.07830810547,
+        "maximum": 54314.990520477295
+      },
+      "outcomes": {
+        "succeeded": 33,
+        "failed": 11,
+        "interrupted": 2,
+        "failedFraction": 0.2391304347826087
+      },
+      "requestFailures": {
+        "timeouts": 0,
+        "unexpectedStatuses": 0
+      },
+      "resources": [
+        {
+          "samples": 11119,
+          "intervalMs": 50.0,
+          "serverPeakRssMiB": 126.4296875,
+          "descendantsPeakRssMiB": 168.74609375,
+          "serverRssGrowthMiB": 82.63671875,
+          "peakDescendants": 12,
+          "handleGrowth": -3,
+          "serverCpuSeconds": 613.9599999999999,
+          "sampledDescendantCpuSeconds": 7.56,
+          "note": "CPU is a sampled lower bound; short-lived processes may finish between samples. Descendant RSS sums shared pages."
+        },
+        {
+          "samples": 68,
+          "intervalMs": 50.0,
+          "serverPeakRssMiB": 37.0859375,
+          "descendantsPeakRssMiB": 37.3671875,
+          "serverRssGrowthMiB": 1.9453125,
+          "peakDescendants": 3,
+          "handleGrowth": 0,
+          "serverCpuSeconds": 2.05,
+          "sampledDescendantCpuSeconds": 0.15,
+          "note": "CPU is a sampled lower bound; short-lived processes may finish between samples. Descendant RSS sums shared pages."
+        },
+        {
+          "samples": 75,
+          "intervalMs": 50.0,
+          "serverPeakRssMiB": 40.18359375,
+          "descendantsPeakRssMiB": 38.875,
+          "serverRssGrowthMiB": 4.46484375,
+          "peakDescendants": 3,
+          "handleGrowth": 0,
+          "serverCpuSeconds": 2.36,
+          "sampledDescendantCpuSeconds": 0.14,
+          "note": "CPU is a sampled lower bound; short-lived processes may finish between samples. Descendant RSS sums shared pages."
+        }
+      ],
+      "shutdowns": [
+        {
+          "abrupt": false,
+          "ms": 316.5321579999727,
+          "orphans": 0,
+          "zombies": 0
+        },
+        {
+          "abrupt": true,
+          "ms": 5.819330999997874,
+          "orphans": 0,
+          "zombies": 0
+        },
+        {
+          "abrupt": false,
+          "ms": 516.8724559999873,
+          "orphans": 0,
+          "zombies": 0
+        }
+      ],
+      "elapsedMs": 607145.266258,
+      "passed": false,
+      "providerOverlapSamples": [
+        6,
+        6,
+        6,
+        6,
+        6
+      ],
+      "label": "Before history contention fix",
+      "actionsRun": "https://github.com/ABDELLAH-Hallou/vita-tree/actions/runs/40675684630",
+      "reportSha256": "2ce933421ae57f3920a5303a0d2a627d8d234c36ef77747b8812915510476929",
+      "checksPassed": 244,
+      "checksFailed": 0,
+      "failures": []
+    }
+  ]
+}

@@ -40,9 +40,11 @@ def measure(output, name, browser_name, enforce):
                     pending.add(value);peak_pollers[0]=max(peak_pollers[0],len(pending))
             def finished(value):
                 if value in pending:
+                    # Remove before response(): a synchronous Playwright call
+                    # can dispatch the next request event while it is waiting.
+                    pending.discard(value)
                     response=value.response()
                     requests.append(dict(status=response.status if response else 0,timing=value.timing))
-                    pending.discard(value)
             page.on('request',request)
             page.on('requestfinished',finished)
             page.on('requestfailed',finished)
@@ -80,6 +82,8 @@ def measure(output, name, browser_name, enforce):
                 assert finished['status']==('failed' if run==runs[-1] else 'succeeded')
             expect(editor).to_contain_text('unsaved browser load draft',timeout=60000)
             expect(page.locator('#filter-failed')).to_have_text('1',timeout=60000)
+            page.locator('#save-source').click()
+            expect(page.locator('#save-state')).to_have_text('Draft saved on this computer',timeout=60000)
             # Natural polling must stay single-flight and unchanged histories
             # must not repeatedly replace the branch list.
             page.locator('#back').click()
@@ -106,6 +110,11 @@ def measure(output, name, browser_name, enforce):
         result['failureCategory']=type(error).__name__
         print(type(error).__name__,str(error))
     finally:
+        # Keep observed slow interactions and failed polls even if a later
+        # safety assertion prevents completion of the scenario.
+        result.setdefault('interactionMs',distribution(interactions))
+        result.setdefault('polls',requests)
+        result.setdefault('pageErrors',errors)
         (control/'browser.release').touch()
         if server.process and server.process.poll() is None:
             result['shutdown']=server.stop()
