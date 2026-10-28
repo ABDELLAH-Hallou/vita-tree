@@ -78,5 +78,6 @@ jobs:
           path: |
             .test-artifacts/load-browser/browser-results.json
             .test-artifacts/load-browser/synthetic-history.png
+            .test-artifacts/load-browser/synthetic-history-bottom.png
           include-hidden-files: true
           retention-days: 14

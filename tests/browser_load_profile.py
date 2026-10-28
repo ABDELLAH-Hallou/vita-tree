@@ -104,12 +104,20 @@ def measure(output, name, browser_name, enforce):
             page.wait_for_timeout(3300)
             assert page.evaluate('window.__mutations')==0, 'Idle history caused DOM churn'
             assert peak_pollers[0]==1,'Browser job polling overlapped'
+            # Rows use content-visibility:auto. Verify that offscreen rows
+            # actually paint when reached; a full-page screenshot alone can
+            # contain intentionally deferred (blank) offscreen content.
+            last=page.locator('#branch-list .branch-row').last
+            last.scroll_into_view_if_needed()
+            expect(last.locator('.branch-name')).to_be_visible()
+            page.screenshot(path=str(output/'synthetic-history-bottom.png'))
+            page.evaluate('window.scrollTo(0,0)')
             after = {r['name']:r['value'] for r in cdp.send('Performance.getMetrics')['metrics']}
             result.update(interactionMs=distribution(interactions), longTasksMs=distribution(page.evaluate('window.__loadTasks')),
                           browserCosts={k:after[k]-before[k] for k in ('ScriptDuration','LayoutDuration','TaskDuration')},
                           heapMiB=after['JSHeapUsedSize']/2**20, domNodes=after['Nodes'], polls=requests,
                           peakConcurrentPolls=peak_pollers[0],pageErrors=errors, idleBranchMutations=page.evaluate('window.__mutations'))
-            page.screenshot(path=str(output/'synthetic-history.png'),full_page=True)
+            page.screenshot(path=str(output/'synthetic-history.png'))
             result['budgetResults']={
                 'uiInteractionP95Ms':dict(actual=result['interactionMs']['p95'],maximum=config['budgets']['uiInteractionP95Ms']),
                 'uiHeapMiB':dict(actual=result['heapMiB'],maximum=config['budgets']['uiHeapMiB'])}

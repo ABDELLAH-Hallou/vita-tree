@@ -32,6 +32,11 @@ by validation/publication. Human decision time and AI Review throughput are not
 measured by these profiles. The API still returns the full history; archives
 beyond the declared sizes and concurrency are not qualified by these results.
 
+The scenario controller additionally polls one run at a time, waiting 30 ms
+after each response while awaiting completion. Those probes are included in the
+API/resource evidence; this is additional test-driver load, not normal browser
+behavior. The browser profiles use the application's natural polling interval.
+
 Measured, sanitized results (including failed budgets) are retained in
 [`benchmarks/workflow-load.json`](benchmarks/workflow-load.json). Runs on separate
 CI hosts are descriptive observations, not statistically controlled effect sizes.
@@ -51,6 +56,35 @@ Both profiles require zero unexpected failures, executing orphans and leaked
 clean, owned worktrees. Expected provider failures, conflicts and interrupted
 runs remain in the evidence. Passing safety checks with an exceeded performance
 budget is not a performance pass.
+
+## Recorded reference run
+
+The [28 October 2026 CI run](https://github.com/ABDELLAH-Hallou/vita-tree/actions/runs/40680427596)
+passed all five profiles with the original budgets unchanged. Server jobs used
+Python 3.12.15; the real-PDF job used PDFTeX 1.40.25 / TeX Live 2023. Full machine,
+fixture, code and report hashes are in the JSON evidence linked above.
+
+| Server profile | Attempts | Poll p95 | Local orchestration p95 | Peak server RSS |
+| --- | ---: | ---: | ---: | ---: |
+| CI / simulated PDF | 16 | 208 ms | 649 ms | 46.2 MiB |
+| Sustained / simulated PDF | 46 | 1,627 ms | 7,806 ms | 114.7 MiB |
+| CI / restricted real PDF | 16 | 446 ms | 2,338 ms | 48.0 MiB |
+
+The sustained run observed six live providers in every wave. Its 33 successful,
+11 expected failed and two interrupted attempts had zero unexpected failures,
+executing orphans or leaked clean worktrees. Real compiler-call p95 was 1,014 ms;
+simulated PDF timings are excluded from that claim. Browser filtering p95 was
+34.4 ms / 9.3 MiB heap at 250 history entries and 31.7 ms / 17.5 MiB at 2,000.
+Both browser jobs observed one poll in flight, no page errors and no idle branch
+list mutations. These are small synthetic measurements, not capacity guarantees.
+
+Earlier failed sustained budgets are retained in the same evidence: history
+formatting held the orchestration lock; moving it outside that lock exposed
+contention between simultaneous readers. The final implementation coalesces
+overlapping reads without reusing completed refreshes. Separate regression tests
+cover writer progress, independent result copies, fresh subsequent reads and
+failed-refresh recovery. Process ownership tests cover descendants, timeouts,
+abrupt owner death and the separate synthetic generation-check endpoint.
 
 ## Commands
 
@@ -85,7 +119,12 @@ The workflow runs each reference profile in a separate job.
 shutdown evidence, resource samples summarized by interval, retained storage
 size, phase distributions and each budget verdict. The browser report records
 dispatch-to-next-paint filtering, long tasks, script/layout/task CPU durations,
-heap, DOM size, natural polling and draft preservation. Measurements cover:
+heap, DOM size, natural polling and draft preservation.
+
+`retainedStorage` covers `runs/`, `checkpoints/` and `job-history/`, not the entire
+Git object store, worktrees, source captures, PDFs or diagnostic trace storage.
+
+Measurements cover:
 
 - **Provider wait:** measured fixture sleep, separate from a synchronization
   barrier used to prove that all declared branches really have live providers
@@ -116,6 +155,14 @@ records and session-key canaries; do not publish that directory wholesale.
 After the test host has stopped, the entire chosen evidence directory can be
 removed. Normal application checkpoint/history retention is unchanged by this
 benchmark; retained storage is measured, not silently deleted.
+
+Application checkpoints still have the existing 7-day, 20-terminal-run and
+256-MiB total limits (32 MiB per checkpoint). Active attempts and immediate
+resume parents are protected. Cleanup runs at startup, launch and completion,
+or through Activity & support; it removes checkpoint copies rather than drafts
+or history. See [retry retention](../README.md#resume-a-failed-preparation) and
+the [checkpoint implementation](../src/vita_tree/checkpoints.py). The benchmark
+does not introduce cleanup of the separately retained source/PDF/trace caches.
 
 ## Concurrency, backpressure and recovery
 
