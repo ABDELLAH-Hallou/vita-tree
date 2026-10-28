@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "version": "1.0.0",
+  "license": "MIT",
+  "provenance": "Synthetic jobs, sources and session-key canaries only; no network provider calls.",
+  "referenceEnvironment": "Ubuntu 24.04, Python 3.12, explicit TeX Live installation; budgets are regression gates, not throughput guarantees.",
+  "profiles": {
+    "ci": {
+      "concurrency": 3,
+      "waves": 2,
+      "history": 250,
+      "historyBranches": 24,
+      "providerDelayMs": [150, 250, 350],
+      "pollers": 2,
+      "pollIntervalMs": 750,
+      "sampleIntervalMs": 50,
+      "deadlineSeconds": 240,
+      "budgets": {
+        "submitP95Ms": 5000,
+        "pollP95Ms": 1500,
+        "orchestrationP95Ms": 8000,
+        "pdfP95Ms": 15000,
+        "shutdownMs": 10000,
+        "serverPeakRssMiB": 512,
+        "serverRssGrowthMiB": 128,
+        "peakDescendants": 32,
+        "handleGrowth": 64,
+        "uiInteractionP95Ms": 200,
+        "uiHeapMiB": 128,
+        "unexpectedFailures": 0,
+        "orphans": 0,
+        "cleanWorktreeLeaks": 0
+      }
+    },
+    "sustained": {
+      "concurrency": 6,
+      "waves": 5,
+      "history": 2000,
+      "historyBranches": 64,
+      "providerDelayMs": [300, 450, 600],
+      "pollers": 3,
+      "pollIntervalMs": 750,
+      "sampleIntervalMs": 50,
+      "deadlineSeconds": 900,
+      "budgets": {
+        "submitP95Ms": 10000,
+        "pollP95Ms": 2500,
+        "orchestrationP95Ms": 15000,
+        "pdfP95Ms": 20000,
+        "shutdownMs": 10000,
+        "serverPeakRssMiB": 768,
+        "serverRssGrowthMiB": 192,
+        "peakDescendants": 64,
+        "handleGrowth": 96,
+        "uiInteractionP95Ms": 250,
+        "uiHeapMiB": 192,
+        "unexpectedFailures": 0,
+        "orphans": 0,
+        "cleanWorktreeLeaks": 0
+      }
+    }
+  }
+}

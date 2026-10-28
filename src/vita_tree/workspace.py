@@ -97,6 +97,8 @@ class Workspace:
         self.connections = Connections()
         self.jobs: dict[str, dict] = {}
         self._ai_threads = set()
+        from .processes import ProcessRegistry
+        self.processes = ProcessRegistry()
         self._closed = False
         self._publishing = set()
         self._previewing = {}
@@ -580,6 +582,18 @@ class Workspace:
                     except OSError:
                         pass
                     self.diagnostics.workflow(record, previous)
+
+            workers = list(self._ai_threads)
+
+        # Mark records interrupted before cancelling their process trees so a
+        # racing worker cannot publish or turn shutdown into a provider failure.
+        self.processes.close()
+        # Allow cancelled workers to clear captured keys and finish cleanup
+        # before the same workspace is reopened. Never join under its lock.
+        deadline = time.monotonic() + 5
+        for worker in workers:
+            if worker is not threading.current_thread():
+                worker.join(timeout=max(0, deadline - time.monotonic()))
 
     def busy(self, name):
         if name in self._pending_publications:
@@ -1122,6 +1136,10 @@ class Workspace:
             return True
 
     def _run_ai(self, record, context):
+        with self.processes.scope():
+            self._execute_ai(record, context)
+
+    def _execute_ai(self, record, context):
         from .pdf import export_snapshot, compile_document
         stage = self.root / "runs" / record["id"]
         location, source, job = (context[key] for key in ("location", "source", "job"))
@@ -1245,7 +1263,7 @@ class Workspace:
                     for filename in ('delta.md', 'delta.json'):
                         safe_path(stage, '.vita/results/' + filename).unlink(missing_ok=True)
                 with self.inspector.phase(record, 'subprocess', step):
-                    process = subprocess.run(args, cwd=stage, env=env, stdin=subprocess.DEVNULL,
+                    process = self.processes.run(args, cwd=stage, env=env, stdin=subprocess.DEVNULL,
                                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=600)
                 if process.returncode:
                     self.inspector.mark(record, 'subprocess', 'error', step, error=RuntimeError())
