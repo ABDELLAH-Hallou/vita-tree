@@ -12,21 +12,22 @@ import threading
 import time
 
 from load_support import (ROOT,PROFILES,LOAD_SOURCE,LoadServer,ResourceSampler,distribution,
-                          git,prepare,profile,sha,wait_for)
+                          git,prepare,profile,sha,wait_for,processor_label)
 
 
-def benchmark(output, name, pdf, enforce=False):
+def benchmark(output, name, pdf, enforce=False, replica=1):
     config=profile(name)
     assert not output.exists(),'Use a fresh evidence directory'
     output.mkdir(parents=True)
     root=output/'repository';control=root/'.git/load-control'
     server=LoadServer(root,pdf)
-    report=dict(schemaVersion=1,profile=name,profileVersion='1.0.0',profileSha256=sha(PROFILES.read_bytes()),
+    report=dict(schemaVersion=1,profile=name,replica=replica,profileVersion='1.0.0',profileSha256=sha(PROFILES.read_bytes()),
         at=datetime.datetime.now(datetime.timezone.utc).isoformat(),python=platform.python_version(),platform=platform.system(),
         treeCommit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
         sourceSha256=sha(LOAD_SOURCE),includeSha256=sha('Untouched included section.\n'),fixtureSha256=sha((ROOT/'tests/load_provider.py').read_bytes()),
         codeSha256={p:sha((ROOT/p).read_bytes()) for p in ('src/vita_tree/workspace.py','src/vita_tree/processes.py','src/vita_tree/pdf.py',
-            'src/vita_tree/_process_child.py','src/vita_tree/static/runs.js','src/vita_tree/static/app.js',
+            'src/vita_tree/_process_child.py','src/vita_tree/factual_review.py','src/vita_tree/requirements_review.py',
+            'src/vita_tree/static/runs.js','src/vita_tree/static/app.js',
             'tests/fake_ai_process.py','tests/load_server.py','tests/run_load_profile.py','tests/load_support.py')},
         declared=dict(concurrency=config['concurrency'],waves=config['waves'],history=config['history'],historyBranches=config['historyBranches'],
             historyRequirementsFraction=.5,historyFactualFraction=.2,pollers=config['pollers'],pollIntervalMs=config['pollIntervalMs'],
@@ -40,15 +41,10 @@ def benchmark(output, name, pdf, enforce=False):
     server.deadline=began+config['deadlineSeconds']
     import psutil
     report['machine']=dict(logicalCpus=psutil.cpu_count(),physicalCpus=psutil.cpu_count(logical=False),
+                           processor=processor_label(),
                            totalMemoryMiB=psutil.virtual_memory().total/2**20,
                            psutil=importlib.metadata.version('psutil'),osRelease=platform.release())
     report['engine']={'mode':pdf,'version':None}
-    if pdf=='real':
-        executable=shutil.which('pdflatex')
-        if executable:
-            # This is a bounded version probe, never a package installer.
-            probe=subprocess.run([executable,'--version'],stdin=subprocess.DEVNULL,capture_output=True,timeout=10)
-            report['engine']['version']=probe.stdout.decode(errors='replace').splitlines()[0]
     def check(label, value):
         report['checks'].append(dict(name=label,passed=bool(value)))
         assert value,'Safety check failed: '+label
@@ -90,6 +86,14 @@ def benchmark(output, name, pdf, enforce=False):
             return {row['label'] for row in rows if row['step']==step} >= set(labels)
         wait_for(all_started,45)
     try:
+        phase('engine_probe')
+        if pdf=='real':
+            executable=shutil.which('pdflatex')
+            if executable:
+                # A failed/timed-out version probe must also leave evidence.
+                probe=subprocess.run([executable,'--version'],stdin=subprocess.DEVNULL,capture_output=True,timeout=10)
+                lines=probe.stdout.decode(errors='replace').splitlines()
+                report['engine']['version']=lines[0] if lines else None
         phase('fixture_setup')
         setup_started=time.monotonic()
         prepare(root,config)
@@ -260,8 +264,10 @@ def benchmark(output, name, pdf, enforce=False):
 def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--profile',choices=['ci','sustained'],default='ci');parser.add_argument('--pdf',choices=['real','simulated'],default='simulated')
-    parser.add_argument('--enforce-budgets',action='store_true');args=parser.parse_args()
-    report=benchmark(args.output.resolve(),args.profile,args.pdf,args.enforce_budgets)
+    parser.add_argument('--enforce-budgets',action='store_true')
+    parser.add_argument('--replica',type=int,choices=[1,2,3],default=1,help='Evidence label only; does not change the workload')
+    args=parser.parse_args()
+    report=benchmark(args.output.resolve(),args.profile,args.pdf,args.enforce_budgets,args.replica)
     print(json.dumps(dict(passed=report['passed'],runs=len(report['runs']),budgetResults=report['budgetResults']),indent=2))
     raise SystemExit(not report['passed'])
 

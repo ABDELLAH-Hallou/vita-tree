@@ -3,6 +3,7 @@ import hashlib
 import json
 import math
 import os
+import platform
 from pathlib import Path
 import subprocess
 import sys
@@ -21,6 +22,16 @@ LOAD_SOURCE=SOURCE.replace(r'\end{document}',r'\input{sections/extra}'+'\n'+r'\e
 
 
 def sha(value):return hashlib.sha256(value if isinstance(value,bytes) else value.encode()).hexdigest()
+
+
+def processor_label():
+    if sys.platform.startswith('linux'):
+        try:
+            for line in Path('/proc/cpuinfo').read_text().splitlines():
+                key,_,value=line.partition(':')
+                if key.strip()=='model name':return value.strip()
+        except OSError:pass
+    return platform.processor() or None
 
 
 def distribution(values):

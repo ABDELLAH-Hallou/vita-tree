@@ -5,7 +5,7 @@ from pathlib import Path
 import platform
 import time
 
-from load_support import ROOT, PROFILES, LoadServer, prepare, profile, distribution, sha, wait_for, git, LOAD_SOURCE
+from load_support import ROOT, PROFILES, LoadServer, prepare, profile, distribution, sha, wait_for, git, LOAD_SOURCE, processor_label
 
 
 def measure(output, name, browser_name, enforce):
@@ -21,7 +21,7 @@ def measure(output, name, browser_name, enforce):
     result = dict(schemaVersion=1, profile=name, concurrency=config['concurrency'],
                   history=config['history'], pdfMode='simulated', passed=False,
                   profileVersion='1.0.0',profileSha256=sha(PROFILES.read_bytes()),
-                  treeCommit=git(ROOT,'rev-parse','HEAD'),python=platform.python_version(),platform=platform.system(),
+                  treeCommit=git(ROOT,'rev-parse','HEAD'),python=platform.python_version(),platform=platform.system(),processor=processor_label(),
                   sourceSha256=sha(LOAD_SOURCE),
                   codeSha256={p:sha((ROOT/p).read_bytes()) for p in ('tests/browser_load_profile.py','tests/load_provider.py',
                       'src/vita_tree/static/app.js','src/vita_tree/static/runs.js','src/vita_tree/workspace.py')})

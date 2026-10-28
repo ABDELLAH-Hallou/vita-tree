@@ -31,9 +31,45 @@ def _write(path, value):
 
 
 def summary(workspace, ident):
-    folder = None
     try:
         folder = _folder(workspace, ident)
+    except (OSError, ValueError, TypeError):
+        return {'state': 'unavailable'}
+    return _summary_at(folder)
+
+
+def summaries(workspace, identifiers):
+    """One fresh namespace scan per history snapshot, with no status cache."""
+    from .workspace import safe_path
+    result = {ident: None if isinstance(ident,str) and re.fullmatch('[a-f0-9]{32}', ident) else {'state':'unavailable'}
+              for ident in identifiers}
+    try:
+        # Validate the common namespace once, then each existing UUID child.
+        # Missing children need no repeated deep realpath/stat traversal.
+        base = safe_path(workspace.root, 'factual-reviews')
+        with os.scandir(base) as entries:
+            for entry in entries:
+                ident = os.path.normcase(entry.name)
+                if ident not in result or not re.fullmatch('[a-f0-9]{32}',ident):
+                    continue
+                if entry.is_symlink() or not entry.is_dir(follow_symlinks=False):
+                    result[ident] = {'state':'unavailable'}
+                else:
+                    try:
+                        folder = safe_path(base,entry.name)
+                        result[ident] = _summary_at(folder)
+                    except (OSError,ValueError,TypeError):
+                        result[ident] = {'state':'unavailable'}
+    except FileNotFoundError:
+        pass
+    except (OSError, ValueError, TypeError):
+        return {ident: {'state':'unavailable'} for ident in result}
+    return result
+
+
+def _summary_at(folder):
+    """Read a child of an already validated factual-review namespace."""
+    try:
         value = _read(folder/'manifest.json')
         if (not isinstance(value, dict) or value.get('schemaVersion') != 1 or value.get('state') not in {'pending', 'resolved'}
                 or value.get('step') not in {'adapt', 'cover'}

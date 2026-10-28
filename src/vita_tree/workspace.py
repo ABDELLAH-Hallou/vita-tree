@@ -295,7 +295,7 @@ class Workspace:
     def _job_secrets(self):
         return [item['key'] for item in self.connections.items.values()] + list(getattr(getattr(self, 'inspector', None), 'secrets', ()))
 
-    def _public_job(self, record, *, parents=None, secrets=None):
+    def _public_job(self, record, *, parents=None, secrets=None, factuals=None, requirements=None):
         result = {key: record.get(key) for key in self.JOB_FIELDS}
         result['reviewPolicy'] = 'automatic' if record.get('reviewPolicy') == 'automatic' else 'manual'
         start = record.get("startedAt")
@@ -313,9 +313,9 @@ class Workspace:
         result['outcomes'] = self._safe_outcomes(record.get('outcomes'), secrets)
         result['failures'] = {step: info for step, outcome in result['outcomes'].items()
                               if (info := failure(outcome))}
-        result['factualReview'] = factual_review.summary(self, record['id'])
+        result['factualReview'] = factual_review.summary(self, record['id']) if factuals is None else factuals.get(record['id'])
         if record.get('requirementsRevision'):
-            result['requirementsStatus'] = requirements_review.run_status(self, record)
+            result['requirementsStatus'] = requirements_review.run_status(self, record) if requirements is None else requirements.get(record['id'],'unavailable')
         if record.get('requirementsDraft'):
             try:
                 with self.lock:
@@ -508,7 +508,9 @@ class Workspace:
             records = deepcopy(list(self.jobs.values()))
             secrets = self._job_secrets()
         parents = {record['id']: record for record in records}
-        return {"runs": [self._public_job(record, parents=parents, secrets=secrets)
+        factuals = factual_review.summaries(self, parents)
+        requirements = requirements_review.run_statuses(self, records)
+        return {"runs": [self._public_job(record, parents=parents, secrets=secrets, factuals=factuals, requirements=requirements)
                          for record in sorted(records, key=lambda item: item.get('createdAt') or 0, reverse=True)]}
 
     def get_job(self, ident):

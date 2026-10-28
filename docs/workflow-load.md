@@ -15,6 +15,10 @@ Do not silently widen a budget to make a slow run pass; version and explain a
 deliberate change. Other operating systems can run the same scenarios, but are
 not interchangeable timing baselines.
 
+CI runs the sustained profile on three independent runner instances. Each sample
+must meet the same budgets; passing samples do not average away failed ones.
+Reports identify the replica, CPU model, kernel and available resources.
+
 | Profile | Simultaneous branches | Waves | Existing runs / branches | Provider sleep per step | Poll clients |
 | --- | ---: | ---: | ---: | --- | ---: |
 | `ci` | 3 | 2 | 250 / 24 | 150, 250, 350 ms | 2 |
@@ -26,6 +30,10 @@ thousands of complete CV/report/checkpoint bodies. The source includes a local
 included file. Additional scenarios exercise repeated Cover failure and retry,
 external include edits, unrelated draft saves, connection removal, clean
 worktree release, graceful shutdown, abrupt server death and recovery.
+
+The archived requirement bindings share one synthetic approved definition.
+Histories dominated by distinct, large approval records are not represented;
+the bounded per-refresh capture falls back to fresh reads for those records.
 
 The measured preparation subset is Extract → Analyze → Adapt → Cover, followed
 by validation/publication. Human decision time and AI Review throughput are not
@@ -63,6 +71,12 @@ The [28 October 2026 CI run](https://github.com/ABDELLAH-Hallou/vita-tree/action
 passed all five profiles with the original budgets unchanged. Server jobs used
 Python 3.12.15; the real-PDF job used PDFTeX 1.40.25 / TeX Live 2023. Full machine,
 fixture, code and report hashes are in the JSON evidence linked above.
+
+These rows describe that particular sample, before metadata batching. A repeat
+on [another shared host](https://github.com/ABDELLAH-Hallou/vita-tree/actions/runs/40682702276)
+missed polling/orchestration budgets despite passing safety checks; that failure
+is retained too. The repeated CI samples guard against treating one favorable
+host as a capacity guarantee.
 
 | Server profile | Attempts | Poll p95 | Local orchestration p95 | Peak server RSS |
 | --- | ---: | ---: | ---: | ---: |
@@ -186,6 +200,16 @@ updates. PDF preview compilation has its own serialization lock. HTTP polling
 waits for completion before scheduling the next 1.5-second poll, so it does not
 pile up requests inside one browser. Multiple browser clients can still create
 contention. The stress clients deliberately poll every 750 ms after completion.
+
+Inside each refresh, factual-review discovery scans the namespace once and
+applies the existing path/symlink/junction checks to existing UUID directories.
+Small shared requirement approval/review files are captured once within that
+refresh: at most 128 paths, 256,000 source bytes total, and 64,000 bytes per file.
+Larger or more varied metadata uses ordinary fresh reads. Binding records remain
+individually validated. No cache survives the refresh, and actions/resume use
+their original uncached validation paths. Tests cover changing shared approvals,
+invalid-file repair, missing evidence and child/namespace symlink or junction
+escapes.
 The server does not currently offer fair admission or a bounded HTTP worker
 pool; this benchmark does not establish behavior under unbounded client load.
 
