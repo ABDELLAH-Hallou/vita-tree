@@ -120,7 +120,9 @@ Capture and publication share the workspace lock. History takes a deep snapshot
 of records and redaction context under that lock, then reads review statuses and
 formats results outside it. Pending requirement drafts briefly reacquire it to
 resolve their application context. Review files are rechecked on every poll;
-there is no long-lived status cache. PDF preview compilation has its own serialization lock. HTTP polling
+there is no long-lived status cache. A separate history-read lock serializes
+expensive history formatting across HTTP clients without blocking application
+writes or worker updates. PDF preview compilation has its own serialization lock. HTTP polling
 waits for completion before scheduling the next 1.5-second poll, so it does not
 pile up requests inside one browser. Multiple browser clients can still create
 contention. The stress clients deliberately poll every 750 ms after completion.

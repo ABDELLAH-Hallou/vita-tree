@@ -94,6 +94,7 @@ class Workspace:
         common = Path(run_git(repository, "rev-parse", "--git-common-dir"))
         self.root = (repository / common).resolve() / "vita-tree"
         self.lock = threading.RLock()
+        self._history_lock = threading.Lock()
         self.connections = Connections()
         self.jobs: dict[str, dict] = {}
         self._ai_threads = set()
@@ -471,6 +472,13 @@ class Workspace:
         return result
 
     def list_jobs(self):
+        # Keep simultaneous history readers from competing over thousands of
+        # path checks and JSON records. This lock never gates AI admission,
+        # draft saves or worker progress. Acquire it before the workspace lock.
+        with self._history_lock:
+            return self._list_jobs()
+
+    def _list_jobs(self):
         from copy import deepcopy
         with self.lock:
             # Capture mutable records and redaction context together. Formatting

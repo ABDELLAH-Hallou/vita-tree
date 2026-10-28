@@ -2,9 +2,10 @@
 import argparse
 import json
 from pathlib import Path
+import platform
 import time
 
-from load_support import LoadServer, prepare, profile, distribution, sha, wait_for
+from load_support import ROOT, PROFILES, LoadServer, prepare, profile, distribution, sha, wait_for, git, LOAD_SOURCE
 
 
 def measure(output, name, browser_name, enforce):
@@ -14,9 +15,16 @@ def measure(output, name, browser_name, enforce):
     root = output/'repository'
     control = prepare(root, config)
     server = LoadServer(root)
+    started=time.monotonic()
+    server.deadline=started+config['deadlineSeconds']
     errors, requests, interactions = [], [], []
     result = dict(schemaVersion=1, profile=name, concurrency=config['concurrency'],
-                  history=config['history'], pdfMode='simulated', passed=False)
+                  history=config['history'], pdfMode='simulated', passed=False,
+                  profileVersion='1.0.0',profileSha256=sha(PROFILES.read_bytes()),
+                  treeCommit=git(ROOT,'rev-parse','HEAD'),python=platform.python_version(),platform=platform.system(),
+                  sourceSha256=sha(LOAD_SOURCE),
+                  codeSha256={p:sha((ROOT/p).read_bytes()) for p in ('tests/browser_load_profile.py','tests/load_provider.py',
+                      'src/vita_tree/static/app.js','src/vita_tree/static/runs.js','src/vita_tree/workspace.py')})
     try:
         server.start()
         runs, prepared = [], []
@@ -82,12 +90,14 @@ def measure(output, name, browser_name, enforce):
                 assert finished['status']==('failed' if run==runs[-1] else 'succeeded')
             expect(editor).to_contain_text('unsaved browser load draft',timeout=60000)
             expect(page.locator('#filter-failed')).to_have_text('1',timeout=60000)
+            expect(page.locator('#filter-running')).to_have_text('0',timeout=60000)
             page.locator('#save-source').click()
             expect(page.locator('#save-state')).to_have_text('Draft saved on this computer',timeout=60000)
             # Natural polling must stay single-flight and unchanged histories
             # must not repeatedly replace the branch list.
             page.locator('#back').click()
             expect(page.locator('#branch-list')).to_be_visible()
+            expect(page.locator('#refresh')).to_be_enabled(timeout=60000)
             page.wait_for_timeout(1800)
             page.evaluate("""window.__mutations=0;new MutationObserver(r=>window.__mutations+=r.length)
                 .observe(document.querySelector('#branch-list'),{childList:true,subtree:true});""")
@@ -115,6 +125,7 @@ def measure(output, name, browser_name, enforce):
         result.setdefault('interactionMs',distribution(interactions))
         result.setdefault('polls',requests)
         result.setdefault('pageErrors',errors)
+        result['elapsedMs']=(time.monotonic()-started)*1000
         (control/'browser.release').touch()
         if server.process and server.process.poll() is None:
             result['shutdown']=server.stop()
