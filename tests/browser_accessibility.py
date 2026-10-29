@@ -62,7 +62,7 @@ def type_text(page, selector, value):
     page.keyboard.press('Tab')
 
 
-def scan(page, report, output, name, scope=None):
+def scan(page, report, output, name, scope=None, screenshot_target=None):
     if not page.evaluate('!!window.axe'):
         # Serve the pinned test tool through a Playwright-only same-origin route.
         # Keep the real application's CSP intact; no production test endpoint.
@@ -88,6 +88,8 @@ def scan(page, report, output, name, scope=None):
         report['tokenContrast'][theme] = {key:round((max(luminance(value),background)+.05)/(min(luminance(value),background)+.05),3)
                                         for key,value in pairs.items() if key!='panel'}
         assert all(ratio>=4.5 for ratio in report['tokenContrast'][theme].values()), report['tokenContrast'][theme]
+    if screenshot_target:
+        page.locator(screenshot_target).first.scroll_into_view_if_needed()
     page.screenshot(path=str(output/(name+'.png')))
     print('Audit:', report['browser'], name, 'violations='+str(len(data['violations'])), flush=True)
 
@@ -285,6 +287,8 @@ def main():
             expect(page.locator('#popup-model')).to_be_disabled()
             scan(page,report,output,'recorded-setup-dark','#step-ai-dialog')
             page.keyboard.press('Escape')
+            keyboard_to(page,'#task-configure')
+            assert page.locator('#task-configure').evaluate('el=>el.getBoundingClientRect().right<=innerWidth'), 'Task action clipped horizontally'
             report['tasks'].append('keyboard mixed factual decisions and resumed validation')
 
             # Final report and actual restricted-compiler PDF, not a placeholder.
@@ -304,7 +308,7 @@ def main():
             for theme in ('light','dark'):
                 if page.locator('html').get_attribute('data-theme') != theme:
                     activate(page,'#theme')
-                scan(page,report,output,'pdf-'+theme)
+                scan(page,report,output,'pdf-'+theme,screenshot_target='#current-pdf .pdf-page')
             keyboard_to(page,'#current-pdf .pdf-download')
             expect(page.locator('#current-pdf .pdf-download')).to_have_accessible_name('Open PDF \u2197')
             report['tasks'].append('keyboard final report and real selectable PDF access')

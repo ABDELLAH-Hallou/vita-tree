@@ -655,6 +655,7 @@ body.in-workspace .shell {
 }
 .task-inspector {
   display:flex;
+  flex-wrap:wrap;
   justify-content:space-between;
   align-items:center;
   gap:20px;
@@ -662,6 +663,7 @@ body.in-workspace .shell {
   border-top:1px solid var(--line);
   background:var(--surface)
 }
+.task-inspector>.actions {flex-wrap:wrap;justify-content:flex-end;max-width:100%}
 .task-inspector p {
   margin:4px 0;
   color:var(--muted);
