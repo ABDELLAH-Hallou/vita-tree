@@ -7,10 +7,11 @@ import tempfile
 from .ai_config import STEPS, clean_settings, effective_settings, stage_environment
 from .provider_status import generation_result
 from .diagnostics_contract import token
+from .processes import run_owned
 
 
 def invoke(args, **kwargs):
-    return subprocess.run(args, **kwargs)
+    return run_owned(args, **kwargs)
 
 
 def run(workspace, name, step, raw, confirmed=False):
@@ -70,8 +71,9 @@ def run(workspace, name, step, raw, confirmed=False):
             if route['model']:
                 args += ['--model', route['model']]
             try:
-                process = invoke(args, cwd=stage, env=env, stdin=subprocess.DEVNULL,
-                                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)
+                with workspace.processes.scope():
+                    process = invoke(args, cwd=stage, env=env, stdin=subprocess.DEVNULL,
+                                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)
             except subprocess.TimeoutExpired:
                 return {'status':'failed','generationVerified':False,'mayConsumeUsage':True,
                         'provider':None,'model':None,'attempts':None,

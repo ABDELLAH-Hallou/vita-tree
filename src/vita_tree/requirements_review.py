@@ -135,23 +135,51 @@ def retain_run(workspace, record, context, data):
            'approval':str(approval.resolve()),'review':str(marker.resolve())})
 
 
-def run_status(workspace, record):
+def run_status(workspace, record, *, _reader=None):
     """Public status contains no source text or private store paths."""
+    read_file = read if _reader is None else _reader
     try:
         binding = read(workspace.root/'run-requirements'/(record['id']+'.binding.json'))
         if binding['revision'] != record['requirementsRevision']:
             return 'unavailable'
         approval, marker = Path(binding['approval']), Path(binding['review'])
-        review = read(marker) if marker.is_file() else {}
+        review = read_file(marker) if marker.is_file() else {}
         if review.get('state') == 'pending':
             return 'pending'
-        pointer = read(approval)
+        pointer = read_file(approval)
         if (type(pointer['schema_version']) is not int or pointer['schema_version'] != 1 or
                 pointer['source_sha256'] != binding['sourceHash'] or not re.fullmatch('[a-f0-9]{64}',str(pointer['revision']))):
             return 'unavailable'
         return 'current' if pointer['revision'] == binding['revision'] else 'superseded'
     except (OSError, ValueError, KeyError, TypeError, AttributeError):
         return 'unavailable'
+
+
+def run_statuses(workspace, records):
+    """Capture small shared pointers within one bounded history snapshot only."""
+    captured = {}
+    used = 0
+    def once(path):
+        nonlocal used
+        if path not in captured:
+            try:
+                value = read(path)
+                size = path.stat().st_size
+                valid = True
+            except (OSError, ValueError):
+                valid, value, size = False, None, 0
+            # Large or highly varied metadata falls back to ordinary fresh
+            # reads, rather than making history polling an unbounded cache.
+            if len(captured) < 128 and size <= 64_000 and used + size <= 256_000:
+                captured[path] = (valid, value)
+                used += size
+        else:
+            valid, value = captured[path]
+        if not valid:
+            raise ValueError('Requirements metadata is unavailable')
+        return value
+    return {record['id']: run_status(workspace,record,_reader=once)
+            for record in records if record.get('requirementsRevision')}
 
 
 def change(workspace, branch, token, revision, items=None, approve=False, confirmed=False, *, automatic=False):

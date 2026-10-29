@@ -94,9 +94,13 @@ class Workspace:
         common = Path(run_git(repository, "rev-parse", "--git-common-dir"))
         self.root = (repository / common).resolve() / "vita-tree"
         self.lock = threading.RLock()
+        self._history_lock = threading.Lock()
+        self._history_read = None
         self.connections = Connections()
         self.jobs: dict[str, dict] = {}
         self._ai_threads = set()
+        from .processes import ProcessRegistry
+        self.processes = ProcessRegistry()
         self._closed = False
         self._publishing = set()
         self._previewing = {}
@@ -288,7 +292,10 @@ class Workspace:
                   "reasoning", "language", "createdAt", "startedAt", "finishedAt", "reviewed", "stages", "stepConfig", "parentRunId", "rootRunId", "attempt", "checkpointSteps", "outcomes", "traceId", "requirementsRevision", "requirementsDraft", "preflight", "compileEngine", "reviewPolicy")
     ACTIVE_STATUSES = {"queued", "running"}
 
-    def _public_job(self, record):
+    def _job_secrets(self):
+        return [item['key'] for item in self.connections.items.values()] + list(getattr(getattr(self, 'inspector', None), 'secrets', ()))
+
+    def _public_job(self, record, *, parents=None, secrets=None, factuals=None, requirements=None):
         result = {key: record.get(key) for key in self.JOB_FIELDS}
         result['reviewPolicy'] = 'automatic' if record.get('reviewPolicy') == 'automatic' else 'manual'
         start = record.get("startedAt")
@@ -296,21 +303,23 @@ class Workspace:
         result['resumeAvailable'] = record.get('status') in {'failed', 'interrupted'} and bool(record.get('attempt'))
         result['checkpointSteps'] = [step for step in record.get('checkpointSteps') or []
                                      if (self.root/'checkpoints'/record['id']/step/'manifest.json').is_file()]
-        parent = self.jobs.get(record.get('parentRunId'))
+        parent = (self.jobs if parents is None else parents).get(record.get('parentRunId'))
         route_fields = ('provider','model','reasoning','connection')
         route_values = lambda item: {step: {k: route.get(k) for k in route_fields} for step, route in (item.get('stepConfig') or {}).items()}
         result['configurationChanged'] = bool(parent and (route_values(record) != route_values(parent) or record.get('language') != parent.get('language')))
-        secrets = [item['key'] for item in self.connections.items.values()] + list(getattr(getattr(self, 'inspector', None), 'secrets', ()))
+        if secrets is None:
+            secrets = self._job_secrets()
         result['preflight'] = preflight.public_result(record.get('preflight'), secrets)
         result['outcomes'] = self._safe_outcomes(record.get('outcomes'), secrets)
         result['failures'] = {step: info for step, outcome in result['outcomes'].items()
                               if (info := failure(outcome))}
-        result['factualReview'] = factual_review.summary(self, record['id'])
+        result['factualReview'] = factual_review.summary(self, record['id']) if factuals is None else factuals.get(record['id'])
         if record.get('requirementsRevision'):
-            result['requirementsStatus'] = requirements_review.run_status(self, record)
+            result['requirementsStatus'] = requirements_review.run_status(self, record) if requirements is None else requirements.get(record['id'],'unavailable')
         if record.get('requirementsDraft'):
             try:
-                review = requirements_review.state(self, requirements_review.context_for(self, record['branch']))
+                with self.lock:
+                    review = requirements_review.state(self, requirements_review.context_for(self, record['branch']))
                 result['requirementsApprovalNeeded'] = review['state'] != 'approved'
             except (OSError, ValueError):
                 result['requirementsApprovalNeeded'] = True
@@ -464,9 +473,45 @@ class Workspace:
         return result
 
     def list_jobs(self):
+        from copy import deepcopy
+        # Overlapping readers share one in-flight refresh. The result is not
+        # cached after completion: the next new request reads review files
+        # again. Never hold the orchestration lock while a reader is waiting.
+        with self._history_lock:
+            refresh = self._history_read
+            leader = refresh is None
+            if leader:
+                refresh = {'ready': threading.Event(), 'result': None, 'failed': False}
+                self._history_read = refresh
+        if not leader:
+            if not refresh['ready'].wait(timeout=30) or refresh['failed']:
+                raise RuntimeError('Preparation history could not be refreshed. Try refreshing again.')
+            return deepcopy(refresh['result'])
+        try:
+            result = self._list_jobs()
+            refresh['result'] = result
+            return deepcopy(result)
+        except BaseException:
+            refresh['failed'] = True
+            raise
+        finally:
+            with self._history_lock:
+                self._history_read = None
+                refresh['ready'].set()
+
+    def _list_jobs(self):
+        from copy import deepcopy
         with self.lock:
-            return {"runs": [self._public_job(j) for j in sorted(self.jobs.values(),
-                    key=lambda j: j.get("createdAt") or 0, reverse=True)]}
+            # Capture mutable records and redaction context together. Formatting
+            # thousands of file-backed review statuses must not starve workers,
+            # draft saves or new submissions that need the workspace lock.
+            records = deepcopy(list(self.jobs.values()))
+            secrets = self._job_secrets()
+        parents = {record['id']: record for record in records}
+        factuals = factual_review.summaries(self, parents)
+        requirements = requirements_review.run_statuses(self, records)
+        return {"runs": [self._public_job(record, parents=parents, secrets=secrets, factuals=factuals, requirements=requirements)
+                         for record in sorted(records, key=lambda item: item.get('createdAt') or 0, reverse=True)]}
 
     def get_job(self, ident):
         with self.lock:
@@ -580,6 +625,18 @@ class Workspace:
                     except OSError:
                         pass
                     self.diagnostics.workflow(record, previous)
+
+            workers = list(self._ai_threads)
+
+        # Mark records interrupted before cancelling their process trees so a
+        # racing worker cannot publish or turn shutdown into a provider failure.
+        self.processes.close()
+        # Allow cancelled workers to clear captured keys and finish cleanup
+        # before the same workspace is reopened. Never join under its lock.
+        deadline = time.monotonic() + 5
+        for worker in workers:
+            if worker is not threading.current_thread():
+                worker.join(timeout=max(0, deadline - time.monotonic()))
 
     def busy(self, name):
         if name in self._pending_publications:
@@ -1122,6 +1179,10 @@ class Workspace:
             return True
 
     def _run_ai(self, record, context):
+        with self.processes.scope():
+            self._execute_ai(record, context)
+
+    def _execute_ai(self, record, context):
         from .pdf import export_snapshot, compile_document
         stage = self.root / "runs" / record["id"]
         location, source, job = (context[key] for key in ("location", "source", "job"))
@@ -1245,7 +1306,7 @@ class Workspace:
                     for filename in ('delta.md', 'delta.json'):
                         safe_path(stage, '.vita/results/' + filename).unlink(missing_ok=True)
                 with self.inspector.phase(record, 'subprocess', step):
-                    process = subprocess.run(args, cwd=stage, env=env, stdin=subprocess.DEVNULL,
+                    process = self.processes.run(args, cwd=stage, env=env, stdin=subprocess.DEVNULL,
                                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=600)
                 if process.returncode:
                     self.inspector.mark(record, 'subprocess', 'error', step, error=RuntimeError())

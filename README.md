@@ -250,6 +250,9 @@ Browser tests cover editing, branch creation, provider settings, themes, conflic
 and real PDF compilation and text selection. They use synthetic CVs and a fake AI
 provider. Screenshots and PDFs are saved in ignored `.test-artifacts/`.
 
+For reproducible multi-application stress tests, declared performance budgets,
+resource measurements and recovery checks, see [workflow load profiles](docs/workflow-load.md).
+
 PDF.js is pinned in `package-lock.json`; browser assets and its Apache license are vendored into the Python package. Node is only needed to refresh these assets:
 
 ```powershell

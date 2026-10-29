@@ -276,6 +276,27 @@ class InspectorTests(unittest.TestCase):
         self.assertTrue(self.inspector.read_tree(safe))
         self.assertIn('could not be fully saved',self.inspector.storage()['error'])
 
+    def test_young_completed_trace_is_not_reparsed_on_every_active_phase(self):
+        archived=self.record()
+        folder=self.inspector.path(archived['traceId'])
+        archived_file=folder/('tree-'+archived['id']+'.json')
+        current=self.record(status='running')
+        read=contract.load
+        def guard(path,*args,**kwargs):
+            if Path(path)==archived_file:
+                self.fail('A young trace under quota was reparsed during an unrelated phase')
+            return read(path,*args,**kwargs)
+        with patch('vita_tree.execution.contract.load',side_effect=guard):
+            self.inspector.mark(current,'validation','running')
+        self.assertTrue(archived_file.is_file())
+        # Once retention makes it eligible, ownership must still be checked
+        # before deletion; malformed/future owners are covered separately.
+        os.utime(folder,(1,1))
+        with patch('vita_tree.execution.contract.load',wraps=read) as loaded:
+            self.inspector.mark(current,'validation','ok')
+        self.assertTrue(any(Path(call.args[0])==archived_file for call in loaded.call_args_list))
+        self.assertFalse(folder.exists())
+
     def test_protected_trace_count_limit_degrades_logging_without_deleting_evidence(self):
         self.inspector.destination.mkdir(parents=True)
         for number in range(1,101):

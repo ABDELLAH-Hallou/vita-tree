@@ -16,6 +16,7 @@ from .workspace import safe_path, atomic_write, ConflictError, read_text
 from .fileio import atomic_write_bytes
 from .exports import cv_filename
 from .security import snapshot_excluded, compiler_environment, engine_executable
+from .processes import run_owned
 
 
 class CompilationError(ValueError):
@@ -121,7 +122,7 @@ def compile_document(folder: Path, document_path: str, engine='auto', output=Non
     try:
         for _ in range(2):
             with tempfile.TemporaryFile() as captured:
-                process = subprocess.run(command, cwd=folder, env=env, stdin=subprocess.DEVNULL,
+                process = run_owned(command, cwd=folder, env=env, stdin=subprocess.DEVNULL,
                                          stdout=captured, stderr=subprocess.STDOUT, timeout=90)
                 captured.seek(0,2)
                 if captured.tell() > 2_000_000:
@@ -162,7 +163,8 @@ class PDFCompiler:
             self.workspace._previewing[name] = self.workspace._previewing.get(name, 0) + 1
         started = time.monotonic()
         try:
-            result = self._compile(name, side, engine, document, run_id)
+            with self.workspace.processes.scope():
+                result = self._compile(name, side, engine, document, run_id)
             self.workspace.diagnostics.record('pdf_compiled', operation='compile_pdf', duration_ms=(time.monotonic()-started)*1000)
             return result
         except Exception as error:
