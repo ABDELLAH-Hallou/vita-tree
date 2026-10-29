@@ -162,10 +162,14 @@ def main():
             expect(page.locator('#popup-model')).to_have_value('persisted-dialog-model')
             page.route('**/api/ai-settings', lambda route: route.fulfill(
                 status=400, json={'error': 'Fixture validation: setup could not be saved. Try again.'}), times=1)
+            # WebKit pointer activation need not focus buttons: start in a
+            # field that the pending-save repaint will replace.
+            page.locator('#popup-model').focus()
             page.locator('#step-ai-apply').click()
             expect(page.locator('#step-ai-error')).to_contain_text('setup could not be saved')
             reachable(page, '#step-ai-error')
             expect(page.locator('#step-ai-apply')).to_be_enabled()
+            expect(page.locator('#step-ai-apply')).to_be_focused()
             expect(page.locator('#popup-model')).to_have_value('persisted-dialog-model')
             page.screenshot(path=str(artifacts/'component-apply-error-dark-short.png'))
             print('After save error:',page.evaluate('''()=>({focused:document.activeElement.id||document.activeElement.tagName,
