@@ -705,6 +705,9 @@ $('#search').oninput=renderBranches;$('#refresh').onclick=loadBranches;$('#new-b
 $('#back').onclick=()=>{if(!canLeave())return;const previous=state.snapshot?.branch;state.generation++;state.pdfGeneration++;state.snapshot=null;state.dirty=false;state.jobDirty=false;$('#workspace').hidden=true;$('#board').hidden=false;document.body.classList.remove('in-workspace');history.replaceState(null,'','/');$('#search').focus();if(previous)releaseBranch(previous);loadBranches();};
 $('#reload').onclick=()=>openBranch(state.snapshot?.branch||$('#branch-title').textContent);
 document.querySelectorAll('[data-view]').forEach(button=>button.onclick=()=>setView(button.dataset.view));
+$('.tabs').addEventListener('focusin',event=>requestAnimationFrame(()=>{
+  if(document.activeElement===event.target)event.target.scrollIntoView({block:'nearest',inline:'nearest'});
+}));
 $('.tabs').onkeydown=event=>{
   if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
   const tabs=[...document.querySelectorAll('[data-view]')], index=tabs.indexOf(event.target);if(index<0)return;

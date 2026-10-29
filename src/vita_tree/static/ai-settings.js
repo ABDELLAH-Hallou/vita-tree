@@ -64,7 +64,7 @@ export function createAIConfiguration(container, {api, onChange}) {
   dialogs.append($('#step-ai-dialog'),$('#connection-dialog'),$('#generation-check-dialog'));
   dialogs.addEventListener('focusin',event=>{
     const target=event.target;
-    if(target.closest('.ai-dialog-body'))queueMicrotask(()=>{
+    if(target.closest('.ai-dialog-body'))requestAnimationFrame(()=>{
       if(document.activeElement===target)target.scrollIntoView({block:'nearest',inline:'nearest'});
     });
   });

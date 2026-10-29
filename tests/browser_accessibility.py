@@ -35,6 +35,9 @@ def keyboard_to(page, selector):
             if attempt == 0 and bounds and (bounds['y'] < -1 or bounds['y']+bounds['height'] > page.viewport_size['height']+1):
                 page.keyboard.press('Tab')
                 continue
+            page.wait_for_function('''selector=>{const r=document.querySelector(selector)?.getBoundingClientRect();
+              return r&&r.top>=-1&&r.bottom<=innerHeight+1;}''',arg=selector,timeout=5000)
+            bounds = target.bounding_box()
             assert bounds and bounds['y'] >= -1 and bounds['y']+bounds['height'] <= page.viewport_size['height']+1, ('Clipped keyboard focus', selector, bounds)
             assert target.evaluate('''el=>{const s=getComputedStyle(el);return parseFloat(s.outlineWidth)>=1 && s.outlineStyle!=='none' && s.outlineColor!=='transparent';}'''), ('Missing keyboard focus indicator',selector)
             return target

@@ -15,6 +15,10 @@ from support import init_repo, set_theme
 def reachable(page, selector):
     """Visibility alone does not exclude clipping or an overlapping footer."""
     expect(page.locator(selector)).to_be_visible()
+    # Focus/constraint-validation scrolling can complete at the next paint.
+    page.wait_for_function('''selector=>{const el=document.querySelector(selector);if(!el)return false;
+      const r=el.getBoundingClientRect(),hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);
+      return r.left>=0&&r.top>=0&&r.right<=innerWidth+1&&r.bottom<=innerHeight+1&&!!hit&&(el===hit||el.contains(hit));}''',arg=selector,timeout=5000)
     result = page.locator(selector).evaluate("""el => {
       const r=el.getBoundingClientRect(), hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);
       return {inside:r.left>=0 && r.top>=0 && r.right<=innerWidth+1 && r.bottom<=innerHeight+1,
@@ -82,15 +86,20 @@ def main():
                     body.evaluate('(el) => el.scrollTop=0')
                     layout(page, '#step-ai-dialog', ['#step-ai-cancel', '#step-ai-apply'])
                     page.screenshot(path=str(artifacts/f'component-{theme}-{name}.png'))
-                    # Use actual keyboard scrolling from a control in the body;
-                    # native wheel dispatch over form controls differs by OS.
-                    page.locator('#close-step-ai').focus()
-                    page.keyboard.press('ControlOrMeta+End')
+                    # Native scrolling keys differ; Firefox's form controls can
+                    # consume wheel events, while WebKit handles wheel scrolling.
+                    bounds = body.bounding_box()
+                    page.mouse.move(bounds['x']+4,bounds['y']+bounds['height']/2)
+                    if args.browser=='firefox':
+                        page.locator('#close-step-ai').focus();page.keyboard.press('ControlOrMeta+End')
+                    else:
+                        page.mouse.wheel(0,2500)
                     expect(page.locator('#step-ai-save-hint')).to_be_in_viewport()
                     page.locator('#step-ai-save-hint').scroll_into_view_if_needed()
                     reachable(page, '#step-ai-save-hint')
                     layout(page, '#step-ai-dialog', ['#step-ai-cancel', '#step-ai-apply'])
-                    page.keyboard.press('ControlOrMeta+Home')
+                    if args.browser=='firefox':page.keyboard.press('ControlOrMeta+Home')
+                    else:page.mouse.wheel(0,-2500)
                     expect(page.locator('#step-ai-title')).to_be_in_viewport(ratio=1)
                     page.locator('#popup-model').fill('invalid model id')
                     page.locator('#step-ai-apply').click()
