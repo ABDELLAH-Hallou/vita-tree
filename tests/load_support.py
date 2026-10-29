@@ -106,6 +106,23 @@ def wait_for(predicate, seconds=30):
     raise TimeoutError('Synthetic load deadline exceeded')
 
 
+def clean_worktree_release(server, branch, location):
+    """Allow deferred cleanup to win, but verify the actual Git/filesystem state."""
+    response=server.api('/api/release-worktree',dict(branch=branch))
+    reason=response.get('reason')
+    # A prior active release request may complete between the fixture's commit
+    # and this call. 'absent' is success only if both independent checks agree.
+    expected=(response.get('released') is True and reason=='clean') or (
+        response.get('released') is False and reason=='absent')
+    registered={line[7:] for line in git(server.root,'worktree','list','--porcelain').splitlines()
+                if line.startswith('branch ')}
+    folder_absent=not Path(location).exists() and not Path(location).is_symlink()
+    branch_detached='refs/heads/'+branch not in registered
+    return dict(passed=expected and folder_absent and branch_detached,
+                reason=reason if reason in {'clean','absent','active','dirty','external','locked'} else 'unexpected',
+                folderAbsent=folder_absent,branchDetached=branch_detached)
+
+
 class LoadServer:
     def __init__(self, root, pdf='simulated'):
         self.root,self.pdf=root.resolve(),pdf
