@@ -130,7 +130,13 @@ def main():
             expect(page.locator('#resume-reuse')).to_contain_text('Identify job requirements')
             page.locator('#resume-current-config').check()
             expect(page.locator('#resume-summary')).to_contain_text('currently shown')
+            # close() changes `open` synchronously but dispatches `close` later.
+            # Complete Cancel (including its state-reset handler) before opening
+            # a new review; a rapid reopen must not inherit the old close event.
+            page.evaluate('''() => {window.__resumeCancelComplete=false;
+              document.querySelector('#resume-dialog').addEventListener('close',()=>{window.__resumeCancelComplete=true;},{once:true});}''')
             page.locator('#resume-dialog .close-dialog').last.click()
+            page.wait_for_function('window.__resumeCancelComplete===true')
             assert len([r for r in server.workspace.jobs.values() if r['branch']==label])==1
             page.locator('#resume-run').press('Enter');expect(page.locator('#resume-current-config')).not_to_be_checked()
             expect(page.locator('#confirm-resume')).to_be_enabled();page.locator('#confirm-resume').press('Enter')
