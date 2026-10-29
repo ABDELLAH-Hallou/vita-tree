@@ -39,13 +39,18 @@ def layout(page, dialog, actions):
 
 
 def tab_to(page, selector):
+    history=[]
     for _ in range(35):
+        history.append(page.evaluate('document.activeElement.id||document.activeElement.tagName'))
         page.keyboard.press('Tab')
         if page.locator(selector).evaluate('(el) => el===document.activeElement'):
             reachable(page, selector)
             assert page.locator(selector).evaluate('''el=>{const s=getComputedStyle(el);return parseFloat(s.outlineWidth)>=1&&s.outlineStyle!=='none';}'''), 'Focused action has no visible outline'
             return
-    raise AssertionError('Keyboard could not reach ' + selector)
+    state=page.evaluate('''()=>({focused:document.activeElement.id||document.activeElement.tagName,
+      hasFocus:document.hasFocus(),dialogs:[...document.querySelectorAll('dialog[open]')].map(el=>el.id)})''')
+    page.screenshot(path=str(Path('.test-artifacts')/'component-keyboard-failure.png'))
+    raise AssertionError('Keyboard could not reach ' + selector + '; state=' + str(state) + '; history=' + str(history))
 
 
 def main():
@@ -174,6 +179,8 @@ def main():
             expect(page.locator('#step-ai-apply')).to_be_enabled()
             expect(page.locator('#popup-model')).to_have_value('persisted-dialog-model')
             page.screenshot(path=str(artifacts/'component-apply-error-dark-short.png'))
+            print('After save error:',page.evaluate('''()=>({focused:document.activeElement.id||document.activeElement.tagName,
+              hasFocus:document.hasFocus(),dialogs:[...document.querySelectorAll('dialog[open]')].map(el=>el.id)})'''),flush=True)
             tab_to(page, '#step-ai-apply')
             page.keyboard.press('Enter')
             expect(page.locator('#step-ai-dialog')).not_to_be_visible()
