@@ -40,13 +40,14 @@ def layout(page, dialog, actions):
 
 def tab_to(page, selector):
     history=[]
-    for _ in range(35):
-        history.append(page.evaluate('document.activeElement.id||document.activeElement.tagName'))
-        page.keyboard.press('Tab')
+    for attempt in range(36):
         if page.locator(selector).evaluate('(el) => el===document.activeElement'):
             reachable(page, selector)
             assert page.locator(selector).evaluate('''el=>{const s=getComputedStyle(el);return parseFloat(s.outlineWidth)>=1&&s.outlineStyle!=='none';}'''), 'Focused action has no visible outline'
             return
+        if attempt<35:
+            history.append(page.evaluate('document.activeElement.id||document.activeElement.tagName'))
+            page.keyboard.press('Tab')
     state=page.evaluate('''()=>({focused:document.activeElement.id||document.activeElement.tagName,
       hasFocus:document.hasFocus(),dialogs:[...document.querySelectorAll('dialog[open]')].map(el=>el.id)})''')
     page.screenshot(path=str(Path('.test-artifacts')/'component-keyboard-failure.png'))
