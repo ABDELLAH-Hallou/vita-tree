@@ -133,14 +133,14 @@ def main():
             page.locator('#resume-dialog .close-dialog').last.click()
             assert len([r for r in server.workspace.jobs.values() if r['branch']==label])==1
             page.locator('#resume-run').press('Enter');expect(page.locator('#resume-current-config')).not_to_be_checked()
-            page.locator('#confirm-resume').press('Enter')
+            expect(page.locator('#confirm-resume')).to_be_enabled();page.locator('#confirm-resume').press('Enter')
             expect(page.locator('#workflow-run')).to_contain_text('Attempt 2')
             expect(page.locator('.dag-node[data-step=analyze]')).to_have_attribute('data-status','failed')
             expect(page.locator('#workflow-next-help')).to_contain_text('Effective: codex / fixture-codex')
             page.locator('#view-run').click()
             expect(page.locator('#attempt-history')).to_contain_text('Captured setup preserved')
             # Explicit changed-config attempt; Extract remains reusable and local CV untouched.
-            flag.unlink();page.locator('#resume-run').press('Enter');page.locator('#resume-current-config').check();page.locator('#confirm-resume').press('Enter')
+            flag.unlink();page.locator('#resume-run').press('Enter');page.locator('#resume-current-config').check();expect(page.locator('#confirm-resume')).to_be_enabled();page.locator('#confirm-resume').press('Enter')
             expect(page.locator('#workflow-run')).to_contain_text('Attempt 3')
             expect(page.locator('.dag-node[data-step=validating]')).to_have_attribute('data-status','succeeded')
             page.locator('#view-run').click();expect(page.locator('#attempt-history')).to_contain_text('Changed setup')

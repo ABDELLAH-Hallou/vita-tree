@@ -98,7 +98,7 @@ button.quiet {
   background:transparent;
   border-color:transparent
 }
-button:focus-visible,a:focus-visible,summary:focus-visible,[tabindex]:focus-visible {
+button:focus-visible,a:focus-visible,summary:focus-visible,[tabindex]:focus-visible,.branch-row:focus {
   outline:2px solid var(--accent);
   outline-offset:3px
 }

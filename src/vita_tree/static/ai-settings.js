@@ -62,6 +62,12 @@ export function createAIConfiguration(container, {api, onChange}) {
     </form></dialog>`;
   // Keep modal dialogs visible from every workspace tab, including the CV view.
   dialogs.append($('#step-ai-dialog'),$('#connection-dialog'),$('#generation-check-dialog'));
+  dialogs.addEventListener('focusin',event=>{
+    const target=event.target;
+    if(target.closest('.ai-dialog-body'))queueMicrotask(()=>{
+      if(document.activeElement===target)target.scrollIntoView({block:'nearest',inline:'nearest'});
+    });
+  });
 
   const routeFor = step => step==='default'?settings.default:settings.steps[step]||settings.default;
   const providerFor = route => catalog?.providers.find(p=>p.id===route.provider);

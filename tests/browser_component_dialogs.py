@@ -82,18 +82,15 @@ def main():
                     body.evaluate('(el) => el.scrollTop=0')
                     layout(page, '#step-ai-dialog', ['#step-ai-cancel', '#step-ai-apply'])
                     page.screenshot(path=str(artifacts/f'component-{theme}-{name}.png'))
-                    # Actual wheel scrolling reaches the final help text, with
-                    # actions still present and the heading accessible above.
-                    # Scroll over the body's padding, not a native select/input
-                    # whose platform wheel handling may consume the gesture.
-                    bounds = body.bounding_box()
-                    page.mouse.move(bounds['x']+4, bounds['y']+bounds['height']/2)
-                    page.mouse.wheel(0, 2500)
+                    # Use actual keyboard scrolling from a control in the body;
+                    # native wheel dispatch over form controls differs by OS.
+                    page.locator('#close-step-ai').focus()
+                    page.keyboard.press('ControlOrMeta+End')
                     expect(page.locator('#step-ai-save-hint')).to_be_in_viewport()
                     page.locator('#step-ai-save-hint').scroll_into_view_if_needed()
                     reachable(page, '#step-ai-save-hint')
                     layout(page, '#step-ai-dialog', ['#step-ai-cancel', '#step-ai-apply'])
-                    page.mouse.wheel(0, -2500)
+                    page.keyboard.press('ControlOrMeta+Home')
                     expect(page.locator('#step-ai-title')).to_be_in_viewport(ratio=1)
                     page.locator('#popup-model').fill('invalid model id')
                     page.locator('#step-ai-apply').click()

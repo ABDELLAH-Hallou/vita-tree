@@ -36,7 +36,7 @@ def keyboard_to(page, selector):
                 page.keyboard.press('Tab')
                 continue
             assert bounds and bounds['y'] >= -1 and bounds['y']+bounds['height'] <= page.viewport_size['height']+1, ('Clipped keyboard focus', selector, bounds)
-            assert target.evaluate('el=>el.matches(":focus-visible")'), ('Missing keyboard focus indicator',selector)
+            assert target.evaluate('''el=>{const s=getComputedStyle(el);return parseFloat(s.outlineWidth)>=1 && s.outlineStyle!=='none' && s.outlineColor!=='transparent';}'''), ('Missing keyboard focus indicator',selector)
             return target
         # Do not depend on wrapping through browser chrome (Firefox keeps the
         # last DOM activeElement while focus moves into its own toolbar).
@@ -119,7 +119,7 @@ def main():
                   treeCommit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
                   sourceHashes={name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest() for name in (
                       'src/vita_tree/static/app.js','src/vita_tree/static/ai-settings.js','src/vita_tree/static/requirements.js',
-                      'src/vita_tree/static/factual-review.js','src/vita_tree/static/styles.css','src/vita_tree/static/index.html',
+                      'src/vita_tree/static/factual-review.js','src/vita_tree/static/styles.css','src/vita_tree/static/index.html','src/vita_tree/static/workflow.js',
                       'tests/browser_accessibility.py','tests/browser_support.py','package-lock.json')},
                   fixtureHashes=dict(source=hashlib.sha256(SOURCE.encode()).hexdigest(),job=hashlib.sha256(JD.encode()).hexdigest()),
                   tokenContrast={},scans=[], tasks=[], limitations=['No screen reader, physical mobile device or representative participant used.',
