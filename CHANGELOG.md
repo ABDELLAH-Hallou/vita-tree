@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.15.5](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.15.4...v1.15.5) (2026-10-29)
+
+
+### Bug Fixes
+
+* restore keyboard focus after settings save failures ([f838f45](https://github.com/ABDELLAH-Hallou/vita-tree/commit/f838f4571d2fdaf3d3aaef6dc7cd6edc44cb12cf))
+* restore keyboard focus after settings save failures ([c43b2e1](https://github.com/ABDELLAH-Hallou/vita-tree/commit/c43b2e1e800343254fdcfc5b9918bd6692338a88))
+
 ## [1.15.4](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.15.3...v1.15.4) (2026-10-29)
 
 
