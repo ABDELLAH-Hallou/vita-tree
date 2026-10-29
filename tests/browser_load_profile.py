@@ -83,7 +83,11 @@ def measure(output, name, browser_name, enforce):
             editor.click()
             editor.press('ControlOrMeta+End')
             editor.press('Enter')
-            editor.press_sequentially('% unsaved browser load draft')
+            # A paste is one native input operation; zero-delay character
+            # automation can race contenteditable selection reconciliation.
+            page.keyboard.insert_text('% unsaved browser load draft')
+            expect(editor).to_contain_text('unsaved browser load draft')
+            expect(page.locator('#save-state')).to_have_text('Unsaved changes')
             (control/'browser.release').touch()
             for run in runs:
                 finished=server.finished(run)
@@ -93,6 +97,8 @@ def measure(output, name, browser_name, enforce):
             expect(page.locator('#filter-running')).to_have_text('0',timeout=60000)
             page.locator('#save-source').click()
             expect(page.locator('#save-state')).to_have_text('Draft saved on this computer',timeout=60000)
+            assert 'unsaved browser load draft' in server.snapshot('master')['content']
+            result['savedDraftPreserved']=True
             # Natural polling must stay single-flight and unchanged histories
             # must not repeatedly replace the branch list.
             page.locator('#back').click()
