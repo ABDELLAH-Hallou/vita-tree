@@ -6,7 +6,7 @@ import threading
 import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
-from browser_support import BROWSERS, launch_browser
+from browser_support import BROWSERS, launch_browser, tab_to as keyboard_tab_to
 from playwright.sync_api import expect, sync_playwright
 from vita_tree.server import VitaTreeServer
 from support import init_repo, set_theme
@@ -39,19 +39,7 @@ def layout(page, dialog, actions):
 
 
 def tab_to(page, selector):
-    history=[]
-    for attempt in range(36):
-        if page.locator(selector).evaluate('(el) => el===document.activeElement'):
-            reachable(page, selector)
-            assert page.locator(selector).evaluate('''el=>{const s=getComputedStyle(el);return parseFloat(s.outlineWidth)>=1&&s.outlineStyle!=='none';}'''), 'Focused action has no visible outline'
-            return
-        if attempt<35:
-            history.append(page.evaluate('document.activeElement.id||document.activeElement.tagName'))
-            page.keyboard.press('Tab')
-    state=page.evaluate('''()=>({focused:document.activeElement.id||document.activeElement.tagName,
-      hasFocus:document.hasFocus(),dialogs:[...document.querySelectorAll('dialog[open]')].map(el=>el.id)})''')
-    page.screenshot(path=str(Path('.test-artifacts')/'component-keyboard-failure.png'))
-    raise AssertionError('Keyboard could not reach ' + selector + '; state=' + str(state) + '; history=' + str(history))
+    return keyboard_tab_to(page, selector, reachable)
 
 
 def main():
