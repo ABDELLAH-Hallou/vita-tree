@@ -126,6 +126,7 @@ jobs:
       - run: python tests/browser_jobs.py --browser chromium
       - run: python tests/browser_workflow.py --browser chromium
       - run: python tests/browser_ai_settings.py --browser chromium
+      - run: python tests/browser_component_dialogs.py --browser chromium
       - run: python tests/browser_custom_environment.py --browser chromium
       - run: python tests/browser_resume.py --browser chromium
       - run: python tests/browser_inspector.py --browser chromium
