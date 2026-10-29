@@ -43,7 +43,7 @@ def tab_to(page, selector):
         page.keyboard.press('Tab')
         if page.locator(selector).evaluate('(el) => el===document.activeElement'):
             reachable(page, selector)
-            assert page.locator(selector).evaluate('(el) => el.matches(":focus-visible")')
+            assert page.locator(selector).evaluate('''el=>{const s=getComputedStyle(el);return parseFloat(s.outlineWidth)>=1&&s.outlineStyle!=='none';}'''), 'Focused action has no visible outline'
             return
     raise AssertionError('Keyboard could not reach ' + selector)
 
