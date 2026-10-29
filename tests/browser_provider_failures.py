@@ -136,7 +136,7 @@ def main():
             page.evaluate('''() => {window.__resumeCancelComplete=false;
               document.querySelector('#resume-dialog').addEventListener('close',()=>{window.__resumeCancelComplete=true;},{once:true});}''')
             page.locator('#resume-dialog .close-dialog').last.click()
-            page.wait_for_function('window.__resumeCancelComplete===true')
+            page.wait_for_function('()=>window.__resumeCancelComplete===true')
             assert len([r for r in server.workspace.jobs.values() if r['branch']==label])==1
             page.locator('#resume-run').press('Enter');expect(page.locator('#resume-current-config')).not_to_be_checked()
             expect(page.locator('#confirm-resume')).to_be_enabled();page.locator('#confirm-resume').press('Enter')
