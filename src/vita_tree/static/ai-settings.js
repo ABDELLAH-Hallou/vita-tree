@@ -291,7 +291,12 @@ export function createAIConfiguration(container, {api, onChange}) {
       settings=captured;dirty=false;drafts.set(branch,{settings:copy(settings),dirty});
       $('#ai-setup-status').textContent='Setup saved on this computer · API keys last until the server stops.';
       editor.saving=false;closeStep();render();onChange();
-    }catch(error){if(stepEditor===editor){editor.saving=false;renderPopupFields();$('#step-ai-error').textContent=error.message;$('#step-ai-error').hidden=false;}}
+    }catch(error){if(stepEditor===editor){
+      editor.saving=false;renderPopupFields();$('#step-ai-error').textContent=error.message;$('#step-ai-error').hidden=false;
+      // Saving disables Apply and replaces the form fields. Native focus may
+      // fall onto BODY; give keyboard users a stable retry or exit action.
+      const retry=$('#step-ai-apply');(retry.disabled?$('#step-ai-cancel'):retry).focus();
+    }}
   };
   function closeCheck(){if(checking)return;$('#generation-check-dialog').close();checkTarget=null;}
   $('#close-generation-check').onclick=closeCheck;$('#cancel-generation-check').onclick=closeCheck;
