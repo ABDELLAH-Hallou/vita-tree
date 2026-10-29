@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.15.1](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.15.0...v1.15.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* verify template compatibility and restricted LuaLaTeX compilation ([5d0241d](https://github.com/ABDELLAH-Hallou/vita-tree/commit/5d0241d602855bec6957e439574be2f2042be933))
+
+
+### Documentation
+
+* record inspected TeX Live and MiKTeX compatibility baselines ([97d59f1](https://github.com/ABDELLAH-Hallou/vita-tree/commit/97d59f11c605419124ff63bc0ce6dd42fb383fbd))
+
 ## [1.15.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.14.0...v1.15.0) (2026-10-25)
 
 
