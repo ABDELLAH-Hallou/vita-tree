@@ -110,6 +110,16 @@ def measure(output, name, browser_name, enforce):
             last=page.locator('#branch-list .branch-row').last
             last.scroll_into_view_if_needed()
             expect(last.locator('.branch-name')).to_be_visible()
+            page.wait_for_function("""() => {
+                const rows=document.querySelectorAll('#branch-list .branch-row');
+                const row=rows[rows.length-1];
+                const names=document.querySelectorAll('#branch-list .branch-row .branch-name');
+                if(!row)return false;
+                const box=row.getBoundingClientRect();
+                if(box.top<0||box.bottom>innerHeight){row.scrollIntoView({block:'end'});return false;}
+                return row.checkVisibility({contentVisibilityAuto:true})&&names[names.length-1]?.checkVisibility({contentVisibilityAuto:true});
+            }""")
+            page.evaluate('() => new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))')
             page.screenshot(path=str(output/'synthetic-history-bottom.png'))
             page.evaluate('window.scrollTo(0,0)')
             after = {r['name']:r['value'] for r in cdp.send('Performance.getMetrics')['metrics']}

@@ -65,37 +65,35 @@ clean, owned worktrees. Expected provider failures, conflicts and interrupted
 runs remain in the evidence. Passing safety checks with an exceeded performance
 budget is not a performance pass.
 
-## Recorded reference run
+## Recorded reference runs
 
-The [28 October 2026 CI run](https://github.com/ABDELLAH-Hallou/vita-tree/actions/runs/40680427596)
-passed all five profiles with the original budgets unchanged. Server jobs used
-Python 3.12.15; the real-PDF job used PDFTeX 1.40.25 / TeX Live 2023. Full machine,
-fixture, code and report hashes are in the JSON evidence linked above.
-
-These rows describe that particular sample, before metadata batching. A repeat
-on [another shared host](https://github.com/ABDELLAH-Hallou/vita-tree/actions/runs/40682702276)
-missed polling/orchestration budgets despite passing safety checks; that failure
-is retained too. The repeated CI samples guard against treating one favorable
-host as a capacity guarantee.
+The [28 October 2026 CI run](https://github.com/ABDELLAH-Hallou/vita-tree/actions/runs/40689709630)
+passed all seven jobs, including three independent sustained samples, with the
+original budgets unchanged. Server jobs used Python 3.12.15 and four logical
+CPUs; the real-PDF job used PDFTeX 1.40.25 / TeX Live 2023. Full machine, fixture,
+code and report hashes are in the JSON evidence linked above.
 
 | Server profile | Attempts | Poll p95 | Local orchestration p95 | Peak server RSS |
 | --- | ---: | ---: | ---: | ---: |
-| CI / simulated PDF | 16 | 208 ms | 649 ms | 46.2 MiB |
-| Sustained / simulated PDF | 46 | 1,627 ms | 7,806 ms | 114.7 MiB |
-| CI / restricted real PDF | 16 | 446 ms | 2,338 ms | 48.0 MiB |
+| CI / simulated PDF | 16 | 168 ms | 1,228 ms | 45.2 MiB |
+| Sustained / EPYC 9V45 | 46 | 796 ms | 5,628 ms | 117.9 MiB |
+| Sustained / EPYC 7763, sample 2 | 46 | 1,458 ms | 14,813 ms | 135.7 MiB |
+| Sustained / EPYC 7763, sample 3 | 46 | 1,477 ms | 14,793 ms | 123.0 MiB |
+| CI / restricted real PDF | 16 | 98 ms | 650 ms | 46.2 MiB |
 
-The sustained run observed six live providers in every wave. Its 33 successful,
-11 expected failed and two interrupted attempts had zero unexpected failures,
-executing orphans or leaked clean worktrees. Real compiler-call p95 was 1,014 ms;
-simulated PDF timings are excluded from that claim. Browser filtering p95 was
-34.4 ms / 9.3 MiB heap at 250 history entries and 31.7 ms / 17.5 MiB at 2,000.
+Every sustained sample observed six live providers in every wave. Each had 33
+successful, 11 expected failed and two interrupted attempts, with zero unexpected
+failures, executing orphans or leaked clean worktrees. Real compiler-call p95 was
+646 ms; simulated PDF timings are excluded from that claim. Browser filtering
+p95 was 31.6 ms / 10.1 MiB heap at 250 history entries and 38.7 ms / 13.2 MiB at 2,000.
 Both browser jobs observed one poll in flight, no page errors and no idle branch
-list mutations. These are small synthetic measurements, not capacity guarantees.
+list mutations. Older EPYC samples were close to the 15-second orchestration
+budget. These are small synthetic measurements, not capacity guarantees.
 
-Earlier failed sustained budgets are retained in the same evidence: history
-formatting held the orchestration lock; moving it outside that lock exposed
-contention between simultaneous readers. The final implementation coalesces
-overlapping reads without reusing completed refreshes. Separate regression tests
+Earlier failed sustained budgets and repeat-host misses are retained in the
+same evidence. The fixes shorten history locking, coalesce overlapping reads,
+batch fresh metadata and avoid reparsing ineligible completed traces. No
+completed history refresh is reused. Separate regression tests
 cover writer progress, independent result copies, fresh subsequent reads and
 failed-refresh recovery. Process ownership tests cover descendants, timeouts,
 abrupt owner death and the separate synthetic generation-check endpoint.
@@ -134,6 +132,11 @@ shutdown evidence, resource samples summarized by interval, retained storage
 size, phase distributions and each budget verdict. The browser report records
 dispatch-to-next-paint filtering, long tasks, script/layout/task CPU durations,
 heap, DOM size, natural polling and draft preservation.
+
+Viewport screenshots wait for deferred rows to enter the viewport and stop
+skipping rendering, then wait for paint frames. Bounding-box visibility alone
+does not establish that `content-visibility:auto` content has painted; see
+[the rendering visibility check](https://developer.mozilla.org/en-US/docs/Web/API/Element/checkVisibility).
 
 `retainedStorage` covers `runs/`, `checkpoints/` and `job-history/`, not the entire
 Git object store, worktrees, source captures, PDFs or diagnostic trace storage.
