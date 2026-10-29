@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.15.4](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.15.3...v1.15.4) (2026-10-29)
+
+
+### Bug Fixes
+
+* preserve focus and verify cross-browser review accessibility ([4f65b96](https://github.com/ABDELLAH-Hallou/vita-tree/commit/4f65b966726d4de873c639def6e936ddaa0faacc))
+
 ## [1.15.3](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.15.2...v1.15.3) (2026-10-29)
 
 
