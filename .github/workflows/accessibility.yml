@@ -36,6 +36,20 @@ jobs:
           node-version: "24"
       - run: python -m pip install '.[test]' 'vita-cv==2.8.0' 'playwright==1.63.0'
       - run: npm ci --ignore-scripts
+      - name: Configure Ubuntu package downloads
+        timeout-minutes: 2
+        run: |
+          # Keep browser setup off the hosted runner's unreliable Azure mirror.
+          for source in /etc/apt/apt-mirrors.txt /etc/apt/sources.list /etc/apt/sources.list.d/ubuntu.sources; do
+            if [ -f "$source" ]; then
+              sudo sed -i -E 's|https?://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' "$source"
+            fi
+          done
+          sudo tee /etc/apt/apt.conf.d/80-ci-network > /dev/null <<'EOF'
+          Acquire::Retries "3";
+          Acquire::http::Timeout "30";
+          Acquire::https::Timeout "30";
+          EOF
       - name: Install test engine and restricted compilation dependencies
         timeout-minutes: 10
         run: |
