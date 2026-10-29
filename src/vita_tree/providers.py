@@ -50,6 +50,7 @@ def codex_efforts():
 
 def discover(workspace, branch):
     from .server import run_git
+    from .languages import discover as languages
     refs = [ref for ref in run_git(workspace.repository, 'for-each-ref', '--format=%(refname)',
                                    'refs/heads', 'refs/remotes').splitlines() if not ref.endswith('/HEAD')]
     # A single cat-file process reads every branch. Duplicate blobs are parsed once.
@@ -110,7 +111,7 @@ def discover(workspace, branch):
         options.append({'provider': provider, 'model': model, 'sources': sorted(sources),
                         'supported': provider in SUPPORTED,
                         'reasoning': efforts.get(model, []) if provider == 'codex' else []})
-    return {'options': options, 'default': {'provider': current[0][0], 'model': current[0][1]},
+    return {'options': options, 'languages': languages(workspace, branch), 'default': {'provider': current[0][0], 'model': current[0][1]},
             'refCount': len(refs), 'reasoningBridge': workspace.ai_bridge(),
             'providers': [{'id': p, 'name': PROVIDER_NAMES[p],
                            'auth': 'login' if p == 'codex' else 'apiKey',

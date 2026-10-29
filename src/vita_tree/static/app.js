@@ -53,6 +53,23 @@ $('#bulk-review').onclick=async()=>{
   finally{state.reviewing=false;renderBranches();}
 };
 let runMonitor;
+const languageDrafts=new Map();
+function renderLanguages(){
+  const branch=state.snapshot?.branch;
+  if(!branch||!state.catalog)return;
+  const select=$('#language'), selected=state.snapshot.running?.language||languageDrafts.get(branch)||'en';
+  const choices=[...(state.catalog.languages||[{code:'en',name:'English'}])];
+  // An in-flight/captured language or a draft selection must not silently turn
+  // into English if its mapping is later removed from this application's file.
+  if(!choices.some(choice=>choice.code===selected))choices.push({code:selected,name:selected});
+  const signature=JSON.stringify([branch,choices]);
+  if(select.dataset.languages!==signature){
+    select.replaceChildren(...choices.map(choice=>new Option(choice.name,choice.code)));
+    select.dataset.languages=signature;
+  }
+  select.value=selected;
+}
+$('#language').onchange=()=>{if(state.snapshot)languageDrafts.set(state.snapshot.branch,$('#language').value);};
 const editors = Object.fromEntries(['original', 'current'].map(side => [side, createLatexEditor($(`#${side}-source`), {
   label: side === 'original' ? 'Before · CV source' : 'Current CV source', readOnly: true,
   onChange: value => {if(side === 'current' && state.snapshot) {state.dirty = value !== currentFile().content; updateSaveState();}},
@@ -66,6 +83,7 @@ const editors = Object.fromEntries(['original', 'current'].map(side => [side, cr
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const aiSetup=createAIConfiguration($('#ai-configuration'),{api,onChange:()=>{if(state.snapshot){if(!state.displayedRun?.resumeAvailable)state.graphRunId='draft';configureWorkflow();renderWorkflow();}}});
 function renderProviders() {
+  renderLanguages();
   aiSetup.setDisabled(!!state.snapshot?.running||!!state.launching||!state.snapshot?.editable);
   $('#language').disabled=!!state.snapshot?.running||!!state.launching||!state.snapshot?.editable;
   $('#model-details').textContent='Model suggestions come from repository settings and your local Codex catalog. You can enter any model ID your provider accepts.\n\nSetup: install vita-tree[ai] or start with --vita-source pointing to vita-cv. Custom reasoning currently uses the Codex connection.';

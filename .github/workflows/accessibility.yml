@@ -44,6 +44,7 @@ jobs:
           python -m playwright install --with-deps ${{ matrix.browser }}
       - run: python tests/browser_accessibility.py --browser ${{ matrix.browser }} --output .test-artifacts/accessibility
       - run: python tests/browser_ai_settings.py --browser ${{ matrix.browser }}
+      - run: python tests/browser_languages.py --browser ${{ matrix.browser }}
       - run: python tests/browser_component_dialogs.py --browser ${{ matrix.browser }}
       - run: python tests/browser_requirements.py --browser ${{ matrix.browser }}
       - run: python tests/browser_provider_failures.py --browser ${{ matrix.browser }}

@@ -129,6 +129,21 @@ VITA's local `config.json`, `extensions.json`, `cv.yaml`, and task Markdown file
 
 **Shared AI setup:** choose any of Vita CV's supported providers, then select a suggested model or type any model ID your account can access. Suggestions come from `.vita/extensions.json` across repository refs and working trees, the local Codex catalog, and saved AI setups. Empty model IDs use the provider/Vita CV default. Model suggestions do not prove account access.
 
+**Output languages:** the selector combines the built-in languages with
+`language_map` from the selected application's `.vita/extensions.json`. To add
+Swedish, merge this entry into that file without replacing your other settings:
+
+```json
+"language_map": {"sv": "Swedish"}
+```
+
+Choose **Reload** to refresh the list. Custom labels override built-in labels;
+codes are case-insensitive. If the application has no extensions file, the
+collection's file is used, matching AI preparation. Other applications' maps
+are not combined. Switching applications or using Reload keeps each selection
+for the current page session. Running preparations and ordinary retries retain
+their captured language code and AI routing.
+
 Use **Add API key…** to create a named connection and reuse it across steps, or choose existing local credentials from the environment or `.vita/.env`. Codex uses your local CLI login. Keys added in the UI stay only in server memory and must be added again after a server restart; expired connections are shown with instructions to reconnect. They are never returned in API responses or saved in browser storage, Git, settings, or run history.
 
 Click any AI step in the workflow graph to open its settings popup. Choose **Customize this step**, edit the provider, model, reasoning, or connection, and select **Apply to step** to save the setup locally and update that component. **Use shared setup** restores inheritance. Cancel or Escape discards pending popup edits. Past and running preparations show their recorded setup as read only; **Configure next run** opens the current draft when available.
