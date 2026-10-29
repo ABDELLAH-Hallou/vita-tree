@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.15.3](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.15.2...v1.15.3) (2026-10-29)
+
+
+### Bug Fixes
+
+* keep component settings actions within reach ([e42dfd1](https://github.com/ABDELLAH-Hallou/vita-tree/commit/e42dfd14b35de0557c32c5b9ba3a1b3e7e120748))
+
 ## [1.15.2](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.15.1...v1.15.2) (2026-10-29)
 
 
