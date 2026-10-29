@@ -18,7 +18,8 @@ export function createAIConfiguration(container, {api, onChange}) {
     </details>
     <div class="ai-save-bar"><button id="save-ai-setup" type="button">Save AI setup</button><span id="ai-setup-status" class="helper" role="status">Choices are saved locally. API keys last for this server session.</span></div>
     <p id="ai-setup-error" class="ai-setup-error" role="alert" hidden></p>
-    <dialog id="step-ai-dialog" aria-labelledby="step-ai-title" aria-describedby="step-ai-description"><form id="step-ai-form">
+    <dialog id="step-ai-dialog" class="ai-settings-dialog" aria-labelledby="step-ai-title" aria-describedby="step-ai-description"><form id="step-ai-form">
+      <div class="ai-dialog-body">
       <div class="dialog-heading"><div><span id="step-ai-context" class="pill accent"></span><h2 id="step-ai-title"></h2><button id="step-requirements" type="button" hidden>View job requirements</button><button id="inspect-step-dialog" type="button" hidden>Inspect this step’s execution</button></div><button id="close-step-ai" class="quiet" type="button" aria-label="Close step settings">×</button></div>
       <p id="step-ai-description" class="helper"></p>
       <fieldset id="step-ai-mode" class="step-ai-mode"><legend>AI setup for this step</legend>
@@ -26,27 +27,38 @@ export function createAIConfiguration(container, {api, onChange}) {
         <label><input type="radio" name="step-ai-mode" id="step-ai-custom" value="custom"><span><strong>Customize this step</strong><small>Choose a separate setup for this component.</small></span></label>
       </fieldset>
       <div id="step-ai-fields"></div>
-      <p id="step-ai-error" role="alert" class="ai-setup-error" hidden></p>
       <p id="step-ai-save-hint" class="helper">Apply saves your current AI setup on this computer. Only this step’s override is changed. API keys last for this server session.</p>
+      </div>
+      <div class="ai-dialog-footer">
+      <p id="step-ai-error" role="alert" class="ai-setup-error" hidden></p>
       <div class="dialog-footer"><button id="step-ai-cancel" type="button">Cancel</button><button id="step-ai-next" type="button" hidden>Configure next run</button><button id="step-ai-apply" class="primary" type="submit">Apply to step</button></div>
+      </div>
     </form></dialog>
-    <dialog id="generation-check-dialog" aria-labelledby="generation-check-title"><form id="generation-check-form">
+    <dialog id="generation-check-dialog" class="ai-settings-dialog" aria-labelledby="generation-check-title"><form id="generation-check-form">
+      <div class="ai-dialog-body">
       <div class="dialog-heading"><h2 id="generation-check-title">Check model generation</h2><button id="close-generation-check" class="quiet" type="button" aria-label="Close generation check">×</button></div>
       <p id="generation-check-route" class="helper"></p>
       <p>This sends a small synthetic prompt to the selected provider and model and <strong>may consume paid usage</strong>, including provider retries. It sends no CV or job description. A successful model listing does not prove generation access.</p>
       <p class="helper">This checks the setup shown here without applying or saving edits. Success confirms generation access at this time, not CV quality.</p>
       <p id="generation-check-result" class="provider-failure" role="status" aria-live="polite"></p>
+      </div>
+      <div class="ai-dialog-footer">
       <div class="dialog-footer"><button id="cancel-generation-check" type="button">Cancel</button><button id="confirm-generation-check" class="primary" type="submit">Run generation check · may use credits</button></div>
+      </div>
     </form></dialog>
-    <dialog id="connection-dialog"><form id="connection-form">
-      <div class="dialog-heading"><h2>Add API connection</h2><button id="close-connection" class="quiet" type="button" aria-label="Close API connection">×</button></div>
+    <dialog id="connection-dialog" class="ai-settings-dialog" aria-labelledby="connection-title"><form id="connection-form">
+      <div class="ai-dialog-body">
+      <div class="dialog-heading"><h2 id="connection-title">Add API connection</h2><button id="close-connection" class="quiet" type="button" aria-label="Close API connection">×</button></div>
       <p id="connection-service" class="helper"></p>
       <label>Connection name<input id="connection-name" maxlength="80" placeholder="e.g. Personal account" autocomplete="off" required></label>
       <label>API key<input id="connection-key" type="password" maxlength="4096" autocomplete="off" spellcheck="false" required></label>
       <label class="show-key"><input id="show-connection-key" type="checkbox">Show API key</label>
       <p class="helper">Get an API key from this provider’s account dashboard. The key stays in this local server’s memory and is never saved in Git, browser storage, or run history. Add it again after restarting the server.</p>
+      </div>
+      <div class="ai-dialog-footer">
       <p id="connection-error" role="alert" class="ai-setup-error" hidden></p>
       <div class="dialog-footer"><button id="cancel-connection" type="button">Cancel</button><button id="add-connection" class="primary" type="submit">Add connection</button></div>
+      </div>
     </form></dialog>`;
   // Keep modal dialogs visible from every workspace tab, including the CV view.
   dialogs.append($('#step-ai-dialog'),$('#connection-dialog'),$('#generation-check-dialog'));
