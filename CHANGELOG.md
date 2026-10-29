@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.15.2](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.15.1...v1.15.2) (2026-10-29)
+
+
+### Bug Fixes
+
+* keep parallel workflows responsive and stop orphan processes ([aaf32ca](https://github.com/ABDELLAH-Hallou/vita-tree/commit/aaf32cad8ac59674cfa1d4292e8a55d0fe87ec44))
+* own workflow process lifetimes and add sustained load profiles ([ecac7af](https://github.com/ABDELLAH-Hallou/vita-tree/commit/ecac7afb4f78903ed66f3940d0786f3cc9e8aab9))
+
+
+### Performance Improvements
+
+* batch fresh history metadata reads with bounded capture ([88fca2f](https://github.com/ABDELLAH-Hallou/vita-tree/commit/88fca2f009a31260c03b3321c9ccee820f29c1a9))
+* check trace retention eligibility before parsing archived bodies ([1f72261](https://github.com/ABDELLAH-Hallou/vita-tree/commit/1f722613f2f4364d586f6b0d00b19bc1dd0ceb0e))
+* coalesce overlapping history refreshes without caching completed reads ([b763962](https://github.com/ABDELLAH-Hallou/vita-tree/commit/b763962a34ca3ab70dac37b531592c3504a9cdd2))
+* format large histories outside the workflow lock ([69f4780](https://github.com/ABDELLAH-Hallou/vita-tree/commit/69f4780a1916084772daf2c6f2d9c634a5040c12))
+* serialize history reads without gating workflow progress ([e507954](https://github.com/ABDELLAH-Hallou/vita-tree/commit/e507954434b4b83689d1817e8b7f3c2cbf463aae))
+
 ## [1.15.1](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.15.0...v1.15.1) (2026-10-27)
 
 
