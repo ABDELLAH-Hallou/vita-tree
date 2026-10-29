@@ -253,6 +253,10 @@ provider. Screenshots and PDFs are saved in ignored `.test-artifacts/`.
 For reproducible multi-application stress tests, declared performance budgets,
 resource measurements and recovery checks, see [workflow load profiles](docs/workflow-load.md).
 
+Browser/accessibility targets, repeatable keyboard checks and current coverage
+limits are in [accessibility verification](docs/accessibility.md), with a
+[representative-user study protocol](docs/usability-study.md).
+
 PDF.js is pinned in `package-lock.json`; browser assets and its Apache license are vendored into the Python package. Node is only needed to refresh these assets:
 
 ```powershell

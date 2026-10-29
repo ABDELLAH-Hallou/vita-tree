@@ -37,6 +37,9 @@ export function renderGraph(container, {run, options, available, selected, selec
       edge.dataset.status=stages[index-1].status; edge.textContent='→'; container.append(edge);
     }
     const button = document.createElement('button'); button.type='button'; button.className='dag-node';
+    button.onfocus=()=>requestAnimationFrame(()=>{
+      if(document.activeElement===button)button.scrollIntoView({block:'nearest',inline:'nearest'});
+    });
     button.dataset.step=task.id; button.dataset.status=task.status;
     button.setAttribute('aria-pressed',String(selected === task.id));
     if(task.id!=='validating'){

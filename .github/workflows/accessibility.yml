@@ -1,0 +1,60 @@
+name: Browser accessibility
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: accessibility-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONUTF8: "1"
+  PYTHONPATH: src:tests
+
+jobs:
+  browser:
+    name: Keyboard and review / ${{ matrix.browser }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+      - run: python -m pip install '.[test]' 'vita-cv==2.8.0' 'playwright==1.63.0'
+      - run: npm ci --ignore-scripts
+      - name: Install test engine and restricted compilation dependencies
+        timeout-minutes: 10
+        run: |
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 update
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 install -y --no-install-recommends texlive-latex-extra
+          python -m playwright install --with-deps ${{ matrix.browser }}
+      - run: python tests/browser_accessibility.py --browser ${{ matrix.browser }} --output .test-artifacts/accessibility
+      - run: python tests/browser_ai_settings.py --browser ${{ matrix.browser }}
+      - run: python tests/browser_component_dialogs.py --browser ${{ matrix.browser }}
+      - run: python tests/browser_requirements.py --browser ${{ matrix.browser }}
+      - run: python tests/browser_provider_failures.py --browser ${{ matrix.browser }}
+      - run: python tests/browser_factual_reviews.py --browser ${{ matrix.browser }}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: accessibility-${{ matrix.browser }}
+          path: |
+            .test-artifacts/accessibility/results.json
+            .test-artifacts/accessibility/*.png
+            .test-artifacts/*.png
+          include-hidden-files: true
+          retention-days: 14
