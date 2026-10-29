@@ -11,6 +11,10 @@ step = sys.argv[1]
 job = json.loads(Path('job.md').read_text())
 control = Path(os.environ['VITA_TEST_CONTROL'])
 label = job['label']
+if job.get('record_language'):
+    (control/(label+'.'+step+'.language')).write_text(sys.argv[sys.argv.index('--language')+1])
+    data=json.loads(Path('.vita/extensions.json').read_text(encoding='utf-8'))
+    (control/(label+'.'+step+'.languages.json')).write_text(json.dumps(data.get('language_map',{})))
 success = False
 
 def outcome():
