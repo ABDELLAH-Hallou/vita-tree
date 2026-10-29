@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.15.6](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.15.5...v1.15.6) (2026-10-29)
+
+
+### Bug Fixes
+
+* populate output languages from language_map ([4b8d18e](https://github.com/ABDELLAH-Hallou/vita-tree/commit/4b8d18eabf9b7a3790aee9d380b0e6f1b2aaa858))
+
 ## [1.15.5](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.15.4...v1.15.5) (2026-10-29)
 
 
