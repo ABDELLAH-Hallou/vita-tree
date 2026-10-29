@@ -259,6 +259,11 @@ release; cleanup never force-removes user drafts. A released clean application
 must be available to ordinary Git checkout. Atomic publication and stale-input
 checks remain mandatory after retries and restarts.
 
+Release verification accepts either direct removal (`clean`) or removal by the
+earlier deferred release request (`absent`). Both require the owned folder to be
+gone and the branch to be absent from Git's worktree registry; the report records
+these checks separately. An `absent` response alone is not proof of cleanup.
+
 Implementation references: [Python subprocess lifecycle](https://docs.python.org/3/library/subprocess.html),
 [Windows Job Objects](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects),
 [psutil measurement semantics](https://psutil.readthedocs.io/stable/index.html),

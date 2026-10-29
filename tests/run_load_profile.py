@@ -13,7 +13,7 @@ import threading
 import time
 
 from load_support import (ROOT,PROFILES,LOAD_SOURCE,LoadServer,ResourceSampler,distribution,
-                          git,prepare,profile,sha,wait_for,processor_label,budget_gate,advisory_budget)
+                          git,prepare,profile,sha,wait_for,processor_label,budget_gate,advisory_budget,clean_worktree_release)
 
 
 def benchmark(output, name, pdf, enforce=False, replica=1, advisory_orchestration=False):
@@ -47,8 +47,8 @@ def benchmark(output, name, pdf, enforce=False, replica=1, advisory_orchestratio
                            totalMemoryMiB=psutil.virtual_memory().total/2**20,
                            psutil=importlib.metadata.version('psutil'),osRelease=platform.release())
     report['engine']={'mode':pdf,'version':None}
-    def check(label, value):
-        report['checks'].append(dict(name=label,passed=bool(value)))
+    def check(label, value, **evidence):
+        report['checks'].append(dict(name=label,passed=bool(value),**evidence))
         assert value,'Safety check failed: '+label
     def poll():
         while not stop.is_set():
@@ -157,7 +157,8 @@ def benchmark(output, name, pdf, enforce=False, replica=1, advisory_orchestratio
                 if location.exists():
                     git(location,'add','main.tex','job.md','cover-letter.tex');git(location,'add','-f','.vita/results')
                     git(location,'commit','-m','Synthetic load result')
-                    check('clean owned worktree released '+run['branch'],server.api('/api/release-worktree',dict(branch=run['branch']))['released'])
+                    release=clean_worktree_release(server,run['branch'],location)
+                    check('clean owned worktree released '+run['branch'],release.pop('passed'),**release)
             check('independent draft survives',server.snapshot('editing')['content']==changed)
             save_report()
 
