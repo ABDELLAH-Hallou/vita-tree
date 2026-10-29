@@ -16,7 +16,7 @@ deliberate change. Other operating systems can run the same scenarios, but are
 not interchangeable timing baselines.
 
 CI runs the sustained profile on three independent runner instances. Each sample
-must meet the same budgets; passing samples do not average away failed ones.
+is measured against the same budgets; passing samples do not average away misses.
 Reports identify the replica, CPU model, kernel and available resources.
 
 | Profile | Simultaneous branches | Waves | Existing runs / branches | Provider sleep per step | Poll clients |
@@ -65,6 +65,14 @@ clean, owned worktrees. Expected provider failures, conflicts and interrupted
 runs remain in the evidence. Passing safety checks with an exceeded performance
 budget is not a performance pass.
 
+On shared CI, only the sustained **orchestration p95** target is advisory, using
+`--enforce-budgets --advisory-orchestration`. That flag does not change the target
+or measured result. API/PDF/UI latency, shutdown, resource and safety budgets
+remain required. Backend JSON distinguishes `passed` (the enforced policy) from
+`performancePassed` (every measured target met); misses appear as warnings and
+in a per-sample CI summary. Missing or nonfinite measurements cannot be waived.
+Plain `--enforce-budgets` remains strict for every target on a controlled host.
+
 ## Recorded reference runs
 
 The [28 October 2026 CI run](https://github.com/ABDELLAH-Hallou/vita-tree/actions/runs/40689709630)
@@ -88,7 +96,11 @@ failures, executing orphans or leaked clean worktrees. Real compiler-call p95 wa
 p95 was 31.6 ms / 10.1 MiB heap at 250 history entries and 38.7 ms / 13.2 MiB at 2,000.
 Both browser jobs observed one poll in flight, no page errors and no idle branch
 list mutations. Older EPYC samples were close to the 15-second orchestration
-budget. These are small synthetic measurements, not capacity guarantees.
+budget. An [unchanged-production-code repeat](https://github.com/ABDELLAH-Hallou/vita-tree/actions/runs/40861183972)
+measured 15.638 s on EPYC 7763, missing that target by 638 ms while passing all
+safety checks. That miss is retained; the 15-second target is not established as
+a reliable bound on shared older runners. These are small synthetic measurements,
+not capacity guarantees.
 
 Earlier failed sustained budgets and repeat-host misses are retained in the
 same evidence. The fixes shorten history locking, coalesce overlapping reads,
@@ -236,6 +248,10 @@ command cannot start before ownership is established. This is lifecycle
 management, not a sandbox against hostile executables that deliberately escape
 their process group. Only processes launched through these owners are covered;
 ordinary short Git/version probes retain their existing behavior.
+
+Git push/authentication latency and deliberately detached external services are
+outside these profiles; no live repository publication or provider smoke run is
+performed by the harness.
 
 Worktrees containing dirty, ignored, external or locked files are intentionally
 kept. The test explicitly commits its synthetic outputs before requesting

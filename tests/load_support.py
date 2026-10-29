@@ -41,6 +41,18 @@ def distribution(values):
                 maximum=max(values) if values else None)
 
 
+def advisory_budget(key, value, advisory_orchestration=False):
+    actual=value.get('actual')
+    return (advisory_orchestration and key=='orchestrationP95Ms'
+            and type(actual) in (int,float) and math.isfinite(actual) and actual>=0)
+
+
+def budget_gate(results, enforce=False, advisory_orchestration=False):
+    if not enforce:return True
+    return all(value['passed'] or advisory_budget(key,value,advisory_orchestration)
+               for key,value in results.items())
+
+
 def profile(name):
     data=json.loads(PROFILES.read_text())
     assert data['schemaVersion']==1 and data['version']=='1.0.0'

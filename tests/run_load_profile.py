@@ -2,6 +2,7 @@
 import argparse
 import datetime
 import json
+import os
 from pathlib import Path
 import platform
 import importlib.metadata
@@ -12,10 +13,10 @@ import threading
 import time
 
 from load_support import (ROOT,PROFILES,LOAD_SOURCE,LoadServer,ResourceSampler,distribution,
-                          git,prepare,profile,sha,wait_for,processor_label)
+                          git,prepare,profile,sha,wait_for,processor_label,budget_gate,advisory_budget)
 
 
-def benchmark(output, name, pdf, enforce=False, replica=1):
+def benchmark(output, name, pdf, enforce=False, replica=1, advisory_orchestration=False):
     config=profile(name)
     assert not output.exists(),'Use a fresh evidence directory'
     output.mkdir(parents=True)
@@ -32,7 +33,8 @@ def benchmark(output, name, pdf, enforce=False, replica=1):
         declared=dict(concurrency=config['concurrency'],waves=config['waves'],history=config['history'],historyBranches=config['historyBranches'],
             historyRequirementsFraction=.5,historyFactualFraction=.2,pollers=config['pollers'],pollIntervalMs=config['pollIntervalMs'],
             statusPollClients=1,statusPollIntervalMs=30,pdfMode=pdf),
-        budgets=config['budgets'],runs=[],checks=[],shutdowns=[],startupMs=[],phases={},failures=[],providerOverlapSamples=[],
+        budgets=config['budgets'],budgetPolicy=dict(enforced=enforce,orchestrationAdvisory=advisory_orchestration),
+        runs=[],checks=[],shutdowns=[],startupMs=[],phases={},failures=[],providerOverlapSamples=[],
         limits=['Synthetic provider sleeps are not a provider throughput benchmark.',
                 'Fixture barrier time, measured sleep and local subprocess overhead are separate; phases may be nested and must not be summed blindly.',
                 'Simulated PDF mode measures a 40 ms stub, not TeX performance. Real mode retains restricted compiler flags.',
@@ -254,11 +256,31 @@ def benchmark(output, name, pdf, enforce=False, replica=1):
         for field in ('serverPeakRssMiB','serverRssGrowthMiB','peakDescendants','handleGrowth'):
             metrics[field]=max((r[field] for r in resources),default=None)
         report['budgetResults']={key:dict(actual=value,maximum=config['budgets'][key],passed=value is not None and value<=config['budgets'][key]) for key,value in metrics.items()}
+        report['unmeasuredBudgets']=sorted(set(config['budgets'])-set(metrics))
         report['elapsedMs']=(time.monotonic()-began)*1000
         safety=all(metrics[key]==0 for key in ('unexpectedFailures','orphans','cleanWorktreeLeaks'))
-        report['passed']=safety and all(c['passed'] for c in report['checks']) and (not enforce or all(v['passed'] for v in report['budgetResults'].values()))
+        report['performancePassed']=all(v['passed'] for v in report['budgetResults'].values())
+        report['passed']=safety and all(c['passed'] for c in report['checks']) and budget_gate(report['budgetResults'],enforce,advisory_orchestration)
         save_report()
     return report
+
+
+def ci_summary(report):
+    target=os.environ.get('GITHUB_STEP_SUMMARY')
+    if not target:return
+    advisory=report['budgetPolicy']['orchestrationAdvisory']
+    lines=[f"## {report['profile']} / {report['declared']['pdfMode']} / sample {report['replica']}",
+           f"Required checks: **{'PASS' if report['passed'] else 'FAIL'}**. All measured performance targets: **{'PASS' if report['performancePassed'] else 'MISS'}**.",
+           'Orchestration wall-time is advisory on shared hosts; the target and every miss remain reported. Other enforced budgets and all safety checks are required.' if advisory else 'Every budget is required.',
+           '| Budget | Actual | Target | Result |','| --- | ---: | ---: | --- |']
+    for key,value in report['budgetResults'].items():
+        status='PASS' if value['passed'] else 'MISS (advisory)' if advisory_budget(key,value,advisory) else 'FAIL'
+        lines.append(f"| {key} | {value['actual']} | {value['maximum']} | {status} |")
+        if status=='MISS (advisory)':
+            print(f"::warning title=Shared-host orchestration target missed::{value['actual']:.1f} ms exceeds {value['maximum']} ms; retained as a performance miss. Safety gates remain required.")
+    try:
+        with open(target,'a',encoding='utf-8') as stream:stream.write('\n'.join(lines)+'\n')
+    except OSError:print('WARNING: Could not write the CI budget summary.',file=sys.stderr)
 
 
 def main():
@@ -266,9 +288,12 @@ def main():
     parser.add_argument('--profile',choices=['ci','sustained'],default='ci');parser.add_argument('--pdf',choices=['real','simulated'],default='simulated')
     parser.add_argument('--enforce-budgets',action='store_true')
     parser.add_argument('--replica',type=int,choices=[1,2,3],default=1,help='Evidence label only; does not change the workload')
+    parser.add_argument('--advisory-orchestration',action='store_true',help='Shared-host CI only: report orchestration misses; keep all other budgets required')
     args=parser.parse_args()
-    report=benchmark(args.output.resolve(),args.profile,args.pdf,args.enforce_budgets,args.replica)
-    print(json.dumps(dict(passed=report['passed'],runs=len(report['runs']),budgetResults=report['budgetResults']),indent=2))
+    if args.advisory_orchestration and not args.enforce_budgets:parser.error('--advisory-orchestration requires --enforce-budgets')
+    report=benchmark(args.output.resolve(),args.profile,args.pdf,args.enforce_budgets,args.replica,args.advisory_orchestration)
+    ci_summary(report)
+    print(json.dumps(dict(passed=report['passed'],performancePassed=report['performancePassed'],runs=len(report['runs']),budgetResults=report['budgetResults']),indent=2))
     raise SystemExit(not report['passed'])
 
 

@@ -1,9 +1,11 @@
 """The evidence must retain failures and use reproducible latency summaries."""
 import json
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch,mock_open
+from contextlib import redirect_stdout
+import io
 
-from load_support import distribution, profile, LoadServer
+from load_support import distribution, profile, LoadServer,budget_gate
 
 
 class LoadMetricsTests(unittest.TestCase):
@@ -33,3 +35,24 @@ class LoadMetricsTests(unittest.TestCase):
         self.assertEqual(server.samples[0]['status'],0)
         self.assertNotIn('body',server.samples[0])
         self.assertNotIn('token',json.dumps(server.samples))
+
+    def test_only_measured_orchestration_can_be_advisory(self):
+        values={'orchestrationP95Ms':{'actual':16000,'passed':False}}
+        self.assertFalse(budget_gate(values,enforce=True))
+        self.assertTrue(budget_gate(values,enforce=True,advisory_orchestration=True))
+        for key in ('pollP95Ms','pdfP95Ms','shutdownMs','serverPeakRssMiB','orphans','unexpectedFailures'):
+            self.assertFalse(budget_gate({**values,key:{'actual':1,'passed':False}},True,True),key)
+        for missing in (None,float('nan'),float('inf'),-1):
+            self.assertFalse(budget_gate({'orchestrationP95Ms':{'actual':missing,'passed':False}},True,True))
+
+    def test_shared_host_summary_does_not_claim_a_performance_pass(self):
+        from run_load_profile import ci_summary
+        report=dict(profile='sustained',replica=1,declared={'pdfMode':'simulated'},passed=True,performancePassed=False,
+                    budgetPolicy={'orchestrationAdvisory':True},
+                    budgetResults={'orchestrationP95Ms':{'actual':16000,'maximum':15000,'passed':False}})
+        with patch.dict('os.environ',{'GITHUB_STEP_SUMMARY':'synthetic-summary'}),patch('builtins.open',mock_open()) as output,redirect_stdout(io.StringIO()) as console:
+            ci_summary(report)
+        body=output().write.call_args.args[0]
+        self.assertIn('All measured performance targets: **MISS**',body)
+        self.assertIn('MISS (advisory)',body)
+        self.assertIn('warning',console.getvalue())
