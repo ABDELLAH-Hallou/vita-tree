@@ -1,0 +1,2258 @@
+{
+  "schemaVersion": 1,
+  "observedDate": "2026-10-29",
+  "scope": "Scoped automated browser and keyboard checks; no accessibility certification.",
+  "testedHead": "dda38d852d2eab50ddba3284e17eb1b35583e047",
+  "run": "https://github.com/ABDELLAH-Hallou/vita-tree/actions/runs/40905594205",
+  "fixtureLicense": "MIT (repository synthetic SOURCE and JD fixtures)",
+  "humanStudy": "Protocol only; not conducted",
+  "assistiveTechnology": "No real AT session conducted",
+  "unavailableCoverage": [
+    "Shipping Safari and branded Edge",
+    "Physical mobile devices",
+    "Native browser zoom and OS text scaling",
+    "NVDA, JAWS, VoiceOver and TalkBack",
+    "Forced colors / Windows High Contrast",
+    "Representative-user results"
+  ],
+  "engines": [
+    {
+      "engine": "chromium",
+      "browserVersion": "153.0.8010.12",
+      "platform": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39",
+      "playwright": "1.63.0",
+      "vitaCV": "2.8.0",
+      "axeCore": "4.11.1",
+      "testMergeCommit": "bd21a4bad10207e3685e436efaa13de096575dd1",
+      "sourceHashes": {
+        "src/vita_tree/static/app.js": "7f9b95bcc08b777af75f668103795e2acee6006415b4b3cf96c80ebbc3152519",
+        "src/vita_tree/static/ai-settings.js": "2eed38ecb03ac945b1fd0ac0a26967bdb0011d062365923271a2ed35cf2a129f",
+        "src/vita_tree/static/requirements.js": "b5a9142b142ee07a0b65ca2f2940fd2e15a20ad23950770aac34c11f4fa60e1e",
+        "src/vita_tree/static/factual-review.js": "12950c9aa0316214fbd6f3f80d60fc7254768cf7d96fc06f59a0b073072d79f3",
+        "src/vita_tree/static/styles.css": "e372a888b28bb833e22dd48d6d790a94c1919a87d7e69556f416bccb3f3caef5",
+        "src/vita_tree/static/index.html": "c0f7128ce532fd8d9fe9698e340fa54e27fc6b9a4bf676fee2815517c8e85ce8",
+        "src/vita_tree/static/workflow.js": "6ca857bbda28dd60e35729a7639daabe5890d7ba90973287052d648670442bcd",
+        "tests/browser_accessibility.py": "6f481d817a7578722fdcec4582d03e641c3abb0cf9159fe62ac48ca663c239c0",
+        "tests/browser_support.py": "0f7c6229a951844afd90d8e9e084883fcc31923aed5cb2e1f0799bed0808b147",
+        "package-lock.json": "e04da01e48df0b4bdbb7d01b00a5958584682463576d19c863857d020fb51506"
+      },
+      "fixtureHashes": {
+        "source": "01840106160e636ebd6ca33114cd89cc6f9c5d24204f21e1c44970025742f74e",
+        "job": "9e212e62c4a7828718cb2c25a59e0f8111322ed6cabd62219ca762a13bb3ae2a"
+      },
+      "allSixCIScripts": "passed (keyboard/axe, AI settings, component dialogs, requirements, provider recovery, factual review)",
+      "requiredAutomatedChecksPassed": true,
+      "completedKeyboardTasks": [
+        "keyboard shared setup and roving tabs",
+        "keyboard Extract override, invalid model, nested key, Apply and Cancel",
+        "keyboard requirement source, cancellation, validation and immutable approval",
+        "keyboard mixed factual decisions and resumed validation",
+        "keyboard final report and real selectable PDF access"
+      ],
+      "scannedStates": 24,
+      "violations": 0,
+      "tokenContrastOnPanel": {
+        "light": {
+          "ink": 14.486,
+          "muted": 5.513,
+          "accent": 6.157,
+          "negative": 6.722,
+          "positive": 6.954
+        },
+        "dark": {
+          "ink": 12.641,
+          "muted": 7.117,
+          "accent": 8.088,
+          "negative": 8.435,
+          "positive": 9.203
+        }
+      },
+      "reportSha256": "0cf3b00c5fe1b9d899446f7dc7290fb9bd815ce3430ce703970f86e5707973e8",
+      "scanResults": [
+        {
+          "state": "shared-light",
+          "scope": "document",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 6,
+              "targets": [
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(2)"
+                ],
+                [
+                  ".dag-edge[data-status=\"pending\"][aria-hidden=\"true\"]:nth-child(4)"
+                ],
+                [
+                  ".dag-edge[data-status=\"pending\"][aria-hidden=\"true\"]:nth-child(6)"
+                ],
+                [
+                  "button[data-step=\"review\"] > .dag-time"
+                ],
+                [
+                  ".dag-edge[data-status=\"pending\"][aria-hidden=\"true\"]:nth-child(8)"
+                ],
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(10)"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "shared-dark",
+          "scope": "document",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 6,
+              "targets": [
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(2)"
+                ],
+                [
+                  ".dag-edge[data-status=\"pending\"][aria-hidden=\"true\"]:nth-child(4)"
+                ],
+                [
+                  ".dag-edge[data-status=\"pending\"][aria-hidden=\"true\"]:nth-child(6)"
+                ],
+                [
+                  "button[data-step=\"review\"] > .dag-time"
+                ],
+                [
+                  ".dag-edge[data-status=\"pending\"][aria-hidden=\"true\"]:nth-child(8)"
+                ],
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(10)"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "extract-validation",
+          "scope": "#step-ai-dialog",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 2,
+              "targets": [
+                [
+                  "#popup-model-help"
+                ],
+                [
+                  "#step-ai-save-hint"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "requirements-desktop-light",
+          "scope": "#requirements-dialog",
+          "violations": 0,
+          "incomplete": []
+        },
+        {
+          "state": "requirements-narrow-light",
+          "scope": "#requirements-dialog",
+          "violations": 0,
+          "incomplete": []
+        },
+        {
+          "state": "requirements-zoom-200-light",
+          "scope": "#requirements-dialog",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 1,
+              "targets": [
+                [
+                  ".requirement-card:nth-child(4) > label:nth-child(2) > textarea[aria-label=\"Criterion\"]"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "requirements-desktop-dark",
+          "scope": "#requirements-dialog",
+          "violations": 0,
+          "incomplete": []
+        },
+        {
+          "state": "requirements-narrow-dark",
+          "scope": "#requirements-dialog",
+          "violations": 0,
+          "incomplete": []
+        },
+        {
+          "state": "requirements-zoom-200-dark",
+          "scope": "#requirements-dialog",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 1,
+              "targets": [
+                [
+                  ".requirement-card:nth-child(4) > label:nth-child(2) > textarea[aria-label=\"Criterion\"]"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "requirements-error",
+          "scope": "#requirements-dialog",
+          "violations": 0,
+          "incomplete": []
+        },
+        {
+          "state": "narrow-light",
+          "scope": "#step-ai-dialog",
+          "violations": 0,
+          "incomplete": []
+        },
+        {
+          "state": "zoom-200-light",
+          "scope": "#step-ai-dialog",
+          "violations": 0,
+          "incomplete": []
+        },
+        {
+          "state": "narrow-dark",
+          "scope": "#step-ai-dialog",
+          "violations": 0,
+          "incomplete": []
+        },
+        {
+          "state": "zoom-200-dark",
+          "scope": "#step-ai-dialog",
+          "violations": 0,
+          "incomplete": []
+        },
+        {
+          "state": "factual-desktop-light",
+          "scope": "#factual-review-panel",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 1,
+              "targets": [
+                [
+                  ".review-controls > .panel-footer > span"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "factual-narrow-light",
+          "scope": "#factual-review-panel",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 4,
+              "targets": [
+                [
+                  "#factual-sheet-title"
+                ],
+                [
+                  "#factual-review-confirmation"
+                ],
+                [
+                  "#cancel-factual-review"
+                ],
+                [
+                  "#apply-factual-review"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "factual-zoom-200-light",
+          "scope": "#factual-review-panel",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 5,
+              "targets": [
+                [
+                  ".factual-change:nth-child(2) > .factual-wording > .wording-before > pre > mark"
+                ],
+                [
+                  ".factual-change:nth-child(2) > .factual-wording > .wording-before > pre > span:nth-child(4)"
+                ],
+                [
+                  ".factual-change:nth-child(2) > .factual-wording > .wording-after > pre > span:nth-child(4)"
+                ],
+                [
+                  "#factual-review-confirmation"
+                ],
+                [
+                  ".review-controls > .panel-footer > span"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "factual-desktop-dark",
+          "scope": "#factual-review-panel",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 1,
+              "targets": [
+                [
+                  ".review-controls > .panel-footer > span"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "factual-narrow-dark",
+          "scope": "#factual-review-panel",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 4,
+              "targets": [
+                [
+                  "#factual-sheet-title"
+                ],
+                [
+                  "#factual-review-confirmation"
+                ],
+                [
+                  "#cancel-factual-review"
+                ],
+                [
+                  "#apply-factual-review"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "factual-zoom-200-dark",
+          "scope": "#factual-review-panel",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 5,
+              "targets": [
+                [
+                  ".factual-change:nth-child(2) > .factual-wording > .wording-before > pre > mark"
+                ],
+                [
+                  ".factual-change:nth-child(2) > .factual-wording > .wording-before > pre > span:nth-child(4)"
+                ],
+                [
+                  ".factual-change:nth-child(2) > .factual-wording > .wording-after > pre > span:nth-child(4)"
+                ],
+                [
+                  "#factual-review-confirmation"
+                ],
+                [
+                  ".review-controls > .panel-footer > span"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "recorded-setup-dark",
+          "scope": "#step-ai-dialog",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 1,
+              "targets": [
+                [
+                  "#popup-model-help"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "final-report-dark",
+          "scope": "document",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 6,
+              "targets": [
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(2)"
+                ],
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(4)"
+                ],
+                [
+                  ".dag-edge[data-status=\"succeeded\"][aria-hidden=\"true\"]"
+                ],
+                [
+                  "button[data-step=\"review\"] > .dag-time"
+                ],
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(8)"
+                ],
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(10)"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "pdf-light",
+          "scope": "document",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 44,
+              "targets": [
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(2)"
+                ],
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(4)"
+                ],
+                [
+                  ".dag-edge[data-status=\"succeeded\"][aria-hidden=\"true\"]"
+                ],
+                [
+                  "button[data-step=\"review\"] > .dag-time"
+                ],
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(8)"
+                ],
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(10)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(1)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(3)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(5)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(7)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(9)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(11)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(13)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(15)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(17)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(19)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(21)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(23)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(25)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(27)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(29)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(31)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(33)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(35)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(37)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(1)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(3)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(5)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(7)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(9)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(11)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(13)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(15)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(17)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(19)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(21)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(23)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(25)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(27)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(29)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(31)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(33)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(35)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(37)"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "pdf-dark",
+          "scope": "document",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 44,
+              "targets": [
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(2)"
+                ],
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(4)"
+                ],
+                [
+                  ".dag-edge[data-status=\"succeeded\"][aria-hidden=\"true\"]"
+                ],
+                [
+                  "button[data-step=\"review\"] > .dag-time"
+                ],
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(8)"
+                ],
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(10)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(1)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(3)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(5)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(7)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(9)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(11)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(13)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(15)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(17)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(19)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(21)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(23)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(25)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(27)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(29)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(31)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(33)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(35)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(37)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(1)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(3)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(5)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(7)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(9)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(11)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(13)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(15)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(17)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(19)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(21)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(23)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(25)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(27)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(29)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(31)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(33)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(35)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(37)"
+                ]
+              ]
+            }
+          ]
+        }
+      ],
+      "screenshotHashes": {
+        "extract-validation.png": "97dd6fb93431dcba132b58b9b15be1fd0094ffbe4d301ac2e267270dea4def8b",
+        "factual-desktop-dark.png": "d292b8059f51db0d820633bee4698d30a6102a8188c9280245a1e8a6fe898b66",
+        "factual-desktop-light.png": "979386923425aba40cb14d444918d96919ef6583a532d624acc2c6b70d213c43",
+        "factual-narrow-dark.png": "d82a94257b4260ffe06d0f10c7eda5dae82f4778143dd3e9fbd90a6abb795e5d",
+        "factual-narrow-light.png": "3eda11fc9b4102f1e23c12615e0ddf9a0c2feae82048e8f689bd6dbfbf0ca283",
+        "factual-zoom-200-dark.png": "d60bc62cc69f31fcac8723e5a95fb8dd1b4282ec85e95494fbf92ba4b4ab0e9d",
+        "factual-zoom-200-light.png": "07ef0d4a12697fe64937686c301902ee7cbacd06170a092aef1bf209279b64e2",
+        "final-report-dark.png": "6f282bdc30ddc6583005b5e9dbe3f750d0336543ce84cbde2318828db91edb23",
+        "narrow-dark.png": "5352045e5690a18800095cf648baa7dc45dcfe059286c1ccc2d9779f923dfc09",
+        "narrow-light.png": "d6eeb3179f1be2dfbc350a3e5296c3ac6218e64da10d4a5db407ef0460e551fc",
+        "pdf-dark.png": "24dde5e0e437332fd557f2ab0d9190b98ed4e23c59f7e6e3a500ebcd34c865d9",
+        "pdf-light.png": "cf9d0475944c381c6a37ec0f2e2f47ca25bb7028435b28c2b295f0ba3a0a661b",
+        "recorded-setup-dark.png": "1f5b038b6c59431a8d25f17028b7be765fd30e50c18ddcdd2584e9a91b6ce6dc",
+        "requirements-desktop-dark.png": "63fc741514476352f702a9a2529336b69d847069683c7f1e03f79cebffe077e5",
+        "requirements-desktop-light.png": "4d72346687cbbd42ce133f13665e4324f50422d4813472180e392c87e5f7aa72",
+        "requirements-error.png": "20edb79a171ee000643be0f7b5ca2e0ac0dda4f0231d41a644d68f680253efb5",
+        "requirements-narrow-dark.png": "69a9c6cd3bac554f4685c0028d0787e055f2ce69f512b9ba03853c70b5f2d8be",
+        "requirements-narrow-light.png": "16a2f7e625f13e7ead4f9760a4e9b6986a2fe665b0576ecf963202bfd1796422",
+        "requirements-zoom-200-dark.png": "af7159f041c47c6da14dd6de9d8276ab07f61225118c0328265331aa25229d21",
+        "requirements-zoom-200-light.png": "a2c3b393cd4ea6750e84a0609352a27c09f659db88ff64cc7b5af97314fce367",
+        "shared-dark.png": "61a9e362485f9af8a4b1385292bcbd285f8cea60943f685d53fed94b19a5f8a2",
+        "shared-light.png": "2684a084e84622e666e6a432f65499235bb7d0091669f9d2fafc99ff60a94068",
+        "zoom-200-dark.png": "0445114027e79d8b2d50198447882cf46b0415605dae7815030c8e8decd129d6",
+        "zoom-200-light.png": "517fd32b534ec38e3c3bff70be31d781137b3da66c67b3b3e13f26568bd2b3d6"
+      }
+    },
+    {
+      "engine": "firefox",
+      "browserVersion": "155.0",
+      "platform": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39",
+      "playwright": "1.63.0",
+      "vitaCV": "2.8.0",
+      "axeCore": "4.11.1",
+      "testMergeCommit": "bd21a4bad10207e3685e436efaa13de096575dd1",
+      "sourceHashes": {
+        "src/vita_tree/static/app.js": "7f9b95bcc08b777af75f668103795e2acee6006415b4b3cf96c80ebbc3152519",
+        "src/vita_tree/static/ai-settings.js": "2eed38ecb03ac945b1fd0ac0a26967bdb0011d062365923271a2ed35cf2a129f",
+        "src/vita_tree/static/requirements.js": "b5a9142b142ee07a0b65ca2f2940fd2e15a20ad23950770aac34c11f4fa60e1e",
+        "src/vita_tree/static/factual-review.js": "12950c9aa0316214fbd6f3f80d60fc7254768cf7d96fc06f59a0b073072d79f3",
+        "src/vita_tree/static/styles.css": "e372a888b28bb833e22dd48d6d790a94c1919a87d7e69556f416bccb3f3caef5",
+        "src/vita_tree/static/index.html": "c0f7128ce532fd8d9fe9698e340fa54e27fc6b9a4bf676fee2815517c8e85ce8",
+        "src/vita_tree/static/workflow.js": "6ca857bbda28dd60e35729a7639daabe5890d7ba90973287052d648670442bcd",
+        "tests/browser_accessibility.py": "6f481d817a7578722fdcec4582d03e641c3abb0cf9159fe62ac48ca663c239c0",
+        "tests/browser_support.py": "0f7c6229a951844afd90d8e9e084883fcc31923aed5cb2e1f0799bed0808b147",
+        "package-lock.json": "e04da01e48df0b4bdbb7d01b00a5958584682463576d19c863857d020fb51506"
+      },
+      "fixtureHashes": {
+        "source": "01840106160e636ebd6ca33114cd89cc6f9c5d24204f21e1c44970025742f74e",
+        "job": "9e212e62c4a7828718cb2c25a59e0f8111322ed6cabd62219ca762a13bb3ae2a"
+      },
+      "allSixCIScripts": "passed (keyboard/axe, AI settings, component dialogs, requirements, provider recovery, factual review)",
+      "requiredAutomatedChecksPassed": true,
+      "completedKeyboardTasks": [
+        "keyboard shared setup and roving tabs",
+        "keyboard Extract override, invalid model, nested key, Apply and Cancel",
+        "keyboard requirement source, cancellation, validation and immutable approval",
+        "keyboard mixed factual decisions and resumed validation",
+        "keyboard final report and real selectable PDF access"
+      ],
+      "scannedStates": 24,
+      "violations": 0,
+      "tokenContrastOnPanel": {
+        "light": {
+          "ink": 14.486,
+          "muted": 5.513,
+          "accent": 6.157,
+          "negative": 6.722,
+          "positive": 6.954
+        },
+        "dark": {
+          "ink": 12.641,
+          "muted": 7.117,
+          "accent": 8.088,
+          "negative": 8.435,
+          "positive": 9.203
+        }
+      },
+      "reportSha256": "f74e65db59c95c57e34c9e3391e63d5c1a86928eb87bc807253ccf0c62bd662c",
+      "scanResults": [
+        {
+          "state": "shared-light",
+          "scope": "document",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 7,
+              "targets": [
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(2)"
+                ],
+                [
+                  ".dag-edge[data-status=\"pending\"][aria-hidden=\"true\"]:nth-child(4)"
+                ],
+                [
+                  "button[data-step=\"adapt\"] > .dag-time"
+                ],
+                [
+                  ".dag-edge[data-status=\"pending\"][aria-hidden=\"true\"]:nth-child(6)"
+                ],
+                [
+                  "button[data-step=\"review\"] > .dag-time"
+                ],
+                [
+                  ".dag-edge[data-status=\"pending\"][aria-hidden=\"true\"]:nth-child(8)"
+                ],
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(10)"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "shared-dark",
+          "scope": "document",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 7,
+              "targets": [
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(2)"
+                ],
+                [
+                  ".dag-edge[data-status=\"pending\"][aria-hidden=\"true\"]:nth-child(4)"
+                ],
+                [
+                  "button[data-step=\"adapt\"] > .dag-time"
+                ],
+                [
+                  ".dag-edge[data-status=\"pending\"][aria-hidden=\"true\"]:nth-child(6)"
+                ],
+                [
+                  "button[data-step=\"review\"] > .dag-time"
+                ],
+                [
+                  ".dag-edge[data-status=\"pending\"][aria-hidden=\"true\"]:nth-child(8)"
+                ],
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(10)"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "extract-validation",
+          "scope": "#step-ai-dialog",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 2,
+              "targets": [
+                [
+                  "#popup-model-help"
+                ],
+                [
+                  "#step-ai-save-hint"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "requirements-desktop-light",
+          "scope": "#requirements-dialog",
+          "violations": 0,
+          "incomplete": []
+        },
+        {
+          "state": "requirements-narrow-light",
+          "scope": "#requirements-dialog",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 3,
+              "targets": [
+                [
+                  "#requirements-confirm-label"
+                ],
+                [
+                  "#requirements-cancel"
+                ],
+                [
+                  "#requirements-save"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "requirements-zoom-200-light",
+          "scope": "#requirements-dialog",
+          "violations": 0,
+          "incomplete": []
+        },
+        {
+          "state": "requirements-desktop-dark",
+          "scope": "#requirements-dialog",
+          "violations": 0,
+          "incomplete": []
+        },
+        {
+          "state": "requirements-narrow-dark",
+          "scope": "#requirements-dialog",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 3,
+              "targets": [
+                [
+                  "#requirements-confirm-label"
+                ],
+                [
+                  "#requirements-cancel"
+                ],
+                [
+                  "#requirements-save"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "requirements-zoom-200-dark",
+          "scope": "#requirements-dialog",
+          "violations": 0,
+          "incomplete": []
+        },
+        {
+          "state": "requirements-error",
+          "scope": "#requirements-dialog",
+          "violations": 0,
+          "incomplete": []
+        },
+        {
+          "state": "narrow-light",
+          "scope": "#step-ai-dialog",
+          "violations": 0,
+          "incomplete": []
+        },
+        {
+          "state": "zoom-200-light",
+          "scope": "#step-ai-dialog",
+          "violations": 0,
+          "incomplete": []
+        },
+        {
+          "state": "narrow-dark",
+          "scope": "#step-ai-dialog",
+          "violations": 0,
+          "incomplete": []
+        },
+        {
+          "state": "zoom-200-dark",
+          "scope": "#step-ai-dialog",
+          "violations": 0,
+          "incomplete": []
+        },
+        {
+          "state": "factual-desktop-light",
+          "scope": "#factual-review-panel",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 1,
+              "targets": [
+                [
+                  ".review-controls > .panel-footer > span"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "factual-narrow-light",
+          "scope": "#factual-review-panel",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 3,
+              "targets": [
+                [
+                  "#factual-sheet-title"
+                ],
+                [
+                  "#factual-review-confirmation"
+                ],
+                [
+                  "#cancel-factual-review"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "factual-zoom-200-light",
+          "scope": "#factual-review-panel",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 8,
+              "targets": [
+                [
+                  ".factual-change:nth-child(1) > .factual-wording > .wording-before > pre > span:nth-child(1)"
+                ],
+                [
+                  ".wording-before > pre > span:nth-child(5)"
+                ],
+                [
+                  ".wording-before > pre > span:nth-child(7)"
+                ],
+                [
+                  ".factual-change:nth-child(1) > .factual-wording > .wording-after > pre > span:nth-child(1)"
+                ],
+                [
+                  ".wording-after > pre > span:nth-child(5)"
+                ],
+                [
+                  ".wording-after > pre > span:nth-child(7)"
+                ],
+                [
+                  "#factual-review-confirmation"
+                ],
+                [
+                  ".review-controls > .panel-footer > span"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "factual-desktop-dark",
+          "scope": "#factual-review-panel",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 1,
+              "targets": [
+                [
+                  ".review-controls > .panel-footer > span"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "factual-narrow-dark",
+          "scope": "#factual-review-panel",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 3,
+              "targets": [
+                [
+                  "#factual-sheet-title"
+                ],
+                [
+                  "#factual-review-confirmation"
+                ],
+                [
+                  "#cancel-factual-review"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "factual-zoom-200-dark",
+          "scope": "#factual-review-panel",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 8,
+              "targets": [
+                [
+                  ".factual-change:nth-child(1) > .factual-wording > .wording-before > pre > span:nth-child(1)"
+                ],
+                [
+                  ".wording-before > pre > span:nth-child(5)"
+                ],
+                [
+                  ".wording-before > pre > span:nth-child(7)"
+                ],
+                [
+                  ".factual-change:nth-child(1) > .factual-wording > .wording-after > pre > span:nth-child(1)"
+                ],
+                [
+                  ".wording-after > pre > span:nth-child(5)"
+                ],
+                [
+                  ".wording-after > pre > span:nth-child(7)"
+                ],
+                [
+                  "#factual-review-confirmation"
+                ],
+                [
+                  ".review-controls > .panel-footer > span"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "recorded-setup-dark",
+          "scope": "#step-ai-dialog",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 1,
+              "targets": [
+                [
+                  "#popup-reasoning-help"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "final-report-dark",
+          "scope": "document",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 6,
+              "targets": [
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(2)"
+                ],
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(4)"
+                ],
+                [
+                  ".dag-edge[data-status=\"succeeded\"][aria-hidden=\"true\"]"
+                ],
+                [
+                  "button[data-step=\"review\"] > .dag-time"
+                ],
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(8)"
+                ],
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(10)"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "pdf-light",
+          "scope": "document",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 44,
+              "targets": [
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(2)"
+                ],
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(4)"
+                ],
+                [
+                  ".dag-edge[data-status=\"succeeded\"][aria-hidden=\"true\"]"
+                ],
+                [
+                  "button[data-step=\"review\"] > .dag-time"
+                ],
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(8)"
+                ],
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(10)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(1)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(3)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(5)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(7)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(9)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(11)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(13)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(15)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(17)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(19)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(21)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(23)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(25)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(27)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(29)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(31)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(33)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(35)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(37)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(1)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(3)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(5)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(7)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(9)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(11)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(13)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(15)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(17)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(19)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(21)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(23)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(25)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(27)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(29)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(31)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(33)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(35)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(37)"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "pdf-dark",
+          "scope": "document",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 44,
+              "targets": [
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(2)"
+                ],
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(4)"
+                ],
+                [
+                  ".dag-edge[data-status=\"succeeded\"][aria-hidden=\"true\"]"
+                ],
+                [
+                  "button[data-step=\"review\"] > .dag-time"
+                ],
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(8)"
+                ],
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(10)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(1)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(3)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(5)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(7)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(9)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(11)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(13)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(15)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(17)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(19)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(21)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(23)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(25)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(27)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(29)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(31)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(33)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(35)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(37)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(1)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(3)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(5)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(7)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(9)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(11)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(13)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(15)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(17)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(19)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(21)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(23)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(25)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(27)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(29)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(31)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(33)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(35)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(37)"
+                ]
+              ]
+            }
+          ]
+        }
+      ],
+      "screenshotHashes": {
+        "extract-validation.png": "eb0cd9e2b9084191a480ec5b7614828a7ea586d8ffbd097e9a79942545123078",
+        "factual-desktop-dark.png": "3e82daad11304a512e1a20059c74b5c6e5ea980a09f0b79321dba592e8790f0f",
+        "factual-desktop-light.png": "850317eb81c65590cf3c421cf1e00a77b25ecd0fd5fb84b473cb1fd516f6e4f9",
+        "factual-narrow-dark.png": "82ec90d5807eb899732c85c91df5bf973e9d2d1c1ff2d2e6b363681edd736cd2",
+        "factual-narrow-light.png": "f615954ee586ab04aefced78aff6fe83138e1fdbadaeec9480a72e71116bd66e",
+        "factual-zoom-200-dark.png": "98dd2577a1bdc3d1391f52936006a409dc56967864a662cdd281cef3997d3e7f",
+        "factual-zoom-200-light.png": "dfb5dadb061f34605d2278c3d17cc7812fcdde81283c0cdff50177bef19df05e",
+        "final-report-dark.png": "17f4d4c957a2b09050b18e12b3a41c5414e07eb43f7dbc627a0338844495ccec",
+        "narrow-dark.png": "787ddc37913e759e7b65570ac4b9c47228b094ffd0d4725ca427dcc47aa46bd0",
+        "narrow-light.png": "382adddbc3ad54ed137d420ba2b120ee73e9d87f103e8e8c9915e7bad5abe7d6",
+        "pdf-dark.png": "2258525f445f7367023715731e40ce28a37fa2174da472a480ad70a285d71de9",
+        "pdf-light.png": "968dffeae8ec802facd369452f9964705ad176b49dac2e61d458cfd0da5712ec",
+        "recorded-setup-dark.png": "442c16389c462d3b47940f2f9cb499d73d69a46f5537f8ced8430ef328f26a46",
+        "requirements-desktop-dark.png": "a4243507dc27ec1a347c1e322d75f83e65861b4cee45e6bc50cb98b0fa7ba8ab",
+        "requirements-desktop-light.png": "73be83f4dd382f891680faf06574b90f4307bd125ca454218cc0d6e5f0d4e551",
+        "requirements-error.png": "626adb019ea4341a6045b336851be766c319c9fe604e0b4ee9dd77e19259cd76",
+        "requirements-narrow-dark.png": "1633606282287e39187e0f57cfc935a19cb9ea07076e4d4181cbfc1866c0db80",
+        "requirements-narrow-light.png": "1a112d1ba00b4f72ff7e9581c2df7e23a39f8b80ec1fca806258dee1806539f5",
+        "requirements-zoom-200-dark.png": "21294a84cbb834d8a75ff6ca989600c2d9fe6d30382aec3e3e8d676c0e4d43a7",
+        "requirements-zoom-200-light.png": "53a75fe8f3cf236ef855a75b41699dc6d11820dcdac17bf3ff47a273811569e1",
+        "shared-dark.png": "c6068745cdad4dac55f28eb5bb8f33fa6a496536c6d4509024ba6feab7950e05",
+        "shared-light.png": "016485d8f7843c00673f8e9a84fdb8a299218ec178def4cd8508dc906c20f108",
+        "zoom-200-dark.png": "3b636dd433bda5d54523e91d3e3b1fe942bd6431b061bfb7dd2caef113dd45b1",
+        "zoom-200-light.png": "1e6a5589ad18854c993df87703cad8ab1b74f7355b5f0a4de069a7aa6f2aa9f5"
+      }
+    },
+    {
+      "engine": "webkit",
+      "browserVersion": "26.6",
+      "platform": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39",
+      "playwright": "1.63.0",
+      "vitaCV": "2.8.0",
+      "axeCore": "4.11.1",
+      "testMergeCommit": "bd21a4bad10207e3685e436efaa13de096575dd1",
+      "sourceHashes": {
+        "src/vita_tree/static/app.js": "7f9b95bcc08b777af75f668103795e2acee6006415b4b3cf96c80ebbc3152519",
+        "src/vita_tree/static/ai-settings.js": "2eed38ecb03ac945b1fd0ac0a26967bdb0011d062365923271a2ed35cf2a129f",
+        "src/vita_tree/static/requirements.js": "b5a9142b142ee07a0b65ca2f2940fd2e15a20ad23950770aac34c11f4fa60e1e",
+        "src/vita_tree/static/factual-review.js": "12950c9aa0316214fbd6f3f80d60fc7254768cf7d96fc06f59a0b073072d79f3",
+        "src/vita_tree/static/styles.css": "e372a888b28bb833e22dd48d6d790a94c1919a87d7e69556f416bccb3f3caef5",
+        "src/vita_tree/static/index.html": "c0f7128ce532fd8d9fe9698e340fa54e27fc6b9a4bf676fee2815517c8e85ce8",
+        "src/vita_tree/static/workflow.js": "6ca857bbda28dd60e35729a7639daabe5890d7ba90973287052d648670442bcd",
+        "tests/browser_accessibility.py": "6f481d817a7578722fdcec4582d03e641c3abb0cf9159fe62ac48ca663c239c0",
+        "tests/browser_support.py": "0f7c6229a951844afd90d8e9e084883fcc31923aed5cb2e1f0799bed0808b147",
+        "package-lock.json": "e04da01e48df0b4bdbb7d01b00a5958584682463576d19c863857d020fb51506"
+      },
+      "fixtureHashes": {
+        "source": "01840106160e636ebd6ca33114cd89cc6f9c5d24204f21e1c44970025742f74e",
+        "job": "9e212e62c4a7828718cb2c25a59e0f8111322ed6cabd62219ca762a13bb3ae2a"
+      },
+      "allSixCIScripts": "passed (keyboard/axe, AI settings, component dialogs, requirements, provider recovery, factual review)",
+      "requiredAutomatedChecksPassed": true,
+      "completedKeyboardTasks": [
+        "keyboard shared setup and roving tabs",
+        "keyboard Extract override, invalid model, nested key, Apply and Cancel",
+        "keyboard requirement source, cancellation, validation and immutable approval",
+        "keyboard mixed factual decisions and resumed validation",
+        "keyboard final report and real selectable PDF access"
+      ],
+      "scannedStates": 24,
+      "violations": 0,
+      "tokenContrastOnPanel": {
+        "light": {
+          "ink": 14.486,
+          "muted": 5.513,
+          "accent": 6.157,
+          "negative": 6.722,
+          "positive": 6.954
+        },
+        "dark": {
+          "ink": 12.641,
+          "muted": 7.117,
+          "accent": 8.088,
+          "negative": 8.435,
+          "positive": 9.203
+        }
+      },
+      "reportSha256": "fd985d3f073f97e76502e255c7d94cade20ffde7950f5283a1c8c346d0743a15",
+      "scanResults": [
+        {
+          "state": "shared-light",
+          "scope": "document",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 7,
+              "targets": [
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(2)"
+                ],
+                [
+                  ".dag-edge[data-status=\"pending\"][aria-hidden=\"true\"]:nth-child(4)"
+                ],
+                [
+                  "button[data-step=\"adapt\"] > .dag-time"
+                ],
+                [
+                  ".dag-edge[data-status=\"pending\"][aria-hidden=\"true\"]:nth-child(6)"
+                ],
+                [
+                  "button[data-step=\"review\"] > .dag-time"
+                ],
+                [
+                  ".dag-edge[data-status=\"pending\"][aria-hidden=\"true\"]:nth-child(8)"
+                ],
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(10)"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "shared-dark",
+          "scope": "document",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 7,
+              "targets": [
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(2)"
+                ],
+                [
+                  ".dag-edge[data-status=\"pending\"][aria-hidden=\"true\"]:nth-child(4)"
+                ],
+                [
+                  "button[data-step=\"adapt\"] > .dag-time"
+                ],
+                [
+                  ".dag-edge[data-status=\"pending\"][aria-hidden=\"true\"]:nth-child(6)"
+                ],
+                [
+                  "button[data-step=\"review\"] > .dag-time"
+                ],
+                [
+                  ".dag-edge[data-status=\"pending\"][aria-hidden=\"true\"]:nth-child(8)"
+                ],
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(10)"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "extract-validation",
+          "scope": "#step-ai-dialog",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 2,
+              "targets": [
+                [
+                  "#popup-model-help"
+                ],
+                [
+                  "#popup-connection-help"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "requirements-desktop-light",
+          "scope": "#requirements-dialog",
+          "violations": 0,
+          "incomplete": []
+        },
+        {
+          "state": "requirements-narrow-light",
+          "scope": "#requirements-dialog",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 3,
+              "targets": [
+                [
+                  "#requirements-confirm-label"
+                ],
+                [
+                  "#requirements-cancel"
+                ],
+                [
+                  "#requirements-save"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "requirements-zoom-200-light",
+          "scope": "#requirements-dialog",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 1,
+              "targets": [
+                [
+                  ".requirement-card:nth-child(4) > label:nth-child(2) > textarea[aria-label=\"Criterion\"]"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "requirements-desktop-dark",
+          "scope": "#requirements-dialog",
+          "violations": 0,
+          "incomplete": []
+        },
+        {
+          "state": "requirements-narrow-dark",
+          "scope": "#requirements-dialog",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 3,
+              "targets": [
+                [
+                  "#requirements-confirm-label"
+                ],
+                [
+                  "#requirements-cancel"
+                ],
+                [
+                  "#requirements-save"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "requirements-zoom-200-dark",
+          "scope": "#requirements-dialog",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 1,
+              "targets": [
+                [
+                  ".requirement-card:nth-child(4) > label:nth-child(2) > textarea[aria-label=\"Criterion\"]"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "requirements-error",
+          "scope": "#requirements-dialog",
+          "violations": 0,
+          "incomplete": []
+        },
+        {
+          "state": "narrow-light",
+          "scope": "#step-ai-dialog",
+          "violations": 0,
+          "incomplete": []
+        },
+        {
+          "state": "zoom-200-light",
+          "scope": "#step-ai-dialog",
+          "violations": 0,
+          "incomplete": []
+        },
+        {
+          "state": "narrow-dark",
+          "scope": "#step-ai-dialog",
+          "violations": 0,
+          "incomplete": []
+        },
+        {
+          "state": "zoom-200-dark",
+          "scope": "#step-ai-dialog",
+          "violations": 0,
+          "incomplete": []
+        },
+        {
+          "state": "factual-desktop-light",
+          "scope": "#factual-review-panel",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 1,
+              "targets": [
+                [
+                  ".review-controls > .panel-footer > span"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "factual-narrow-light",
+          "scope": "#factual-review-panel",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 4,
+              "targets": [
+                [
+                  "#factual-sheet-title"
+                ],
+                [
+                  "#factual-review-confirmation"
+                ],
+                [
+                  "#cancel-factual-review"
+                ],
+                [
+                  "#apply-factual-review"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "factual-zoom-200-light",
+          "scope": "#factual-review-panel",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 5,
+              "targets": [
+                [
+                  ".factual-change:nth-child(2) > .factual-wording > .wording-before > pre > mark"
+                ],
+                [
+                  ".factual-change:nth-child(2) > .factual-wording > .wording-before > pre > span:nth-child(4)"
+                ],
+                [
+                  ".factual-change:nth-child(2) > .factual-wording > .wording-after > pre > span:nth-child(4)"
+                ],
+                [
+                  "#factual-review-confirmation"
+                ],
+                [
+                  ".review-controls > .panel-footer > span"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "factual-desktop-dark",
+          "scope": "#factual-review-panel",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 1,
+              "targets": [
+                [
+                  ".review-controls > .panel-footer > span"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "factual-narrow-dark",
+          "scope": "#factual-review-panel",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 4,
+              "targets": [
+                [
+                  "#factual-sheet-title"
+                ],
+                [
+                  "#factual-review-confirmation"
+                ],
+                [
+                  "#cancel-factual-review"
+                ],
+                [
+                  "#apply-factual-review"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "factual-zoom-200-dark",
+          "scope": "#factual-review-panel",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 5,
+              "targets": [
+                [
+                  ".factual-change:nth-child(2) > .factual-wording > .wording-before > pre > mark"
+                ],
+                [
+                  ".factual-change:nth-child(2) > .factual-wording > .wording-before > pre > span:nth-child(4)"
+                ],
+                [
+                  ".factual-change:nth-child(2) > .factual-wording > .wording-after > pre > span:nth-child(4)"
+                ],
+                [
+                  "#factual-review-confirmation"
+                ],
+                [
+                  ".review-controls > .panel-footer > span"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "recorded-setup-dark",
+          "scope": "#step-ai-dialog",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 1,
+              "targets": [
+                [
+                  "#popup-reasoning-help"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "final-report-dark",
+          "scope": "document",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 6,
+              "targets": [
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(2)"
+                ],
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(4)"
+                ],
+                [
+                  ".dag-edge[data-status=\"succeeded\"][aria-hidden=\"true\"]"
+                ],
+                [
+                  "button[data-step=\"review\"] > .dag-time"
+                ],
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(8)"
+                ],
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(10)"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "pdf-light",
+          "scope": "document",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 44,
+              "targets": [
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(2)"
+                ],
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(4)"
+                ],
+                [
+                  ".dag-edge[data-status=\"succeeded\"][aria-hidden=\"true\"]"
+                ],
+                [
+                  "button[data-step=\"review\"] > .dag-time"
+                ],
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(8)"
+                ],
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(10)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(1)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(3)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(5)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(7)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(9)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(11)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(13)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(15)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(17)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(19)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(21)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(23)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(25)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(27)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(29)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(31)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(33)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(35)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(37)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(1)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(3)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(5)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(7)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(9)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(11)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(13)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(15)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(17)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(19)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(21)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(23)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(25)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(27)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(29)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(31)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(33)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(35)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(37)"
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "state": "pdf-dark",
+          "scope": "document",
+          "violations": 0,
+          "incomplete": [
+            {
+              "rule": "color-contrast",
+              "nodeOccurrences": 44,
+              "targets": [
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(2)"
+                ],
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(4)"
+                ],
+                [
+                  ".dag-edge[data-status=\"succeeded\"][aria-hidden=\"true\"]"
+                ],
+                [
+                  "button[data-step=\"review\"] > .dag-time"
+                ],
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(8)"
+                ],
+                [
+                  ".dag-edge[data-status=\"skipped\"][aria-hidden=\"true\"]:nth-child(10)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(1)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(3)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(5)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(7)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(9)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(11)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(13)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(15)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(17)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(19)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(21)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(23)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(25)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(27)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(29)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(31)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(33)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(35)"
+                ],
+                [
+                  "#original-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(37)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(1)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(3)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(5)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(7)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(9)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(11)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(13)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(15)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(17)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(19)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(21)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(23)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(25)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(27)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(29)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(31)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(33)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(35)"
+                ],
+                [
+                  "#current-pdf > .pdf-page > .textLayer[data-main-rotation=\"0\"] > span[dir=\"ltr\"][role=\"presentation\"]:nth-child(37)"
+                ]
+              ]
+            }
+          ]
+        }
+      ],
+      "screenshotHashes": {
+        "extract-validation.png": "5b80a375b1e217e5bd1a77c95a46554e331ae9b0859e9fb0f75cbaef864edb19",
+        "factual-desktop-dark.png": "4e0f4f2111f298b49df477d77b2ac124ba1383d2ed5eb789635af1556ce7e3dc",
+        "factual-desktop-light.png": "47bd472104ecb3d3586a0ee146a89df62a0922426333c3f106a49f781de09794",
+        "factual-narrow-dark.png": "42f5a99d019fdd21ace5798fa3323614e356ed1aba224ca82155e90a1d3007e7",
+        "factual-narrow-light.png": "567e060ee458b3337002380f10a6652e150df5aab6e1526f18781827b08b84bc",
+        "factual-zoom-200-dark.png": "05a4f8a98b43de9a3b3f4988edcdc33104eb4b3dae7cb7e7afd2104c4e47954e",
+        "factual-zoom-200-light.png": "8f730d20f034ea400475ca546da432e16b68daa744a02f063401af3edff397e5",
+        "final-report-dark.png": "fe93cfaf2ab72c1e3b9b305ca51d4c928fdfb93992fd26c9f46bd27fc0d023eb",
+        "narrow-dark.png": "9c7743051c9c203ccc7213b68e88fe1fbf0bd8692559b6a66e6dcc4e8f2b057a",
+        "narrow-light.png": "704f493218de12ae4f44bd0ea6c21f525abce4a1f891075c473d6e41e873509e",
+        "pdf-dark.png": "86b8546b786abf8ca1be6da8586318608c4a2c541d7240ffbada7fee24a8f7d4",
+        "pdf-light.png": "241d23353988bb641a0fbd8ed2d660e3cc7c08218ade60bd9774430443f5600e",
+        "recorded-setup-dark.png": "79573487b3197a9cab0c177a611b1df17a64e1a4f094e3865bc7e07bbed674de",
+        "requirements-desktop-dark.png": "b8ee07b534a30d106f64a4c1bf736fdfbdc303dde670b251984b9c2e9bb79d56",
+        "requirements-desktop-light.png": "e866be854db1d836df142373648f1aa36a749820d89d27fdeb1d3ddade1d3571",
+        "requirements-error.png": "9cd9422354a146ef2ba1cba66c931ccc0423ddab03b834391a1850d686516dd7",
+        "requirements-narrow-dark.png": "a28b1afc3390c1a42ccc6c602d9f60658c1fcf5ab4248a217ce5f7e310f66ff4",
+        "requirements-narrow-light.png": "7ff09c89aace4a9645bd3f2be89d8762f84d05964689f9a47f83407cb10ab712",
+        "requirements-zoom-200-dark.png": "e16f983212cd53ac161bdf082b880d37393b1cf3f8929bd1b4c488e20bda8841",
+        "requirements-zoom-200-light.png": "0ba5f8a65ac87e363a6ac03126739a74750290c740b95be370b9f1ceb0704c9f",
+        "shared-dark.png": "e89a2f9a96f8695832c8953a26cc2d7e8e833435eecd96ed4c0fcb420c51b826",
+        "shared-light.png": "a642b9127ff8dd65454f6b4660aeee68ad0344d7893dc5c29ea1bf5f1ca0b12c",
+        "zoom-200-dark.png": "49fafbbcadff73ae03d66f2abca19f4fe4cf9251c38eaa0a3357f8183947500e",
+        "zoom-200-light.png": "16fbd3a512ad15b1c4a20b42871118811d04b413d757c7db6cc0557a6b70ddc2"
+      }
+    }
+  ],
+  "incompleteInterpretation": "Node occurrences repeat across states; they are neither unique defects nor automatic passes. Color contrast in native controls, transparent PDF layers and other marked regions requires manual/AT review."
+}

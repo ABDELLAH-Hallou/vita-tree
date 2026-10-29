@@ -72,8 +72,45 @@ or automated success rate should be substituted for those sessions.
 
 ## Results and limitations
 
-The recorded engine results and demonstrated fixes are updated with this PR's
-verification evidence. CI retains sanitized JSON/screenshots for 14 days. The
+The [29 October 2026 run](https://github.com/ABDELLAH-Hallou/vita-tree/actions/runs/40905594205)
+passed all six scripts in each engine at source revision `dda38d8`. The durable
+[JSON snapshot](benchmarks/accessibility.json) records the test merge commit,
+source/fixture/tool hashes, scanned states, screenshot hashes, contrast samples
+and every incomplete check's selectors.
+
+| Linux CI engine | Version | Scripts passed | axe-scanned states | Reported violations | Incomplete contrast node occurrences |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Chromium | 153.0.8010.12 | 6 | 24 | 0 | 131 |
+| Firefox | 155.0 | 6 | 24 | 0 | 141 |
+| WebKit | 26.6 | 6 | 24 | 0 | 139 |
+
+Those occurrences repeat nodes across states; they are not counts of unique
+defects, and are not automatic passes. Native form controls, transparent PDF
+text layers and the other marked elements still need manual contrast review.
+Sampled text-token/panel-background ratios were at least 5.513:1 in light mode
+and 7.117:1 in dark mode. These token pairs do not prove contrast for every
+rendered pixel, document, native control or focus state.
+
+Local Windows runs additionally completed the main keyboard/axe walkthrough
+in all three engines and the Firefox/WebKit component-dialog cases. Those
+runs are supplemental checks, not shipping Safari, mobile or AT qualification.
+Representative both-theme review, validation, zoom and actual PDF-page
+screenshots were visually inspected; this is not a participant task study.
+
+Demonstrated improvements include parent focus after nested connection-field
+repaint, row/checkbox focus preservation across application-list refreshes,
+visible footer focus after validation, a keyboard-reachable named source
+scroller, enlarged review-sheet sizing, and unobscured focused controls after
+native layout. The PDF link has an explicit tab stop for WebKit's default
+keyboard sequence. Task actions wrap instead of clipping their last button.
+
+The test harness separately corrected an ambiguous selector, navigation through
+a hidden inspector tablist, browser-chrome Tab wrapping assumptions, differing
+native radio/wheel behavior, and pressing Enter before a retry became enabled.
+These are not reported as product defects. Focus assertions wait for measured
+painted bounds/hit-testing; a control that stays obscured still fails the test.
+
+CI retains sanitized JSON/screenshots for 14 days. The
 synthetic fixture worktrees, session credentials and raw provider output are
 excluded from uploaded evidence. Run the commands again after artifact expiry;
 the checked-in fixtures and dependency locks define the reproducible setup.
