@@ -11,6 +11,7 @@ import time
 from unittest.mock import patch
 
 sys.path[:0]=[str(Path(__file__).resolve().parents[1]/'src'),str(Path(__file__).resolve().parent)]
+from browser_support import BROWSERS, launch_browser
 from playwright.sync_api import sync_playwright, expect
 from vita_tree.server import VitaTreeServer
 from vita_tree.workspace import digest
@@ -21,7 +22,7 @@ from support import init_repo, SOURCE, set_theme
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--browser',choices=('chrome','chromium'),default='chromium')
+    parser=argparse.ArgumentParser();parser.add_argument('--browser',choices=BROWSERS,default='chromium')
     args=parser.parse_args();expect.set_options(timeout=40000)
     artifacts=Path('.test-artifacts').resolve();root=init_repo(artifacts/('provider-ui-'+str(time.time_ns())))
     control=root/'.git/control';control.mkdir()
@@ -43,7 +44,7 @@ def main():
     worker=threading.Thread(target=server.serve_forever,daemon=True);worker.start();errors=[];network=None;workspace_requests=[]
     try:
         with patch.object(server.workspace,'vita_command',return_value=command),patch('vita_tree.providers.codex_efforts',return_value={'fixture-codex':['low','medium','high']}),patch.dict(os.environ,{'VITA_TEST_CONTROL':str(control),'VITA_TEST_CHECK_CALLS':str(calls),'GEMINI_API_KEY':'PRIVATE-SESSION-KEY'}),sync_playwright() as pw:
-            browser=pw.chromium.launch(channel='chrome' if args.browser=='chrome' else None)
+            browser=launch_browser(pw,args.browser)
             page=browser.new_page(viewport={'width':1500,'height':1050})
             def report_error(error):
                 errors.append(str(error));print('Browser error:',error,flush=True)
@@ -124,22 +125,22 @@ def main():
             expect(page.locator('#workflow-summary')).to_contain_text('Wait a little')
             page.locator('#workflow-graph').screenshot(path=str(artifacts/'provider-failed-graph.png'))
             page.locator('#model').fill('new-shared-model');page.locator('#model').press('Tab')
-            page.locator('#resume-run').click()
+            page.locator('#resume-run').press('Enter')
             expect(page.locator('#resume-summary')).to_contain_text('Preserves the AI setup')
             expect(page.locator('#resume-reuse')).to_contain_text('Identify job requirements')
             page.locator('#resume-current-config').check()
             expect(page.locator('#resume-summary')).to_contain_text('currently shown')
             page.locator('#resume-dialog .close-dialog').last.click()
             assert len([r for r in server.workspace.jobs.values() if r['branch']==label])==1
-            page.locator('#resume-run').click();expect(page.locator('#resume-current-config')).not_to_be_checked()
-            page.locator('#confirm-resume').click()
+            page.locator('#resume-run').press('Enter');expect(page.locator('#resume-current-config')).not_to_be_checked()
+            page.locator('#confirm-resume').press('Enter')
             expect(page.locator('#workflow-run')).to_contain_text('Attempt 2')
             expect(page.locator('.dag-node[data-step=analyze]')).to_have_attribute('data-status','failed')
             expect(page.locator('#workflow-next-help')).to_contain_text('Effective: codex / fixture-codex')
             page.locator('#view-run').click()
             expect(page.locator('#attempt-history')).to_contain_text('Captured setup preserved')
             # Explicit changed-config attempt; Extract remains reusable and local CV untouched.
-            flag.unlink();page.locator('#resume-run').click();page.locator('#resume-current-config').check();page.locator('#confirm-resume').click()
+            flag.unlink();page.locator('#resume-run').press('Enter');page.locator('#resume-current-config').check();page.locator('#confirm-resume').press('Enter')
             expect(page.locator('#workflow-run')).to_contain_text('Attempt 3')
             expect(page.locator('.dag-node[data-step=validating]')).to_have_attribute('data-status','succeeded')
             page.locator('#view-run').click();expect(page.locator('#attempt-history')).to_contain_text('Changed setup')

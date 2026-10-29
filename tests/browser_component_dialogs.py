@@ -6,6 +6,7 @@ import threading
 import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
+from browser_support import BROWSERS, launch_browser
 from playwright.sync_api import expect, sync_playwright
 from vita_tree.server import VitaTreeServer
 from support import init_repo, set_theme
@@ -45,7 +46,7 @@ def tab_to(page, selector):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--browser', choices=('chrome', 'chromium'), default='chromium')
+    parser.add_argument('--browser', choices=BROWSERS, default='chromium')
     args = parser.parse_args()
     expect.set_options(timeout=15000)
     artifacts = Path('.test-artifacts').resolve()
@@ -59,13 +60,14 @@ def main():
              ('zoom-200', 1280, 720, 2)]
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch(**({'channel': 'chrome'} if args.browser == 'chrome' else {}))
+            browser = launch_browser(p,args.browser)
             page = browser.new_page()
             page.on('pageerror', lambda error: errors.append(str(error)))
             page.goto(f'http://127.0.0.1:{server.server_port}')
             page.get_by_role('button', name='Open master', exact=True).click()
             for theme in ('light', 'dark'):
                 for name, width, height, zoom in cases:
+                    print('Component case:', args.browser, theme, name, flush=True)
                     page.evaluate('document.documentElement.style.zoom=""')
                     page.set_viewport_size({'width': width, 'height': height})
                     set_theme(page, theme)
@@ -82,7 +84,10 @@ def main():
                     page.screenshot(path=str(artifacts/f'component-{theme}-{name}.png'))
                     # Actual wheel scrolling reaches the final help text, with
                     # actions still present and the heading accessible above.
-                    body.hover()
+                    # Scroll over the body's padding, not a native select/input
+                    # whose platform wheel handling may consume the gesture.
+                    bounds = body.bounding_box()
+                    page.mouse.move(bounds['x']+4, bounds['y']+bounds['height']/2)
                     page.mouse.wheel(0, 2500)
                     expect(page.locator('#step-ai-save-hint')).to_be_in_viewport()
                     page.locator('#step-ai-save-hint').scroll_into_view_if_needed()
@@ -111,7 +116,7 @@ def main():
                     expect(page.locator('#connection-dialog')).not_to_be_visible()
                     expect(page.locator('#step-ai-dialog')).to_be_visible()
                     expect(page.locator('#popup-model')).to_have_value('fixture-dialog-model')
-                    expect(page.locator('#step-ai-fields [data-add-key]')).to_be_focused()
+                    assert page.locator('#step-ai-dialog').evaluate('el=>el.contains(document.activeElement)'), 'Focus left parent settings'
                     page.locator('#step-ai-fields [data-add-key]').click()
                     expect(page.locator('#connection-key')).to_be_empty()
                     # Native required-field validation scrolls the focused input

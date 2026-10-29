@@ -8,6 +8,7 @@ import time
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path[:0]=[str(ROOT/'src'),str(ROOT/'tests')]
+from browser_support import BROWSERS, launch_browser
 from playwright.sync_api import sync_playwright, expect
 from vita_tree.server import VitaTreeServer
 from vita_tree.workspace import digest
@@ -17,7 +18,7 @@ from support import SOURCE,init_repo,set_theme
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--browser',choices=('chrome','chromium'),default='chromium');parser.add_argument('--vita-source',type=Path)
+    parser=argparse.ArgumentParser();parser.add_argument('--browser',choices=BROWSERS,default='chromium');parser.add_argument('--vita-source',type=Path)
     args=parser.parse_args()
     if args.vita_source:
         sys.path.insert(0,str(args.vita_source.resolve()))
@@ -30,7 +31,7 @@ def main():
     worker=threading.Thread(target=server.serve_forever,daemon=True);worker.start();errors=[];writes=[]
     try:
         with sync_playwright() as pw:
-            browser=pw.chromium.launch(channel='chrome' if args.browser=='chrome' else None)
+            browser=launch_browser(pw,args.browser)
             page=browser.new_page(viewport={'width':1500,'height':1050});page.on('pageerror',lambda e:(errors.append(str(e)),print('Browser error:',str(e))))
             page.on('request',lambda req:writes.append(req.url) if req.method=='POST' and '/api/requirements/' in req.url else None)
             page.goto(f'http://127.0.0.1:{server.server_port}');page.get_by_role('button',name='Open requirements',exact=True).click()

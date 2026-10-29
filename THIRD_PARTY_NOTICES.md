@@ -28,3 +28,7 @@ The offline LaTeX editor bundles CodeMirror, Lezer, and their runtime dependenci
 Their original MIT license notices are collected in `static/vendor/EDITOR-LICENSE`.
 Pinned versions are in `package-lock.json`; `npm run build:editor` rebuilds the
 bundle and notices from `scripts/latex-editor.mjs`.
+
+Accessibility tests use the MIT-licensed `axe-core` development dependency from
+Deque Systems, pinned in `package-lock.json`. Its upstream license is included
+in the npm package. It is not bundled into Vita Tree's browser assets or wheel.

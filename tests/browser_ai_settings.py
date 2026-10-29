@@ -9,6 +9,7 @@ import time
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
+from browser_support import BROWSERS, launch_browser
 from playwright.sync_api import sync_playwright, expect
 from vita_tree.server import VitaTreeServer
 from vita_tree.workspace import digest
@@ -17,7 +18,7 @@ from support import init_repo, SOURCE, set_theme
 
 def main():
     parser=argparse.ArgumentParser()
-    parser.add_argument('--browser', choices=('chrome','chromium'), default='chromium')
+    parser.add_argument('--browser', choices=BROWSERS, default='chromium')
     args=parser.parse_args()
     expect.set_options(timeout=30000)
     artifacts = Path('.test-artifacts').resolve()
@@ -37,7 +38,7 @@ def main():
     errors=[]
     try:
         with patch.object(server.workspace, 'vita_command', return_value=command), patch('vita_tree.providers.codex_efforts', return_value={'fixture-codex':['low','medium','high']}), patch.dict(os.environ, {'VITA_TEST_CONTROL': str(control)}), sync_playwright() as p:
-            browser=p.chromium.launch(**({'channel':'chrome'} if args.browser=='chrome' else {}))
+            browser=launch_browser(p,args.browser)
             page=browser.new_page(viewport={'width': 1512, 'height': 1100})
             def page_error(error):
                 errors.append(str(error))

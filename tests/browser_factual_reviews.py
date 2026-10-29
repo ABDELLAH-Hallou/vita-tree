@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT/'src'), str(ROOT/'tests')]
+from browser_support import BROWSERS, launch_browser
 from playwright.sync_api import sync_playwright, expect
 from pypdf import PdfReader
 from vita_tree.server import VitaTreeServer
@@ -18,7 +19,7 @@ from support import SOURCE, init_repo, set_theme
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--browser',choices=('chrome','chromium'),default='chromium')
+    parser=argparse.ArgumentParser();parser.add_argument('--browser',choices=BROWSERS,default='chromium')
     parser.add_argument('--vita-source',type=Path)
     args=parser.parse_args()
     if args.vita_source:
@@ -38,7 +39,7 @@ def main():
     try:
         with patch.object(server.workspace,'vita_command',return_value=command),patch.dict(os.environ,{'VITA_TEST_CANONICAL':'1','VITA_TEST_CONTROL':str(control)}),sync_playwright() as pw:
             run=server.workspace.start_ai('facts',branch['revision'],branch['jobRevision'],provider='codex',workflow={'steps':['adapt','cover']})
-            browser=pw.chromium.launch(channel='chrome' if args.browser=='chrome' else None)
+            browser=launch_browser(pw,args.browser)
             page=browser.new_page(viewport={'width':1500,'height':1050})
             page.on('pageerror',lambda error:errors.append(str(error)))
             page.on('request',lambda req:applications.append(req.url) if '/api/factual-review/apply' in req.url else None)

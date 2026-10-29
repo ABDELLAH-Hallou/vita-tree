@@ -316,8 +316,12 @@ export function createAIConfiguration(container, {api, onChange}) {
     $('#add-connection').disabled=true;$('#connection-error').hidden=true;
     try {
       const connection=await api('/api/connections',payload);connections.push(connection);
-      if(branch===target&&(selection.editor?selection.editor===stepEditor:route===routeFor(selection.step))){route.connection=connection.id;selection.repaint();selection.notify();}
+      const current=branch===target&&(selection.editor?selection.editor===stepEditor:route===routeFor(selection.step));
+      if(current){route.connection=connection.id;selection.repaint();selection.notify();}
       $('#connection-dialog').close();$('#connection-key').value='';$('#connection-key').type='password';
+      // Repainting replaces the native dialog opener. Restore focus to the
+      // updated connection field rather than leaving it in the closed dialog.
+      if(current)$('#'+(selection.editor?'popup-':selection.step==='default'?'':selection.step+'-')+'connection')?.focus({preventScroll:true});
     } catch(error){$('#connection-error').textContent=error.message;$('#connection-error').hidden=false;}
     finally{payload.apiKey='';$('#add-connection').disabled=false;}
   };

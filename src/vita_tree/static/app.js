@@ -100,6 +100,8 @@ function renderBranches() {
   const branches = state.branches.filter(b => matchesFilter(b,state.filter) && `${b.displayName||b.name} ${b.name} ${b.subject} ${b.author}`.toLowerCase().includes(query));
   for(const branch of state.reviewSelection)if(!reviewableRuns(branch).length)state.reviewSelection.delete(branch);
   visibleReviewBranches=branches.filter(branch=>reviewableRuns(branch.name).length).map(branch=>branch.name);
+  const focused=document.activeElement, focusedEntry=focused.closest('.branch-entry');
+  const focusedBranch=focusedEntry?.dataset.branch, focusedSelection=focused.matches('.select-branch-review');
   $('#branch-list').replaceChildren();
   for (const b of branches) {
     const row = document.createElement('button'); row.className='branch-row'; row.setAttribute('aria-label', `Open ${b.displayName||b.name}`);
@@ -108,7 +110,7 @@ function renderBranches() {
       const pending=state.filter==='review'&&state.runs.find(run=>run.branch===b.name&&run.status==='succeeded'&&!run.reviewed);
       if(pending)openRun(pending).catch(error=>notice(error.message,true));else openBranch(b.name);
     };
-    const entry=document.createElement('div');entry.className='branch-entry';
+    const entry=document.createElement('div');entry.className='branch-entry';entry.dataset.branch=b.name;
     const select=document.createElement('input');select.type='checkbox';select.className='select-branch-review';
     select.setAttribute('aria-label',`Select unreviewed results for ${b.displayName||b.name}`);select.disabled=state.reviewing||!reviewableRuns(b.name).length;
     select.checked=state.reviewSelection.has(b.name);select.onchange=()=>{select.checked?state.reviewSelection.add(b.name):state.reviewSelection.delete(b.name);updateBulkReview();};
@@ -122,6 +124,10 @@ function renderBranches() {
     }
   }
   if(!branches.length) $('#branch-list').innerHTML=state.filter==='review'&&!query ? '<p class="empty">No completed preparations need review.</p>' : '<p class="empty">No applications found. Try another filter or create a new application.</p>';
+  if(focusedBranch&&!$('#board').hidden&&!focused.isConnected){
+    const replacement=[...$('#branch-list').children].find(entry=>entry.dataset.branch===focusedBranch)?.querySelector(focusedSelection?'.select-branch-review':'.branch-row');
+    (replacement&&!replacement.disabled?replacement:$('#search')).focus({preventScroll:true});
+  }
   $('#result-count').textContent=`${branches.length} ${branches.length===1?'application':'applications'}`;
   $('#total-count').textContent=state.branches.length;
   updateBulkReview();
@@ -696,7 +702,7 @@ async function compilePDFs(runId=null){
 $('#zoom').onchange=async()=>{const generation=++state.pdfGeneration;try{for(const side of state.pdfDocument==='cover'?['cover']:['original','current'])if(state.pdfs[side])await renderPDF(side,state.pdfs[side],generation);}catch(error){notice(error.message,true);}};
 document.querySelectorAll('[data-filter]').forEach(button=>button.onclick=()=>{state.filter=button.dataset.filter;document.querySelectorAll('[data-filter]').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));renderBranches();});
 $('#search').oninput=renderBranches;$('#refresh').onclick=loadBranches;$('#new-branch').onclick=showCreate;$('#branch-from').onclick=showCreate;
-$('#back').onclick=()=>{if(!canLeave())return;const previous=state.snapshot?.branch;state.generation++;state.pdfGeneration++;state.snapshot=null;state.dirty=false;state.jobDirty=false;$('#workspace').hidden=true;$('#board').hidden=false;document.body.classList.remove('in-workspace');history.replaceState(null,'','/');if(previous)releaseBranch(previous);loadBranches();};
+$('#back').onclick=()=>{if(!canLeave())return;const previous=state.snapshot?.branch;state.generation++;state.pdfGeneration++;state.snapshot=null;state.dirty=false;state.jobDirty=false;$('#workspace').hidden=true;$('#board').hidden=false;document.body.classList.remove('in-workspace');history.replaceState(null,'','/');$('#search').focus();if(previous)releaseBranch(previous);loadBranches();};
 $('#reload').onclick=()=>openBranch(state.snapshot?.branch||$('#branch-title').textContent);
 document.querySelectorAll('[data-view]').forEach(button=>button.onclick=()=>setView(button.dataset.view));
 $('.tabs').onkeydown=event=>{
