@@ -82,32 +82,11 @@ def call_codex(llm, system_prompt, user_prompt, model='', reasoning=''):
         output.unlink(missing_ok=True)
 
 
-AUTO_DOCUMENT_CONTEXT = """VITA TREE AUTONOMOUS GENERATION:
-The host has captured the current factual sources before this request. Generate
-the requested complete LaTeX response from the supplied inputs. Do not run
-`vita facts capture`, `vita facts check`, or any other command; do not read or
-write files. Instructions for generated-prompt/manual execution in skills are
-host responsibilities in this mode. The host validates your response, stages
-the proposal and requires factual approval; you must not approve or bypass it.
-Use only analysis explicitly supplied for this job. Historical report files are
-not evidence of the current job or candidate facts. If matching analysis is not
-supplied, use the current job requirements and captured CV directly; do not search
-for another job's report or stop solely because optional analysis is absent.
-Preserve the output contract.
-"""
-
-
-def configure(llm, step=None):
+def configure(llm):
     original_load = llm.load_env
     # VITA normally returns only .vita/.env entries. Keys supplied by the parent
     # process must also be visible, without writing a second credentials file.
     llm.load_env = lambda: {**original_load(), **os.environ}
-    if step in {'adapt', 'cover'}:
-        original_generate = llm.generate
-        def generate_document(system_prompt, user_prompt, *args, **kwargs):
-            return original_generate(AUTO_DOCUMENT_CONTEXT + '\n' + system_prompt,
-                                     user_prompt, *args, **kwargs)
-        llm.generate = generate_document
     reasoning = os.environ.get('VITA_TREE_REASONING', '')
     if reasoning:
         original_codex = llm._call_codex_cli
@@ -129,7 +108,7 @@ def main():
     from vita.helpers import env, llm
     original_load = env.load_env
     env.load_env = lambda: {**original_load(), **os.environ}
-    configure(llm, sys.argv[1] if len(sys.argv)>1 else None)
+    configure(llm)
     if os.environ.get('VITA_TREE_EXECUTION_ID') and len(sys.argv) > 1 and sys.argv[1] in {'extract','analyze','adapt','review','cover'}:
         from vita.commands.ai_step import run
         if __package__:
