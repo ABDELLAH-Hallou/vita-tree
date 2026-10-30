@@ -8,6 +8,7 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest.mock import Mock, patch
 
 from support import cleanup_repo
 
@@ -19,6 +20,31 @@ class ProcessLifecycleTests(unittest.TestCase):
 
     def tearDown(self):
         cleanup_repo(self.temporary)
+
+    def test_successful_group_shutdown_is_not_repeated_by_worker_cleanup(self):
+        from vita_tree.processes import ProcessRegistry
+        registry=ProcessRegistry()
+        process=Mock(pid=12345)
+        registry.children[process]=None
+        # Model Darwin rejecting a second signal to an exiting process group.
+        # Both platform primitives are mocked; no real PID is signalled.
+        with patch('vita_tree.processes.os.killpg',side_effect=[None,PermissionError(1,'Operation not permitted')],create=True) as kill, \
+                patch('vita_tree.processes.signal.SIGKILL',9,create=True):
+            registry.close()
+            registry.close()
+            with registry.lock:registry._stop(process,None)
+        kill.assert_called_once_with(12345,9)
+        self.assertEqual(registry.children,{})
+
+    def test_initial_group_permission_failure_is_not_suppressed(self):
+        from vita_tree.processes import ProcessRegistry
+        registry=ProcessRegistry()
+        process=Mock(pid=12345)
+        registry.children[process]=None
+        with patch('vita_tree.processes.os.killpg',side_effect=PermissionError(1,'Operation not permitted'),create=True), \
+                patch('vita_tree.processes.signal.SIGKILL',9,create=True):
+            with self.assertRaises(PermissionError):registry.close()
+        self.assertIn(process,registry.children)
 
     def program(self):
         script = self.root/'fixture.py'

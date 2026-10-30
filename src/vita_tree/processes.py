@@ -70,11 +70,17 @@ class ProcessRegistry:
         with self.lock:return [p.pid for p in self.children if p.poll() is None]
 
     def _stop(self, process, job):
+        # close() and the worker's finally block hold the same registry lock.
+        # Retire a successful stop so cleanup cannot signal the group again
+        # after the waiter has reaped its leader.
+        if process not in self.children:
+            return
         if job is not None:
             job.close()
         else:
             try:os.killpg(process.pid,signal.SIGKILL)
             except ProcessLookupError:pass
+        self.children.pop(process,None)
 
     def run(self, args, *, timeout, cwd=None, env=None, stdin=None, stdout=None, stderr=None):
         """Run a noninteractive command with file-backed or discarded output."""
