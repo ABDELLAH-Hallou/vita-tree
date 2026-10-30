@@ -398,7 +398,7 @@ async function followContinuation(job, snapshot){
   await runMonitor.refresh();
   if(state.snapshot===snapshot){
     const latest=state.runs.find(run=>run.id===job.id)||job;
-    if(!isActiveRun(latest))await runsChanged([...state.runs.filter(run=>run.id!==latest.id),latest]);
+    if(!isActiveRun(latest))await runsChanged(state.runs.some(run=>run.id===job.id)?state.runs:[job,...state.runs]);
   }
   if(state.snapshot){renderWorkflow();configureWorkflow();updateSaveState();}
   return state.runs.find(run=>run.id===job.id)||job;
