@@ -146,6 +146,11 @@ def view(workspace, ident):
                   'target': report['target'], 'original': report['target_before'], 'proposed': report['document']}
         if manifest['state'] == 'resolved':
             result['provenance'] = _read(_folder(workspace, ident)/'decisions.json')
+            # Keep the original proposal available for comparison, but preview
+            # the actual accepted/rejected/edited document after approval.
+            result['reviewed'], _ = resolve_document(report, result['provenance']['decisions'])
+            if checkpoints.fingerprint(result['reviewed']) != result['provenance']['documentHash']:
+                raise ValueError('The saved review decisions changed. Reload the preparation before continuing.')
         return result
 
 

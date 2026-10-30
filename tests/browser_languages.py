@@ -48,17 +48,37 @@ def main():
         with patch.object(server.workspace,'vita_command',return_value=command),patch.dict(os.environ,{'VITA_TEST_CONTROL':str(control)}),patch('vita_tree.pdf.compile_document',side_effect=compile_fixture),sync_playwright() as pw:
             browser=launch_browser(pw,args.browser);page=browser.new_page(viewport={'width':1280,'height':900})
             page.on('pageerror',lambda e:errors.append(str(e)))
+            loading_checks=[]
+            def workspace_loading(route):
+                # Hold publication of the fetched workspace while checking the
+                # actual UI. A mid-click layout change used to lose tab clicks.
+                response=route.fetch()
+                assert page.locator('#workspace').get_attribute('aria-busy')=='true'
+                assert page.locator('[data-view]').evaluate_all('tabs=>tabs.length>0&&tabs.every(tab=>tab.disabled)')
+                loading_checks.append(True)
+                route.fulfill(response=response)
+            page.route('**/api/workspace?branch=swedish',workspace_loading)
             page.goto(f'http://127.0.0.1:{server.server_port}')
             page.get_by_role('button',name='Open swedish',exact=True).click()
-            page.get_by_role('tab',name='Job details & AI',exact=False).click()
+            ai_tab=page.get_by_role('tab',name='Job details & AI',exact=False)
+            expect(ai_tab).to_be_enabled();ai_tab.click()
+            expect(ai_tab).to_have_attribute('aria-selected','true')
+            expect(page.locator('#language')).to_be_visible()
+            expect(page.locator('#language')).to_be_enabled()
+            assert loading_checks
+            page.unroute('**/api/workspace?branch=swedish',workspace_loading)
             expect(page.locator('#language option[value=sv]')).to_have_text('Swedish')
             expect(page.locator('#language option[value=en]')).to_have_text('English override')
             expect(page.locator('#language option[value="pt-br"]')).to_have_text('Portuguese (Brazil)')
             expect(page.locator('#language option[value=zz]')).to_have_text(mapping['zz'])
             assert page.locator('#language img').count()==0
             assert page.locator('#language option[value="_comment"]').count()==0
-            # Real keyboard selection via the native language combobox.
-            page.locator('#language').focus();page.keyboard.press('End');page.keyboard.press('ArrowUp');page.keyboard.press('ArrowUp')
+            # Complete a real native selection, including committing and leaving
+            # the control, before asserting the saved application choice.
+            page.bring_to_front()
+            language=page.locator('#language');language.focus();expect(language).to_be_focused()
+            for key in ('End','ArrowUp','ArrowUp','Enter','Tab'):
+                language.press(key)
             # Default built-ins retain their order; custom SV follows them.
             expect(page.locator('#language')).to_have_value('sv')
             page.locator('#reload').click();expect(page.locator('#language')).to_have_value('sv')

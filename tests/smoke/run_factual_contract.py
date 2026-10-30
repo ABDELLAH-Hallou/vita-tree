@@ -67,7 +67,12 @@ class FactualWorkflowTests(unittest.TestCase):
 
     def test_approve_continue_publishes_once_and_repeated_submit_reuses_child(self):
         branch, parent = self.prepare(['adapt'])
-        self.apply(parent)
+        approved = self.apply(parent)
+        self.assertIn('TypeScript', approved['reviewed'])
+        self.assertNotIn('Built OOP services', approved['reviewed'])
+        self.assertIn('Built OOP services', approved['proposed'])
+        self.assertEqual(self.workspace.read('facts', 'main.tex'), SOURCE)
+        self.assertEqual(self.workspace.factual_review(parent['id'])['reviewed'], approved['reviewed'])
         child = self.workspace.continue_review(parent['id'], branch['revision'], branch['jobRevision'])
         duplicate = self.workspace.continue_review(parent['id'], branch['revision'], branch['jobRevision'])
         self.assertEqual(child['id'], duplicate['id'])
