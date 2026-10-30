@@ -169,6 +169,8 @@ async function openBranch(name, force=false) {
   const previous=state.snapshot?.branch;
   if(previous&&previous!==name)state.filePath=null;
   const generation=++state.generation;
+  $('#workspace').setAttribute('aria-busy','true');
+  for(const tab of document.querySelectorAll('[data-view]'))tab.disabled=true;
   state.pdfGeneration++;state.snapshot=null;state.displayedRun=null;state.graphRunId=null;state.selectedTask=null;$('#task-inspector').hidden=true;$('#cv-file').disabled=true;
   for(const node of document.querySelectorAll('.dag-node'))node.disabled=true;
   $('#selected-run').hidden=true;$('#attempt-history').replaceChildren();
@@ -192,6 +194,12 @@ async function openBranch(name, force=false) {
     if(state.view!=='structure')notice();
     return data;
   } catch(error) { if(generation===state.generation) notice(error.message,true); }
+  finally {
+    if(generation===state.generation){
+      $('#workspace').removeAttribute('aria-busy');
+      for(const tab of document.querySelectorAll('[data-view]'))tab.disabled=!state.snapshot;
+    }
+  }
 }
 function updateSnapshot() {
   const s=state.snapshot;
