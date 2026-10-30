@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.15.7](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.15.6...v1.15.7) (2026-10-30)
+
+
+### Bug Fixes
+
+* delegate generation prompts to the Vita CV backend ([9bdd357](https://github.com/ABDELLAH-Hallou/vita-tree/commit/9bdd357af551d4ecc87b61d33884ce0e9f024823))
+* keep application tabs disabled until workspace rendering finishes ([50b7b31](https://github.com/ABDELLAH-Hallou/vita-tree/commit/50b7b31ec9ce8b71be623ebbaa74deeb3530e2c1))
+* preserve run ordering when refreshing a continuation ([af0593b](https://github.com/ABDELLAH-Hallou/vita-tree/commit/af0593b5d4cde989655a87dabf21fa1744cb76ae))
+* refresh approved CV results after fast continuations ([226e0f5](https://github.com/ABDELLAH-Hallou/vita-tree/commit/226e0f5f0ccc5eec8d4181e0345bc280326e55f7))
+* refresh approved CVs and clarify preparation history ([4d4b1b8](https://github.com/ABDELLAH-Hallou/vita-tree/commit/4d4b1b896c04ae7385d41455ee3867a42cc8b75c))
+* separate automatic generation from manual factual commands ([6a5be6e](https://github.com/ABDELLAH-Hallou/vita-tree/commit/6a5be6e611822fa6eab863b5427d36eec80c6231))
+
 ## [1.15.6](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.15.5...v1.15.6) (2026-10-29)
 
 
