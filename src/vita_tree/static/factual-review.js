@@ -21,7 +21,7 @@ export function createFactualReview({api, getState, changed, continued, notice})
     review=result;items.replaceChildren();form.reset();$('#factual-review-error').textContent='';
     const resolved=result.state==='resolved';
     $('#factual-review-title').textContent=resolved?'Your factual decisions':'Review factual changes';
-    $('#factual-review-summary').textContent=`${result.step==='adapt'?'Tailored CV':'Cover letter'} · ${result.items.length} changes · ${result.target}. `+(resolved?'Decisions are saved. Continue to finish preparing your application.':'Your application is unchanged. Check each interpretation against your source, then accept, reject, or edit it.');
+    $('#factual-review-summary').textContent=`${result.step==='adapt'?'Tailored CV':'Cover letter'} · ${result.items.length} changes · ${result.target}. `+(resolved?'Your approved wording is shown below. It is retained safely; the application is updated after the remaining steps and final checks succeed.':'Your application is unchanged. Check each interpretation against your source, then accept, reject, or edit it.');
     $('#factual-review-revision').textContent=result.revision;
     $('#factual-review-confirmation').hidden=resolved;$('#confirm-factual-meaning').required=!resolved;$('#apply-factual-review').hidden=false;$('#apply-factual-review').textContent=resolved?'Continue preparation':'Approve & continue';$('#factual-bulk').hidden=resolved;
     for(const [index,item] of result.items.entries()){
@@ -58,7 +58,9 @@ export function createFactualReview({api, getState, changed, continued, notice})
     }
     const provenance=$('#factual-provenance');provenance.hidden=!resolved;
     if(resolved)provenance.textContent=`${result.provenance.method==='automatic_run_policy'?'Automatic approval · selected for this run':'Explicit local-user review'} · ${new Date(result.provenance.decidedAt*1000).toLocaleString()} · resulting revision ${result.provenance.resolvedRevision}. Original source and proposal retained.`;
-    sourceEditor?.destroy();sourceEditor=createLatexEditor($('#factual-source-preview'),{label:'Full proposed LaTeX',readOnly:true,lint:(content)=>api('/api/lint',{content})});sourceEditor.setDocument(result.proposed||'',result.revision);count();panel.hidden=false;if(!panel.open)panel.showModal();$('#factual-review-title').focus({preventScroll:true});
+    const preview=$('#factual-source-preview'),details=preview.closest('details');
+    details.querySelector('summary').textContent=resolved?'Approved LaTeX · your decisions applied':'Full proposed LaTeX · syntax check';details.open=resolved;
+    sourceEditor?.destroy();sourceEditor=createLatexEditor(preview,{label:resolved?'Approved LaTeX':'Full proposed LaTeX',readOnly:true,lint:(content)=>api('/api/lint',{content})});sourceEditor.setDocument((resolved?result.reviewed:result.proposed)||'',result.revision);count();panel.hidden=false;if(!panel.open)panel.showModal();$('#factual-review-title').focus({preventScroll:true});
   }
   form.onsubmit=async event=>{
     event.preventDefault();if(submitting||!review)return;
@@ -70,7 +72,14 @@ export function createFactualReview({api, getState, changed, continued, notice})
     try{
       if(review.state!=='resolved')await api('/api/factual-review/apply',{id:review.runId,revision:review.revision,token:review.token,decisions,confirmed:$('#confirm-factual-meaning').checked});
       review.state='resolved';$('#confirm-factual-meaning').required=false;$('#apply-factual-review').textContent='Continue preparation';await continued(review.runId,state.snapshot.branch);submitting=false;close();
-    }catch(error){$('#factual-review-error').textContent=error.message;}
+    }catch(error){
+      // Approval may be saved even when starting the continuation fails. Show
+      // those saved decisions, rather than leaving editable proposal controls.
+      if(review?.state==='resolved'){
+        try{await open({id:review.runId});}catch{/* Keep the original continuation error actionable. */}
+      }
+      $('#factual-review-error').textContent=error.message;
+    }
     finally{submitting=false;lock(false);panel.removeAttribute('aria-busy');$('#factual-review-progress').textContent='';}
   };
   return {open,reset(){if(!submitting){generation++;review=null;sourceEditor?.destroy();sourceEditor=null;panel.close();panel.hidden=true;items.replaceChildren();}}};

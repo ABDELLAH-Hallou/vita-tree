@@ -66,11 +66,28 @@ def main():
             cards.nth(2).locator('textarea').fill(r'Languages & Python, SQL, TypeScript \\')
             page.locator('#confirm-factual-meaning').focus();page.keyboard.press('Space')
             page.locator('#factual-review-panel').screenshot(path=str(artifacts/'factual-review-light.png'))
+            def unavailable_continuation(route):
+                route.fulfill(status=503,json={'error':'Synthetic continuation unavailable; your approval is saved.'})
+            page.route('**/api/review-continue',unavailable_continuation)
+            page.locator('#apply-factual-review').click()
+            expect(page.locator('#factual-review-error')).to_contain_text('Synthetic continuation unavailable')
+            expect(page.locator('#factual-source-preview')).to_contain_text('TypeScript')
+            expect(page.locator('.factual-change input')).to_have_count(0)
+            assert len(applications)==1
+            page.unroute('**/api/review-continue',unavailable_continuation)
             page.locator('#apply-factual-review').click()
             expect(page.locator('#factual-review-panel')).to_be_hidden()
             assert len(applications)==1
             assert page.locator('.dag-failure').count()==0
             expect(page.locator('.dag-node[data-step=cover] .dag-status')).to_have_text('Needs factual review')
+            cover_run=server.workspace.list_jobs()['runs'][0]
+            page.locator('#workflow-run').select_option(run['id'])
+            page.locator('#review-facts').click()
+            expect(page.locator('#factual-source-preview')).to_contain_text('TypeScript')
+            expect(page.locator('#factual-source-preview')).not_to_contain_text('Built OOP services')
+            expect(page.locator('#factual-source-preview').locator('..').locator('summary')).to_have_text('Approved LaTeX · your decisions applied')
+            page.locator('#cancel-factual-review').click()
+            page.locator('#workflow-run').select_option(cover_run['id'])
             page.locator('#review-facts').click();expect(page.locator('.factual-change')).to_have_count(1)
             cover=server.workspace.factual_review(server.workspace.list_jobs()['runs'][0]['id'])
             assert 'dependable systems' in cover['proposed'] and 'TypeScript' in cover['proposed']
@@ -131,9 +148,27 @@ def main():
             expect(page.locator('#requirements-dialog')).not_to_be_visible()
             expect(page.locator('#workflow-next')).to_have_text('Review CV changes',timeout=90000)
             page.locator('#workflow-next').click();page.locator('#accept-all-facts').click();page.locator('#confirm-factual-meaning').check()
+            # A fast checkpoint-only continuation can finish before its HTTP
+            # response arrives. It must still refresh the visible CV, without Retry.
+            def completed_continuation(route):
+                response=route.fetch()
+                child=response.json()
+                deadline=time.monotonic()+60
+                while server.workspace.get_job(child['id'])['status'] in ('running','queued') and time.monotonic()<deadline:
+                    time.sleep(.05)
+                finished=server.workspace.get_job(child['id'])
+                assert finished['status']=='succeeded',finished
+                assert 'adapt' in finished['checkpointSteps'],finished
+                route.fulfill(response=response,json=finished)
+            page.route('**/api/review-continue',completed_continuation)
             page.locator('#apply-factual-review').click();expect(page.locator('#factual-review-panel')).to_be_hidden()
             expect(page.locator('.dag-node[data-step=validating]')).to_have_attribute('data-status','succeeded',timeout=90000)
             assert 'dependable systems' in server.workspace.read('guided-requirements-ui','main.tex')
+            expect(page.locator('#current-document')).to_contain_text('dependable systems')
+            page.get_by_role('tab',name='Source · Advanced',exact=True).click()
+            expect(page.locator('#current-source')).to_contain_text('dependable systems')
+            page.screenshot(path=str(artifacts/('approved-cv-'+args.browser+'.png')))
+            page.unroute('**/api/review-continue',completed_continuation)
             # Automatic mode is an explicit UI choice; the real contract still gates publication.
             automatic=server.workspace.create('master','automatic-ui',json.dumps({'label':'automatic-ui','pipeline':True}),digest(SOURCE))
             seed(server.workspace,'automatic-ui')

@@ -390,15 +390,27 @@ $('#edit-form').onsubmit=async event=>{
   catch(error){$('#edit-error').textContent=error.message;}finally{event.submitter.disabled=false;}
 };
 const needsDecision=run=>!!(run?.requirementsApprovalNeeded||run?.factualReview?.state==='pending');
+async function followContinuation(job, snapshot){
+  if(state.snapshot!==snapshot)return job;
+  // Remember even an already-finished response. Polling may have observed it
+  // before this request returned, so another monitor change is not guaranteed.
+  snapshot.running=job;state.graphRunId=job.id;
+  await runMonitor.refresh();
+  if(state.snapshot===snapshot){
+    const latest=state.runs.find(run=>run.id===job.id)||job;
+    if(!isActiveRun(latest))await runsChanged([...state.runs.filter(run=>run.id!==latest.id),latest]);
+  }
+  if(state.snapshot){renderWorkflow();configureWorkflow();updateSaveState();}
+  return state.runs.find(run=>run.id===job.id)||job;
+}
 async function continueApproved(ident, branch=state.snapshot?.branch){
   const s=state.snapshot;
   if(!s||s.branch!==branch||state.dirty||state.jobDirty)throw new Error('Approval saved. Reopen this application with saved drafts to continue.');
   const run=ident?state.runs.find(r=>r.id===ident):state.runs.find(r=>r.branch===branch&&r.requirementsDraft&&!isActiveRun(r));
   if(!ident&&!run){await runMonitor.refresh();return;}
   const job=await api('/api/review-continue',{id:ident||run.id,revision:s.revision,jobRevision:s.jobRevision});
-  if(state.snapshot?.branch===branch){state.snapshot.running=isActiveRun(job)?job:null;state.graphRunId=job.id;}
-  await runMonitor.refresh();renderWorkflow();configureWorkflow();updateSaveState();
-  notice(isActiveRun(job)?'Approved. Continuing preparation…':job.message);
+  const latest=await followContinuation(job,s);
+  if(state.snapshot?.branch===branch)notice(isActiveRun(latest)?'Approved. Continuing preparation…':latest.message);
 }
 async function runAdapt(steps=workflowOptions().steps){
   if(!state.snapshot||state.snapshot.running||state.launching)return;
@@ -613,8 +625,8 @@ $('#resume-form').onsubmit=async event=>{
   state.launching=true;$('#confirm-resume').disabled=true;renderWorkflow();configureWorkflow();
   try{
     const job=await api('/api/resume',{...review.request,token:review.plan.token});
-    review.snapshot.running=job;state.graphRunId=job.id;$('#resume-dialog').close();
-    $('#selected-run').hidden=true;await runMonitor.refresh();renderWorkflow();updateSaveState();
+    $('#resume-dialog').close();$('#selected-run').hidden=true;
+    await followContinuation(job,review.snapshot);
   }catch(error){$('#resume-error').textContent=error.message;}
   finally{state.launching=false;$('#confirm-resume').disabled=false;configureWorkflow();renderWorkflow();}
 };
