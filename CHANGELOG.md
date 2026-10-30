@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.15.8](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.15.7...v1.15.8) (2026-10-30)
+
+
+### Bug Fixes
+
+* avoid signalling owned process groups twice on shutdown ([b40e0a6](https://github.com/ABDELLAH-Hallou/vita-tree/commit/b40e0a650e67f48354e1405189fb8d0a19443b3e))
+* stop owned process groups only once during shutdown ([cef4b41](https://github.com/ABDELLAH-Hallou/vita-tree/commit/cef4b41d33b129f5b29bc112d4b3521e0a844180))
+
 ## [1.15.7](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.15.6...v1.15.7) (2026-10-30)
 
 
