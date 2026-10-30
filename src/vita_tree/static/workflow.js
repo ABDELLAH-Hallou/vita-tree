@@ -6,7 +6,7 @@ export const tasks = [
   {id:'cover', title:'Cover letter', detail:'Write a letter using the current CV and job context. Compiles a PDF before finishing. Adaptation is not required.', output:'Cover letter and PDF'},
   {id:'validating', title:'Final checks', detail:'Check the document files and protect your existing edits. CV PDF previews are created separately.', output:'Application files'},
 ];
-export const statusNames = {pending:'Not started', running:'In progress', succeeded:'Done', failed:'Couldn’t finish', blocked:'Waiting for an earlier step', interrupted:'Stopped before finishing', skipped:'Skipped', unavailable:'Not available', unknown:'No earlier details',review:'Needs your review',previous:'Done earlier'};
+export const statusNames = {pending:'Not started', running:'In progress', succeeded:'Done', failed:'Couldn’t finish', blocked:'Waiting for an earlier step', interrupted:'Stopped before finishing', skipped:'Skipped', unavailable:'Not available', unknown:'No earlier details',review:'Needs your review',previous:'Earlier run only'};
 export function graphStages(run, options={}, available={}) {
   return tasks.map(task => {
     let stage = run?.stages?.find(item => item.id === task.id);
@@ -58,7 +58,7 @@ export function renderGraph(container, {run, options, available, selected, selec
     const time=document.createElement('span'); time.className='dag-time';
     if(task.startedAt&&!task.finishedAt&&task.status==='running')time.dataset.startedAt=task.startedAt;
     time.textContent=task.startedAt ? `${Math.max(0,Math.floor((task.finishedAt || Date.now()/1000)-task.startedAt))}s` : task.output;
-    if(task.previousRun){time.textContent='Earlier preparation · not rerun';button.title='Completed in an earlier preparation. This is history, not a claim that its artifacts match current inputs.';}button.append(icon,title,state,time); button.onclick=()=>select(task); container.append(button);
+    if(task.previousRun){time.textContent='Historical result · not loaded';button.title='This step completed in an earlier preparation. Its results were not loaded or verified for this preparation. Use Retry on that earlier preparation to check checkpoint reuse.';}button.append(icon,title,state,time); button.onclick=()=>select(task); container.append(button);
     if(run?.requirementsRevision&&task.id!=='validating'){
       const revision=document.createElement('span');revision.className='dag-requirements';revision.textContent='Requirements '+run.requirementsRevision.slice(0,12);revision.title=run.requirementsRevision;button.append(revision);
     }

@@ -130,7 +130,7 @@ def main():
             public=json.dumps(server.workspace.list_jobs())
             assert 'Built OOP services' not in public and SOURCE not in public
             page.locator('#cancel-factual-review').click()
-            assert page.evaluate('''async()=>{const {renderGraph}=await import('/workflow.js');const host=document.createElement('div');renderGraph(host,{run:{id:'new',createdAt:2,stages:[{id:'extract',status:'skipped'}]},history:[{id:'old',createdAt:1,stages:[{id:'extract',status:'succeeded'}]}],options:{steps:[]},available:{},select:()=>{}});return host.querySelector('[data-step=extract]').dataset.status==='previous'&&host.textContent.includes('Done earlier');}''')
+            assert page.evaluate('''async()=>{const {renderGraph}=await import('/workflow.js');const host=document.createElement('div');renderGraph(host,{run:{id:'new',createdAt:2,stages:[{id:'extract',status:'skipped'}]},history:[{id:'old',createdAt:1,stages:[{id:'extract',status:'succeeded'}]}],options:{steps:[]},available:{},select:()=>{}});return host.querySelector('[data-step=extract]').dataset.status==='previous'&&host.textContent.includes('Historical result · not loaded');}''')
             page.set_viewport_size({'width':1500,'height':1050});page.screenshot(path=str(artifacts/'guided-workspace-dark.png'))
             # Requirements approval also starts the remaining steps without a Retry dialog.
             guided=server.workspace.create('master','guided-requirements-ui',json.dumps({'label':'guided-requirements-ui','pipeline':True}),digest(SOURCE))
