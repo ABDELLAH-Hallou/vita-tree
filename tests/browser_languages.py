@@ -57,8 +57,12 @@ def main():
             expect(page.locator('#language option[value=zz]')).to_have_text(mapping['zz'])
             assert page.locator('#language img').count()==0
             assert page.locator('#language option[value="_comment"]').count()==0
-            # Real keyboard selection via the native language combobox.
-            page.locator('#language').focus();page.keyboard.press('End');page.keyboard.press('ArrowUp');page.keyboard.press('ArrowUp')
+            # Complete a real native selection, including committing and leaving
+            # the control, before asserting the saved application choice.
+            page.bring_to_front()
+            language=page.locator('#language');language.focus();expect(language).to_be_focused()
+            for key in ('End','ArrowUp','ArrowUp','Enter','Tab'):
+                language.press(key)
             # Default built-ins retain their order; custom SV follows them.
             expect(page.locator('#language')).to_have_value('sv')
             page.locator('#reload').click();expect(page.locator('#language')).to_have_value('sv')
