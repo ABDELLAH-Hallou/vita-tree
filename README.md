@@ -316,3 +316,45 @@ the project's main contributor. Contact: [abdeallahhallou33@gmail.com](mailto:ab
 
 Vita Tree is MIT licensed. Bundled PDF.js components retain their original licenses;
 see [third-party notices](https://github.com/ABDELLAH-Hallou/vita-tree/blob/main/THIRD_PARTY_NOTICES.md).
+
+### Jobenu imports
+
+Open **Import jobs** in the Applications sidebar, then the **Jobenu** tab. Choose
+or drop a local JSON export, select applications, search for a local starting CV,
+and preview the backend's branch plan before creating branches. Review is the
+default; automatic mode still respects factual and canonical-requirement gates.
+Import-only mode does not contact an AI provider.
+
+The configured Vita command is checked with `import jobenu --help`. If it lacks
+the plan/JSON contract, select a compatible Vita CV source folder under **Vita
+installation**. Availability is capability-based, not inferred from a PyPI version.
+The integration targets Vita CV's Jobenu contract introduced by
+[Vita CV #94](https://github.com/ABDELLAH-Hallou/vita-cv/pull/94).
+
+A private filtered copy is stored under the Git common directory's
+`vita-tree/jobenu-batches/`. That same path and options bind preview, execution,
+and resume. **Forget batch** deletes these UI copies/logs, never imported
+workspaces or Vita's index. No automatic expiry deletes sources needed for resume.
+After restarting Tree, preview again before resuming; session credentials are not
+persisted. A previously running batch is shown as interrupted, not silently resumed.
+
+The native backend runs one batch at a time, processing its applications sequentially.
+Progress comes from Vita's atomically replaced `.vita/imports/jobenu/index.json`.
+Open Workspace uses the branch's existing linked worktree. Tree blocks edits for
+applications in the active batch. Factual reviews show original/proposed wording,
+source references and the exact revision; requirements have a separate canonical
+approval path. Resume always obtains a new plan and does not set `--rerun` unless
+**Reassess completed stages** is explicitly selected. Completion describes AI
+stages, not PDF generation, commits, pushes or job submission.
+
+Saved Tree provider/model settings for the chosen base are passed through Vita's
+existing stage environment preferences; without saved overrides, native preferences
+remain authoritative. The native CLI owns reasoning configuration: Tree-only
+reasoning overrides are not forwarded. The batch process supports one credential
+per provider; conflicting same-provider connections are rejected. Imported native
+reviews support whole-revision approve/reject, not Tree's per-change edit controls.
+
+Verification uses synthetic exports and mocked providers (`test_jobenu.py`,
+`browser_jobenu.py`), plus a pinned native-backend import-only CI job. No paid
+provider or personal CV is used. Browser captures cover preview, live progress,
+factual/requirements approval, both themes and a narrow viewport.
