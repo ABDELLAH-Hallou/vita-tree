@@ -97,6 +97,8 @@ class Workspace:
         self._history_lock = threading.Lock()
         self._history_read = None
         self.connections = Connections()
+        from .jobenu import JobenuImports
+        self.jobenu = JobenuImports(self)
         self.jobs: dict[str, dict] = {}
         self._ai_threads = set()
         from .processes import ProcessRegistry
@@ -626,7 +628,7 @@ class Workspace:
                         pass
                     self.diagnostics.workflow(record, previous)
 
-            workers = list(self._ai_threads)
+            workers = list(self._ai_threads) + list(self.jobenu.workers.copy())
 
         # Mark records interrupted before cancelling their process trees so a
         # racing worker cannot publish or turn shutdown into a provider failure.
@@ -639,6 +641,11 @@ class Workspace:
                 worker.join(timeout=max(0, deadline - time.monotonic()))
 
     def busy(self, name):
+        if name in self.jobenu.reviewing:
+            raise ConflictError('An import review is updating this application. Wait before changing it.')
+        for ident in self.jobenu.running.copy():
+            if any(row.get('branch')==name for row in self.jobenu.entries(self.jobenu.record(ident))):
+                raise ConflictError('This application belongs to a running Jobenu batch. Wait for it to pause before editing.')
         if name in self._pending_publications:
             raise ConflictError('Publication recovery is pending for this application. Check folder access and restart Vita Tree before editing or retrying.')
         if self.active_job(name):

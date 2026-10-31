@@ -347,6 +347,9 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         if path == "/api/session":
             self.send_json({"token": self.server.token, **self.server.workspace.capabilities()})
             return
+        if path == '/api/jobenu':
+            self.api_call(self.server.workspace.jobenu.listing)
+            return
         if path == "/api/workspace":
             self.api_call(lambda: self.server.workspace.snapshot(query.get("branch", [""])[0]))
             return
@@ -425,7 +428,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             return
         try:
             size = int(self.headers.get("Content-Length", "0"))
-            if size < 1 or size > 3_000_000:
+            if size < 1 or size > (24_000_000 if urlparse(self.path).path=='/api/jobenu/upload' else 3_000_000):
                 raise ValueError("Invalid request size")
             if self.headers.get_content_type() != "application/json":
                 raise ValueError("Expected application/json")
@@ -441,6 +444,16 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         workspace = self.server.workspace
         path = urlparse(self.path).path
         actions = {
+            '/api/jobenu/capability': lambda: workspace.jobenu.capability(data.get('source','')),
+            '/api/jobenu/upload': lambda: workspace.jobenu.upload(data.get('filename','export.json'),data.get('content')),
+            '/api/jobenu/selection': lambda: workspace.jobenu.selection(data['id']),
+            '/api/jobenu/preview': lambda: workspace.jobenu.preview(data['id'],data),
+            '/api/jobenu/start': lambda: workspace.jobenu.start(data['id'],data['planId']),
+            '/api/jobenu/review': lambda: workspace.jobenu.review(data['id'],data['key']),
+            '/api/jobenu/decide': lambda: workspace.jobenu.decide(data['id'],data['key'],data['action'],data.get('revision')),
+            '/api/jobenu/log': lambda: workspace.jobenu.log(data['id'],data.get('key')),
+            '/api/jobenu/alias': lambda: workspace.jobenu.alias(data['title'],data['alias']),
+            '/api/jobenu/discard': lambda: workspace.jobenu.discard(data['id']),
             '/api/connections': lambda: workspace.add_connection(data.get('name'), data.get('provider'), data.get('apiKey')),
             '/api/connections/remove': lambda: workspace.remove_connection(data.get('id')),
             '/api/generation-check': lambda: workspace.check_generation(data['branch'], data['step'], data.get('aiConfig'), data.get('confirmed')),

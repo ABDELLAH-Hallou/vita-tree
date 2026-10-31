@@ -19,6 +19,25 @@ env:
   PYTHONDONTWRITEBYTECODE: "1"
 
 jobs:
+  jobenu-contract:
+    name: Jobenu native import contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: ABDELLAH-Hallou/vita-cv
+          ref: e0deaed055cb911f41eb8fe2b61d81ec00a8bae1
+          path: .test-artifacts/vita-jobenu
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+      - run: python -m pip install . ./.test-artifacts/vita-jobenu
+      - run: python -m unittest discover -s tests -p test_jobenu.py -v
   secrets:
     name: Redacted credential scan
     runs-on: ubuntu-latest
@@ -127,6 +146,11 @@ jobs:
       - run: python tests/browser_workflow.py --browser chromium
       - run: python tests/browser_ai_settings.py --browser chromium
       - run: python tests/browser_languages.py --browser chromium
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+      - run: npm ci --ignore-scripts
+      - run: python tests/browser_jobenu.py
       - run: python tests/browser_component_dialogs.py --browser chromium
       - run: python tests/browser_custom_environment.py --browser chromium
       - run: python tests/browser_resume.py --browser chromium
