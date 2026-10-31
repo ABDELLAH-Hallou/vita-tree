@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.16.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.15.8...v1.16.0) (2026-10-31)
+
+
+### Features
+
+* add visual Jobenu batch import workflow ([3d21347](https://github.com/ABDELLAH-Hallou/vita-tree/commit/3d21347a62e772b44f86a1930aaa4b20fc827bf2))
+* add visual Jobenu batch import workflow ([5b0f018](https://github.com/ABDELLAH-Hallou/vita-tree/commit/5b0f01862a3f6310e587826a080662fe7eefc235))
+
 ## [1.15.8](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.15.7...v1.15.8) (2026-10-30)
 
 
