@@ -1869,6 +1869,33 @@ button:focus-visible,a:focus-visible,summary:focus-visible {outline:2px solid va
 #jobenu-import pre {white-space:pre-wrap;overflow-wrap:anywhere;max-height:400px;overflow:auto}
 .jobenu-batch {padding:20px 0;border-bottom:1px solid var(--line)}
 .jobenu-batch button {margin:4px}
+.jobenu-batch-heading {display:flex;justify-content:space-between;align-items:center;gap:16px}
+.jobenu-batch-heading h3 {margin:0}
+.jobenu-batch-heading p {margin:6px 0}
+.jobenu-batch-heading button {flex:none}
+.jobenu-attempts {margin:12px 0}
+#jobenu-retry {width:min(760px,94vw);max-height:88dvh;padding:0;overflow:hidden}
+#jobenu-retry[open] {display:flex;flex-direction:column}
+#jobenu-retry::backdrop {background:rgba(0,0,0,.4);backdrop-filter:none}
+#jobenu-retry .dialog-heading {padding:20px 24px;margin:0;flex:none}
+#jobenu-retry .review-scroll {overflow:auto;min-height:0;padding:0 24px 16px}
+#jobenu-retry .dialog-footer {flex:none;margin:0;padding:16px 24px;background:var(--panel)}
+#jobenu-retry .jobenu-scroll {margin:16px 0}
+#jobenu-retry table {border-collapse:collapse;width:100%;text-align:left}
+#jobenu-import #jobenu-retry table {min-width:0}
+#jobenu-retry th,#jobenu-retry td {padding:10px 8px;border-bottom:1px solid var(--line);vertical-align:top;overflow-wrap:anywhere}
+@media(max-width:600px){
+  .jobenu-batch-heading {align-items:flex-start;flex-direction:column}
+  .jobenu-batch-heading button {margin:0}
+  #jobenu-import .jobenu-batch table {min-width:0}
+  .jobenu-batch thead {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+  .jobenu-batch .jobenu-application-row {display:block;padding:12px 0;border-bottom:1px solid var(--line)}
+  #jobenu-import .jobenu-application-row td {display:block;border:0;padding:3px 0}
+  #jobenu-import .jobenu-application-row td:first-child {font-weight:600}
+  #jobenu-import .jobenu-application-row td:last-child {display:flex;flex-wrap:wrap;gap:8px;padding-top:10px}
+  .jobenu-application-row button {margin:0;min-height:44px}
+  #jobenu-retry .dialog-footer {flex-wrap:wrap}
+}
 #jobenu-review {width:min(900px,94vw);max-height:90dvh}
 #jobenu-review[open] {display:flex;flex-direction:column}
 #jobenu-review-content {flex:1;overflow:auto}

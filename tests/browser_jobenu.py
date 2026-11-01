@@ -266,6 +266,8 @@ def main():
                 "Synthetic tailoring summary"
             )
             page.reload()
+            expect(page.locator("#workspace")).to_be_visible()
+            expect(page.locator("#workspace")).not_to_have_attribute("aria-busy", "true", timeout=30000)
             expect(page.locator('.dag-node[data-step="adapt"]')).to_have_attribute(
                 "data-status", "succeeded"
             )

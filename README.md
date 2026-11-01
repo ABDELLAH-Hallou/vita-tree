@@ -334,6 +334,14 @@ For unfamiliar role titles, enter any short names together and click
 **Save aliases & update preview** once. Duplicate titles share a field; blank fields
 keep their existing names. A failed save preserves the entered names.
 
+In **Batch activity**, use **Retry** on a failed application or **Retry failed jobs**
+for the batch. Confirm the affected jobs and captured AI settings without opening
+each workspace. Retries keep matching native checkpoints, leave successful jobs
+and pending reviews alone, and appear together under **Attempts**. Changed settings
+or inputs can require a fresh preview; retries never silently force a full rerun.
+Automatic backup-provider switching requires a Vita CV fallback contract; the
+current integration retries the original provider/model.
+
 The configured Vita command is checked with `import jobenu --help`. If it lacks
 the plan/JSON contract, select a compatible Vita CV source folder under **Vita
 installation**. Availability is capability-based, not inferred from a PyPI version.

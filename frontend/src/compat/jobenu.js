@@ -1,4 +1,5 @@
 import { renderLatexSnippet } from "./vendor/editor.mjs";
+import { batchGroups, batchSummary, retryable } from "./jobenu-history.js";
 export function initJobenu({ api, branches, openBranch, ready }) {
   const $ = (s) => document.querySelector(s),
     make = (tag, value) => {
@@ -47,7 +48,8 @@ export function initJobenu({ api, branches, openBranch, ready }) {
  <details><summary>Advanced</summary><div class="jobenu-settings"><label>Language override<input id="jobenu-language" placeholder="Use saved language"></label><label>Provider override<input id="jobenu-provider" placeholder="Use saved AI settings"></label><label>Status filters<input id="jobenu-statuses" value="SAVED" aria-describedby="jobenu-status-help"></label></div><p id="jobenu-status-help" class="helper">Comma-separated statuses, or ALL. Uses saved stage providers/models and native Vita reasoning preferences. Tree-only reasoning overrides are not forwarded by this batch CLI.</p><label><input id="jobenu-demo" type="checkbox"> Include demo applications</label><label><input id="jobenu-revision" type="checkbox"> Create a new source revision when records changed</label><label><input id="jobenu-rerun" type="checkbox"> Reassess completed stages (additional AI calls)</label></details>
  <div class="actions"><button id="jobenu-preview" disabled>Preview branches</button><button id="jobenu-start" class="primary" disabled>Create branches</button></div>
  <div class="jobenu-scroll" tabindex="0" role="region" aria-label="Application preview"><table id="jobenu-plan"><caption>Branch preview</caption><thead><tr><th>Company</th><th>Position</th><th>Branch</th><th>Action</th></tr></thead><tbody></tbody></table></div><section id="jobenu-aliases" hidden aria-labelledby="jobenu-alias-title"></section>
- <h2>Batch activity</h2><p class="helper">You can leave this view while work continues. Retained sources stay private until you forget the batch; imported workspaces are preserved.</p><div id="jobenu-history"></div>
+ <h2>Batch activity</h2><p class="helper">You can leave this view while work continues. Retained sources stay private until you forget the batch; imported workspaces are preserved.</p><div id="jobenu-history" tabindex="-1" role="region" aria-label="Batch activity"></div>
+ <dialog id="jobenu-retry" aria-labelledby="jobenu-retry-title"><div class="dialog-heading"><h2 id="jobenu-retry-title">Retry failed jobs</h2></div><div class="review-scroll"><p>Use the original AI settings. Keep valid completed steps and continue from the failure. Retrying makes AI requests and may use provider credits.</p><p id="jobenu-retry-progress" role="status"></p><div class="jobenu-scroll" tabindex="0" role="region" aria-label="Jobs to retry"><table><thead><tr><th>Company</th><th>Position</th><th>Continue from</th></tr></thead><tbody id="jobenu-retry-jobs"></tbody></table></div><p id="jobenu-retry-error" role="alert" class="form-error"></p></div><footer class="dialog-footer"><button id="jobenu-retry-cancel">Cancel</button><button id="jobenu-retry-confirm" class="primary" disabled>Retry jobs</button></footer></dialog>
  <dialog id="jobenu-review" aria-labelledby="jobenu-review-title"><div class="dialog-heading"><h2 id="jobenu-review-title">Review imported application</h2><button id="jobenu-review-close" aria-label="Close import review">×</button></div><div id="jobenu-review-content" class="review-scroll"></div><p id="jobenu-review-error" role="alert" class="form-error"></p><footer class="dialog-footer"><button id="jobenu-reject">Reject changes</button><button id="jobenu-approve" class="primary">Approve exact revision</button></footer></dialog>`;
   $("#main-content").append(section);
   let session = null,
@@ -62,6 +64,137 @@ export function initJobenu({ api, branches, openBranch, ready }) {
   let selectedIds = new Set(),
     aliasSaving = false;
   const aliasDrafts = new Map();
+  let retryBusy = false,
+    retryStarting = false,
+    retryPreview = null,
+    retryGeneration = 0,
+    retryFocus = null;
+  const stageLabel = (value) =>
+    ({
+      extract: "Identify job requirements",
+      analyze: "Check CV match",
+      adapt: "Tailor CV",
+      review: "Review CV",
+      cover: "Cover letter",
+    })[value] ||
+    value ||
+    "Last unfinished step";
+  function syncRetryButtons() {
+    for (const button of section.querySelectorAll(".jobenu-retry-action"))
+      button.disabled = retryBusy || button.dataset.blocked === "true";
+  }
+  async function forgetRetry(preview) {
+    if (preview) await api("/api/jobenu/discard", { id: preview.id });
+  }
+  async function cancelRetry() {
+    if (retryStarting) return;
+    retryGeneration++;
+    const unused = retryPreview;
+    retryPreview = null;
+    retryBusy = false;
+    $("#jobenu-retry").close();
+    syncRetryButtons();
+    const target = [...section.querySelectorAll(".jobenu-retry-action")].find(
+      (button) =>
+        button.dataset.batch === retryFocus?.batch &&
+        button.dataset.key === retryFocus?.key,
+    );
+    (target || $("#jobenu-history")).focus();
+    try {
+      await forgetRetry(unused);
+    } catch (err) {
+      error(err);
+    }
+  }
+  $("#jobenu-retry-cancel").onclick = cancelRetry;
+  $("#jobenu-retry").oncancel = (event) => {
+    event.preventDefault();
+    cancelRetry();
+  };
+  async function prepareRetry(batch, keys) {
+    if (retryBusy) return;
+    retryBusy = true;
+    retryFocus = { batch: batch.id, key: keys?.[0] || "" };
+    const ticket = ++retryGeneration;
+    syncRetryButtons();
+    $("#jobenu-retry-error").textContent = "";
+    $("#jobenu-retry-progress").textContent =
+      "Checking saved steps and settings…";
+    $("#jobenu-retry-jobs").replaceChildren();
+    $("#jobenu-retry-confirm").disabled = true;
+    $("#jobenu-retry").showModal();
+    try {
+      const preview = await api("/api/jobenu/retry-preview", {
+        id: batch.id,
+        ...(keys ? { keys } : {}),
+      });
+      if (ticket !== retryGeneration) {
+        await forgetRetry(preview);
+        return;
+      }
+      retryPreview = preview;
+      for (const entry of preview.entries) {
+        const row = document.createElement("tr"),
+          step = entry.current_step,
+          route = preview.capturedRoutes?.[step];
+        const progress = make("td", stageLabel(step));
+        progress.append(
+          make(
+            "p",
+            route?.provider
+              ? `${route.provider}${route.model ? " / " + route.model : ""}`
+              : "Saved Vita CV settings",
+          ),
+        );
+        progress.lastElementChild.className = "helper";
+        row.append(
+          make("td", entry.company),
+          make("td", entry.position),
+          progress,
+        );
+        $("#jobenu-retry-jobs").append(row);
+      }
+      $("#jobenu-retry-progress").textContent =
+        `${preview.entries.length} failed job${preview.entries.length === 1 ? "" : "s"} ready to retry.`;
+      $("#jobenu-retry-confirm").textContent =
+        `Retry ${preview.entries.length} job${preview.entries.length === 1 ? "" : "s"}`;
+      $("#jobenu-retry-confirm").disabled = false;
+    } catch (err) {
+      if (ticket === retryGeneration) {
+        $("#jobenu-retry-progress").textContent = "";
+        $("#jobenu-retry-error").textContent = err.message;
+      }
+    }
+  }
+  $("#jobenu-retry-confirm").onclick = async () => {
+    if (!retryPreview || retryStarting) return;
+    retryStarting = true;
+    $("#jobenu-retry-confirm").disabled = true;
+    $("#jobenu-retry-cancel").disabled = true;
+    $("#jobenu-retry-error").textContent = "";
+    $("#jobenu-retry-progress").textContent = "Starting retry…";
+    try {
+      await api("/api/jobenu/start", {
+        id: retryPreview.id,
+        planId: retryPreview.plan.plan_id,
+      });
+      retryPreview = null;
+      $("#jobenu-retry").close();
+      $("#jobenu-feedback").textContent =
+        "Retry started. Follow progress in Batch activity.";
+      historySignature = "";
+      await refresh();
+      $("#jobenu-history").focus();
+    } catch (err) {
+      $("#jobenu-retry-error").textContent = err.message;
+    } finally {
+      retryStarting = false;
+      retryBusy = $("#jobenu-retry").open;
+      $("#jobenu-retry-cancel").disabled = false;
+      $("#jobenu-retry-confirm").disabled = !retryPreview;
+      syncRetryButtons();
+    }
+  };
   const error = (e) => ($("#jobenu-error").textContent = e?.message || e || "");
   function invalidate() {
     version++;
@@ -590,24 +723,42 @@ export function initJobenu({ api, branches, openBranch, ready }) {
     polling = true;
     try {
       const { batches } = await api("/api/jobenu");
-      const signature = JSON.stringify(batches);
+      const groups = batchGroups(batches);
+      const signature = JSON.stringify(groups);
       if (signature === historySignature) return;
       historySignature = signature;
       const host = $("#jobenu-history");
       host.replaceChildren();
-      for (const batch of batches) {
+      const anyRunning = batches.some((batch) => batch.status === "running");
+      for (const groupData of groups) {
+        const batch = groupData.batch;
         const group = document.createElement("section");
         group.className = "jobenu-batch";
-        group.append(
+        const title = document.createElement("div");
+        title.append(
           make("h3", batch.filename),
-          make(
-            "p",
-            batch.status === "complete"
-              ? "AI stages complete · PDF generation and submission are separate"
-              : statusLabel(batch.status),
-          ),
+          make("p", batchSummary(groupData, statusLabel)),
         );
-        if (batch.error) group.append(make("p", batch.error));
+        const headingRow = document.createElement("div");
+        headingRow.className = "jobenu-batch-heading";
+        headingRow.append(title);
+        if (
+          groupData.entries.some(retryable) ||
+          groupData.attempts.some(
+            (attempt) => attempt.parentBatchId && attempt.status === "running",
+          )
+        ) {
+          const retry = make("button", "Retry failed jobs");
+          retry.className = "jobenu-retry-action";
+          retry.dataset.batch = batch.id;
+          retry.dataset.key = "";
+          retry.dataset.blocked = String(anyRunning);
+          retry.onclick = () => prepareRetry(batch);
+          headingRow.append(retry);
+        }
+        group.append(headingRow);
+        const latest = groupData.attempts.at(-1);
+        if (latest.error) group.append(make("p", latest.error));
         const table = document.createElement("table");
         const heading = document.createElement("thead"),
           header = document.createElement("tr");
@@ -615,8 +766,9 @@ export function initJobenu({ api, branches, openBranch, ready }) {
           header.append(make("th", label));
         heading.append(header);
         table.append(heading);
-        for (const e of batch.entries) {
+        for (const e of groupData.entries) {
           const row = document.createElement("tr");
+          row.className = "jobenu-application-row";
           row.append(
             make("td", e.company),
             make("td", e.position),
@@ -633,6 +785,16 @@ export function initJobenu({ api, branches, openBranch, ready }) {
           );
           if (e.error) row.lastElementChild.append(make("p", e.error));
           const actions = document.createElement("td");
+          if (retryable(e)) {
+            const retry = make("button", "Retry");
+            retry.className = "jobenu-retry-action";
+            retry.dataset.batch = batch.id;
+            retry.dataset.key = e.key;
+            retry.setAttribute("aria-label", `Retry ${e.company}`);
+            retry.dataset.blocked = String(anyRunning);
+            retry.onclick = () => prepareRetry(batch, [e.key]);
+            actions.append(retry);
+          }
           if (e.workspace) {
             const open = make("button", "Open workspace");
             open.onclick = async () => {
@@ -671,9 +833,27 @@ export function initJobenu({ api, branches, openBranch, ready }) {
         scroll.className = "jobenu-scroll";
         scroll.tabIndex = 0;
         scroll.setAttribute("role", "region");
-        scroll.setAttribute("aria-label", `Applications from ${batch.filename}`);
+        scroll.setAttribute(
+          "aria-label",
+          `Applications from ${batch.filename}`,
+        );
         scroll.append(table);
         group.append(scroll);
+        if (groupData.attempts.length > 1) {
+          const history = document.createElement("details");
+          history.className = "jobenu-attempts";
+          history.append(
+            make("summary", `Attempts (${groupData.attempts.length})`),
+          );
+          for (const [index, attempt] of groupData.attempts.entries())
+            history.append(
+              make(
+                "p",
+                `${index ? "Retry" : "Original run"} · ${new Date((attempt.startedAt || attempt.createdAt) * 1000).toLocaleString()} · ${statusLabel(attempt.status)}`,
+              ),
+            );
+          group.append(history);
+        }
         const logs = make("button", "View logs");
         logs.onclick = async () => {
           try {
@@ -685,7 +865,7 @@ export function initJobenu({ api, branches, openBranch, ready }) {
           }
         };
         group.append(logs);
-        if (batch.status !== "running") {
+        if (!anyRunning) {
           const resume = make("button", "Preview resume");
           resume.onclick = async () => {
             invalidate();
@@ -734,6 +914,7 @@ export function initJobenu({ api, branches, openBranch, ready }) {
         }
         host.append(group);
       }
+      syncRetryButtons();
     } catch (e) {
       error(e);
     } finally {

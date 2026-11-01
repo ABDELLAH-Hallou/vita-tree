@@ -11,8 +11,12 @@ const actions = [
   { name: "Import jobs", target: "#open-jobenu" },
   { name: "Activity & support", target: "#show-activity" },
 ];
+let navigationVersion = 0;
+let cancelPendingNavigation: (() => void) | undefined;
 function perform(target: string) {
-  requestAnimationFrame(() => {
+  cancelPendingNavigation?.();
+  const version = ++navigationVersion;
+  const apply = () => {
     if (target.startsWith("[data-filter") || target === "#open-jobenu") {
       const workspace = document.querySelector<HTMLElement>("#workspace");
       if (workspace && !workspace.hidden) {
@@ -27,6 +31,26 @@ function perform(target: string) {
     }
     const button = document.querySelector<HTMLButtonElement>(target);
     if (button && !button.disabled) button.click();
+  };
+  requestAnimationFrame(() => {
+    if (version !== navigationVersion) return;
+    if (document.querySelector(target)) return apply();
+    // The React menu is ready before the feature controllers finish loading.
+    // Keep this one user action until its control exists; a newer choice cancels it.
+    const observer = new MutationObserver(() => {
+      if (!document.querySelector(target)) return;
+      cleanup();
+      if (version === navigationVersion) apply();
+    });
+    const cleanup = () => {
+      observer.disconnect();
+      window.clearTimeout(timeout);
+      if (cancelPendingNavigation === cleanup)
+        cancelPendingNavigation = undefined;
+    };
+    const timeout = window.setTimeout(cleanup, 10000);
+    cancelPendingNavigation = cleanup;
+    observer.observe(document.body, { childList: true, subtree: true });
   });
 }
 export function ThemeButton() {
