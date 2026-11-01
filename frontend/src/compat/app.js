@@ -255,7 +255,7 @@ $('#cv-file').onchange=event=>selectFile(event.target.value);
 function renderDocument(side, data) {
   const target=$(`#${side}-document .cv-document`);
   // HTML is produced by the source-mapped renderer; every source string is escaped there.
-  target.innerHTML=data.error?`<p class="empty">Structure cannot preview this template. Use LaTeX editing and the PDF view; Check setup verifies compilation separately.</p><details class="technical-details"><summary>Structure details</summary><pre>${esc(data.error)}</pre></details>`:data.html;
+  target.innerHTML=data.error?`<p class="empty">Structure cannot preview this template. Use Source or PDF preview to view it.</p><details class="technical-details"><summary>Structure details</summary><pre>${esc(data.error)}</pre></details>`:data.html;
 }
 function updateSaveState(){
   setupChecks.summary(state.displayedRun);

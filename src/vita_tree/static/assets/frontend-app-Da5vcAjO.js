@@ -8,7 +8,7 @@ import { n as m, t as h } from "./frontend-provider-failures-uMyQIdg2.js";
 import { t as g } from "./frontend-factual-review-C1JvgUhX.js";
 import { t as ee } from "./frontend-jobenu-BqhlBuvT.js";
 import { t as te } from "./frontend-requirements-CEEL9r4B.js";
-import { t as ne } from "./frontend-preflight-C8DrAXOC.js";
+import { t as ne } from "./frontend-preflight-CXA8w4x8.js";
 import { createLatexEditor as re } from "/vendor/editor.mjs";
 // frontend/src/compat/app.js
 var _ = (e) => document.querySelector(e), v = {
@@ -303,7 +303,7 @@ function fe(e, t = v.view) {
 _("#cv-file").onchange = (e) => fe(e.target.value);
 function pe(e, t) {
 	let n = _(`#${e}-document .cv-document`);
-	n.innerHTML = t.error ? `<p class="empty">Structure cannot preview this template. Use LaTeX editing and the PDF view; Check setup verifies compilation separately.</p><details class="technical-details"><summary>Structure details</summary><pre>${k(t.error)}</pre></details>` : t.html;
+	n.innerHTML = t.error ? `<p class="empty">Structure cannot preview this template. Use Source or PDF preview to view it.</p><details class="technical-details"><summary>Structure details</summary><pre>${k(t.error)}</pre></details>` : t.html;
 }
 function B() {
 	y.summary(v.displayedRun);

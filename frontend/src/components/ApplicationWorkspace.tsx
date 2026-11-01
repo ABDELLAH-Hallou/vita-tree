@@ -17,10 +17,10 @@ export const ApplicationWorkspace = memo(function ApplicationWorkspace() {
       </div>
       <div className="setup-bar">
         <p id="setup-summary" role="status">
-          Check your saved project before preparing it.
+          CV files are checked automatically before preparation.
         </p>
         <button data-open-setup="" type="button">
-          Check setup
+          Check CV files
         </button>
       </div>
       <section className="workflow-panel" aria-labelledby="workflow-title">

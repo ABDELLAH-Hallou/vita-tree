@@ -139,13 +139,6 @@
   color: var(--muted);
   font-size: 18px;
 }
-.application :global(.input-guide) {
-  margin: 0 0 12px;
-  padding: 8px 0;
-  border: 0;
-  background: transparent;
-  font-size: 13px;
-}
 .application :global(.bulk-review-toolbar) {
   padding: 10px 0;
   gap: 12px;

@@ -56,25 +56,6 @@ export const ApplicationBoard = memo(function ApplicationBoard() {
               ＋ New application
             </button>
           </div>
-          <details className="input-guide">
-            <summary>Start with an existing LaTeX CV</summary>
-            <p>
-              Open a Git collection containing your complete UTF-8 LaTeX
-              project. AI preparation uses <code>main.tex</code> at the
-              collection root. Keep its local <code>.cls</code>,{" "}
-              <code>.sty</code>, images and included files alongside it;
-              required project files must not be ignored by Git.
-            </p>
-            <p>
-              Vita Tree opens LaTeX projects directly. PDF, Word and scanned-CV
-              import are not available here. A different{" "}
-              <code>vt run --file</code> entry supports direct viewing and PDF
-              previews; AI preparation requires <code>main.tex</code>.
-            </p>
-            <button data-open-setup="" type="button">
-              Check input &amp; setup
-            </button>
-          </details>
           <div className="list-toolbar">
             <label className="search">
               <span aria-hidden="true">⌕</span>

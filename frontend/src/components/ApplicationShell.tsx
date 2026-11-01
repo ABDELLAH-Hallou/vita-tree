@@ -341,7 +341,7 @@ export const ApplicationShell = memo(function ApplicationShell() {
       </dialog>
       <dialog id="setup-dialog" aria-labelledby="setup-title">
         <div className="dialog-heading">
-          <h2 id="setup-title">Input &amp; environment</h2>
+          <h2 id="setup-title">Check CV files</h2>
           <button
             type="button"
             className="close-dialog quiet"
@@ -350,23 +350,14 @@ export const ApplicationShell = memo(function ApplicationShell() {
             ×
           </button>
         </div>
-        <p>
-          Use an existing UTF-8 LaTeX project with <code>main.tex</code> at the
-          collection root and all of its local classes, styles, fonts, images
-          and includes. PDF, Word and scanned-CV import are not supported.
-        </p>
-        <p className="helper">
-          Checks compile a temporary copy with shell escape and automatic
-          package installation disabled. Project files are preserved. No AI
-          service is contacted. Only open templates and TeX installations you
-          trust; these restrictions are not an OS sandbox.
-        </p>
-        <div className="setup-fields">
+        <p>Find missing files or PDF tools. Your CV stays unchanged.</p>
+        <label>
+          CV<select id="setup-branch"></select>
+        </label>
+        <details id="setup-technical" className="technical-details">
+          <summary>Technical details</summary>
           <label>
-            Application or starting CV<select id="setup-branch"></select>
-          </label>
-          <label>
-            Engine for checks and new preparations
+            PDF tool for checks and new preparations
             <select id="setup-engine">
               <option value="auto">Automatic</option>
               <option value="pdflatex">PDFLaTeX</option>
@@ -374,25 +365,37 @@ export const ApplicationShell = memo(function ApplicationShell() {
               <option value="lualatex">LuaLaTeX</option>
             </select>
           </label>
-        </div>
-        <p className="helper">
-          Automatic uses XeLaTeX when main.tex declares fontspec, polyglossia or
-          unicode-math; otherwise PDFLaTeX. Choose explicitly when a class or
-          included file requires another engine. Retries preserve their captured
-          engine.
-        </p>
+          <p className="helper">
+            Automatic uses XeLaTeX when main.tex declares fontspec, polyglossia
+            or unicode-math; otherwise PDFLaTeX. Choose explicitly when a class
+            or included file requires another engine. Retries preserve their
+            captured engine.
+          </p>
+          <p>
+            Use a UTF-8 LaTeX project with <code>main.tex</code> at the project
+            root. Include all required classes, styles, fonts, images and
+            included files in Git. PDF, Word and scanned-CV import are not
+            available. A different <code>vt run --file</code> entry supports
+            viewing and PDF previews; AI preparation requires{" "}
+            <code>main.tex</code>.
+          </p>
+          <p className="helper">
+            Checks compile a temporary copy with shell escape and automatic
+            package installation disabled. No AI service is contacted. Only open
+            templates and TeX installations you trust; these restrictions are
+            not an OS sandbox.
+          </p>
+          <p id="setup-revision" className="helper"></p>
+        </details>
         <p id="setup-progress" role="status"></p>
-        <h3 id="setup-result-heading" tabIndex={-1}>
-          Check your saved LaTeX project
-        </h3>
-        <p id="setup-revision" className="helper"></p>
+        <h3 id="setup-result-heading" tabIndex={-1} hidden={true}></h3>
         <ul id="setup-results"></ul>
         <footer className="dialog-footer">
           <button type="button" className="close-dialog">
             Close
           </button>
           <button type="button" id="check-setup" className="primary">
-            Run setup check
+            Check files
           </button>
         </footer>
       </dialog>

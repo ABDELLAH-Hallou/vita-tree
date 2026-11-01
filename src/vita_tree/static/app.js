@@ -88,35 +88,6 @@ var o = /* @__PURE__ */ e(t(), 1), s = i(), c = o.createContext(void 0), l = ({ 
 							children: "＋ New application"
 						})]
 					}),
-					/* @__PURE__ */ (0, s.jsxs)("details", {
-						className: "input-guide",
-						children: [
-							/* @__PURE__ */ (0, s.jsx)("summary", { children: "Start with an existing LaTeX CV" }),
-							/* @__PURE__ */ (0, s.jsxs)("p", { children: [
-								"Open a Git collection containing your complete UTF-8 LaTeX project. AI preparation uses ",
-								/* @__PURE__ */ (0, s.jsx)("code", { children: "main.tex" }),
-								" at the collection root. Keep its local ",
-								/* @__PURE__ */ (0, s.jsx)("code", { children: ".cls" }),
-								",",
-								" ",
-								/* @__PURE__ */ (0, s.jsx)("code", { children: ".sty" }),
-								", images and included files alongside it; required project files must not be ignored by Git."
-							] }),
-							/* @__PURE__ */ (0, s.jsxs)("p", { children: [
-								"Vita Tree opens LaTeX projects directly. PDF, Word and scanned-CV import are not available here. A different",
-								" ",
-								/* @__PURE__ */ (0, s.jsx)("code", { children: "vt run --file" }),
-								" entry supports direct viewing and PDF previews; AI preparation requires ",
-								/* @__PURE__ */ (0, s.jsx)("code", { children: "main.tex" }),
-								"."
-							] }),
-							/* @__PURE__ */ (0, s.jsx)("button", {
-								"data-open-setup": "",
-								type: "button",
-								children: "Check input & setup"
-							})
-						]
-					}),
 					/* @__PURE__ */ (0, s.jsxs)("div", {
 						className: "list-toolbar",
 						children: [/* @__PURE__ */ (0, s.jsxs)("label", {
@@ -222,11 +193,11 @@ var o = /* @__PURE__ */ e(t(), 1), s = i(), c = o.createContext(void 0), l = ({ 
 				children: [/* @__PURE__ */ (0, s.jsx)("p", {
 					id: "setup-summary",
 					role: "status",
-					children: "Check your saved project before preparing it."
+					children: "CV files are checked automatically before preparation."
 				}), /* @__PURE__ */ (0, s.jsx)("button", {
 					"data-open-setup": "",
 					type: "button",
-					children: "Check setup"
+					children: "Check CV files"
 				})]
 			}),
 			/* @__PURE__ */ (0, s.jsxs)("section", {
@@ -4870,17 +4841,17 @@ var Hs = Object.defineProperty, Us = (e, t) => Hs(e, "name", {
 		ref: t
 	});
 }, "DropdownMenuItem")), $ = {
-	application: "_application_14jpy_1",
-	quickTrigger: "_quickTrigger_14jpy_342",
-	navigationTrigger: "_navigationTrigger_14jpy_343",
-	overlay: "_overlay_14jpy_371",
-	command: "_command_14jpy_377",
-	commandHeading: "_commandHeading_14jpy_393",
-	commandDescription: "_commandDescription_14jpy_403",
-	commandSearch: "_commandSearch_14jpy_408",
-	commandItems: "_commandItems_14jpy_423",
-	menu: "_menu_14jpy_445",
-	menuItem: "_menuItem_14jpy_456"
+	application: "_application_c0l5u_1",
+	quickTrigger: "_quickTrigger_c0l5u_335",
+	navigationTrigger: "_navigationTrigger_c0l5u_336",
+	overlay: "_overlay_c0l5u_364",
+	command: "_command_c0l5u_370",
+	commandHeading: "_commandHeading_c0l5u_386",
+	commandDescription: "_commandDescription_c0l5u_396",
+	commandSearch: "_commandSearch_c0l5u_401",
+	commandItems: "_commandItems_c0l5u_416",
+	menu: "_menu_c0l5u_438",
+	menuItem: "_menuItem_c0l5u_449"
 }, rc = [
 	{
 		name: "New application",
@@ -5515,7 +5486,7 @@ var cc = (0, o.memo)(function() {
 						className: "dialog-heading",
 						children: [/* @__PURE__ */ (0, s.jsx)("h2", {
 							id: "setup-title",
-							children: "Input & environment"
+							children: "Check CV files"
 						}), /* @__PURE__ */ (0, s.jsx)("button", {
 							type: "button",
 							className: "close-dialog quiet",
@@ -5523,42 +5494,57 @@ var cc = (0, o.memo)(function() {
 							children: "×"
 						})]
 					}),
-					/* @__PURE__ */ (0, s.jsxs)("p", { children: [
-						"Use an existing UTF-8 LaTeX project with ",
-						/* @__PURE__ */ (0, s.jsx)("code", { children: "main.tex" }),
-						" at the collection root and all of its local classes, styles, fonts, images and includes. PDF, Word and scanned-CV import are not supported."
-					] }),
-					/* @__PURE__ */ (0, s.jsx)("p", {
-						className: "helper",
-						children: "Checks compile a temporary copy with shell escape and automatic package installation disabled. Project files are preserved. No AI service is contacted. Only open templates and TeX installations you trust; these restrictions are not an OS sandbox."
-					}),
-					/* @__PURE__ */ (0, s.jsxs)("div", {
-						className: "setup-fields",
-						children: [/* @__PURE__ */ (0, s.jsxs)("label", { children: ["Application or starting CV", /* @__PURE__ */ (0, s.jsx)("select", { id: "setup-branch" })] }), /* @__PURE__ */ (0, s.jsxs)("label", { children: ["Engine for checks and new preparations", /* @__PURE__ */ (0, s.jsxs)("select", {
-							id: "setup-engine",
-							children: [
-								/* @__PURE__ */ (0, s.jsx)("option", {
-									value: "auto",
-									children: "Automatic"
-								}),
-								/* @__PURE__ */ (0, s.jsx)("option", {
-									value: "pdflatex",
-									children: "PDFLaTeX"
-								}),
-								/* @__PURE__ */ (0, s.jsx)("option", {
-									value: "xelatex",
-									children: "XeLaTeX"
-								}),
-								/* @__PURE__ */ (0, s.jsx)("option", {
-									value: "lualatex",
-									children: "LuaLaTeX"
-								})
-							]
-						})] })]
-					}),
-					/* @__PURE__ */ (0, s.jsx)("p", {
-						className: "helper",
-						children: "Automatic uses XeLaTeX when main.tex declares fontspec, polyglossia or unicode-math; otherwise PDFLaTeX. Choose explicitly when a class or included file requires another engine. Retries preserve their captured engine."
+					/* @__PURE__ */ (0, s.jsx)("p", { children: "Find missing files or PDF tools. Your CV stays unchanged." }),
+					/* @__PURE__ */ (0, s.jsxs)("label", { children: ["CV", /* @__PURE__ */ (0, s.jsx)("select", { id: "setup-branch" })] }),
+					/* @__PURE__ */ (0, s.jsxs)("details", {
+						id: "setup-technical",
+						className: "technical-details",
+						children: [
+							/* @__PURE__ */ (0, s.jsx)("summary", { children: "Technical details" }),
+							/* @__PURE__ */ (0, s.jsxs)("label", { children: ["PDF tool for checks and new preparations", /* @__PURE__ */ (0, s.jsxs)("select", {
+								id: "setup-engine",
+								children: [
+									/* @__PURE__ */ (0, s.jsx)("option", {
+										value: "auto",
+										children: "Automatic"
+									}),
+									/* @__PURE__ */ (0, s.jsx)("option", {
+										value: "pdflatex",
+										children: "PDFLaTeX"
+									}),
+									/* @__PURE__ */ (0, s.jsx)("option", {
+										value: "xelatex",
+										children: "XeLaTeX"
+									}),
+									/* @__PURE__ */ (0, s.jsx)("option", {
+										value: "lualatex",
+										children: "LuaLaTeX"
+									})
+								]
+							})] }),
+							/* @__PURE__ */ (0, s.jsx)("p", {
+								className: "helper",
+								children: "Automatic uses XeLaTeX when main.tex declares fontspec, polyglossia or unicode-math; otherwise PDFLaTeX. Choose explicitly when a class or included file requires another engine. Retries preserve their captured engine."
+							}),
+							/* @__PURE__ */ (0, s.jsxs)("p", { children: [
+								"Use a UTF-8 LaTeX project with ",
+								/* @__PURE__ */ (0, s.jsx)("code", { children: "main.tex" }),
+								" at the project root. Include all required classes, styles, fonts, images and included files in Git. PDF, Word and scanned-CV import are not available. A different ",
+								/* @__PURE__ */ (0, s.jsx)("code", { children: "vt run --file" }),
+								" entry supports viewing and PDF previews; AI preparation requires",
+								" ",
+								/* @__PURE__ */ (0, s.jsx)("code", { children: "main.tex" }),
+								"."
+							] }),
+							/* @__PURE__ */ (0, s.jsx)("p", {
+								className: "helper",
+								children: "Checks compile a temporary copy with shell escape and automatic package installation disabled. No AI service is contacted. Only open templates and TeX installations you trust; these restrictions are not an OS sandbox."
+							}),
+							/* @__PURE__ */ (0, s.jsx)("p", {
+								id: "setup-revision",
+								className: "helper"
+							})
+						]
 					}),
 					/* @__PURE__ */ (0, s.jsx)("p", {
 						id: "setup-progress",
@@ -5567,11 +5553,7 @@ var cc = (0, o.memo)(function() {
 					/* @__PURE__ */ (0, s.jsx)("h3", {
 						id: "setup-result-heading",
 						tabIndex: -1,
-						children: "Check your saved LaTeX project"
-					}),
-					/* @__PURE__ */ (0, s.jsx)("p", {
-						id: "setup-revision",
-						className: "helper"
+						hidden: !0
 					}),
 					/* @__PURE__ */ (0, s.jsx)("ul", { id: "setup-results" }),
 					/* @__PURE__ */ (0, s.jsxs)("footer", {
@@ -5584,7 +5566,7 @@ var cc = (0, o.memo)(function() {
 							type: "button",
 							id: "check-setup",
 							className: "primary",
-							children: "Run setup check"
+							children: "Check files"
 						})]
 					})
 				]
@@ -5604,7 +5586,7 @@ if (!lc) throw Error("Vita Tree could not find its application root.");
 	children: /* @__PURE__ */ (0, s.jsx)(cc, {})
 })));
 try {
-	await import("./assets/frontend-app-DcPqqxw1.js"), lc.dataset.ready = "true";
+	await import("./assets/frontend-app-Da5vcAjO.js"), lc.dataset.ready = "true";
 } catch (e) {
 	let t = document.createElement("p");
 	throw t.setAttribute("role", "alert"), t.textContent = e instanceof Error ? e.message : "The application could not start. Reload to try again.", lc.prepend(t), e;

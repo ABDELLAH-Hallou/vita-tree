@@ -1759,9 +1759,6 @@ dialog textarea {
 .dag-requirements{grid-column:1/-1;display:block;font-size:11px;color:var(--muted);overflow-wrap:anywhere}
 
 .attempt-row button{max-width:100%;white-space:normal;overflow-wrap:anywhere}
-.input-guide{margin:0 0 24px;padding:16px 20px;border:1px solid var(--border);border-radius:8px;color:var(--muted);line-height:1.6}
-.input-guide summary{cursor:pointer;color:var(--ink);font-weight:600}
-.input-guide p{max-width:85ch}
 .setup-bar{display:flex;align-items:center;justify-content:space-between;gap:20px;margin:0 0 16px;color:var(--muted);font-size:13px}
 .setup-bar p{margin:0;max-width:90ch}.setup-bar button{flex-shrink:0}
 #setup-dialog{width:min(820px,94vw);max-height:90vh;overflow:auto;box-sizing:border-box}
