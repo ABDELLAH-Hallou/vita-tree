@@ -7,6 +7,7 @@ from unittest.mock import patch
 from support import init_repo, cleanup_repo, git
 from vita_tree.workspace import Workspace, digest, ConflictError
 from vita_tree.jobenu import JobenuImports
+from vita_tree import jobenu as jobenu_module
 
 EXPORT = {
     "exportedAt": "2026-01-01",
@@ -37,6 +38,63 @@ SOURCE = Path(
 
 
 class JobenuTests(unittest.TestCase):
+    def test_batch_aliases_validate_before_writing_and_preserve_other_settings(self):
+        config = self.root / '.vita/extensions.json'
+        config.parent.mkdir(exist_ok=True)
+        original = {'language_map': {'sv': 'Swedish'}, 'role_aliases': {'Existing': 'old'}}
+        config.write_text(json.dumps(original))
+        items = [{'title': 'Data Engineer', 'alias': 'data'},
+                 {'title': 'ML Engineer', 'alias': 'ml'}]
+        for invalid in ([], 'bad', items + [items[0]],
+                        [items[0], {'title': 'Other', 'alias': 'BAD ALIAS'}]):
+            with self.assertRaises(ValueError):
+                self.manager.aliases(invalid)
+            self.assertEqual(json.loads(config.read_text()), original)
+        with patch('vita_tree.jobenu.atomic_write_bytes', wraps=jobenu_module.atomic_write_bytes) as write:
+            self.assertEqual(self.manager.aliases(items)['count'], 2)
+            self.assertEqual(write.call_count, 1)
+        self.assertEqual(json.loads(config.read_text()), {
+            **original, 'role_aliases': {'Existing': 'old', 'Data Engineer': 'data', 'ML Engineer': 'ml'}})
+        self.manager.running.add('fixture')
+        with self.assertRaises(ValueError):
+            self.manager.aliases([{'title': 'Blocked', 'alias': 'blocked'}])
+        self.assertNotIn('Blocked', json.loads(config.read_text())['role_aliases'])
+
+    def test_export_dates_are_available_after_upload_and_restart(self):
+        export = json.loads(json.dumps(EXPORT))
+        export['applications'][0].update(createdAt='2026-10-31T23:45:00-04:00',
+                                         updatedAt='2026-11-01', appliedAt=None,
+                                         deadlineAt='invalid')
+        export['applications'][1].update(createdAt='2026-02-30')
+        uploaded = self.manager.upload('dated.json', json.dumps(export))
+        dates = uploaded['applications'][0]['dates']
+        self.assertEqual(dates['createdAt'], '2026-10-31')
+        self.assertEqual(dates['updatedAt'], '2026-11-01')
+        self.assertIsNone(dates['appliedAt'])
+        self.assertIsNone(dates['deadlineAt'])
+        restarted = JobenuImports(self.ws)
+        self.assertEqual(restarted.selection(uploaded['id'])['applications'][0]['dates'], dates)
+        self.assertIsNone(uploaded['applications'][1]['dates']['createdAt'])
+        self.assertEqual(json.loads((self.manager.folder(uploaded['id'])/'original.json').read_text()) , export)
+
+    def test_date_filter_checks_selected_ids_before_calling_vita(self):
+        export = json.loads(json.dumps(EXPORT))
+        export['applications'][0]['createdAt'] = '2026-10-31T23:45:00-04:00'
+        export['applications'][1]['createdAt'] = '2026-11-01'
+        ident = self.manager.upload('dated.json', json.dumps(export))['id']
+        filters = dict(dateField='createdAt', dateFrom='2026-10-31', dateTo='2026-10-31')
+        with patch.object(self.manager, 'command', return_value=(['fixture'], {})), patch.object(self.manager, 'invoke', return_value=(0, json.dumps(dict(schema_version=1, status='planned', plan_id='dated', entries=[])).encode(), b'')) as invoke:
+            self.manager.preview(ident, self.options(ident, **filters))
+            selected = json.loads((self.manager.folder(ident)/'selected.json').read_text())
+            self.assertEqual([a['id'] for a in selected['applications']], ['one'])
+            self.assertEqual(self.manager.record(ident)['options']['dateFrom'], '2026-10-31')
+            for invalid in (dict(ids=['two']), dict(ids=[]), dict(dateFrom='bad'),
+                            dict(dateFrom='2026-11-02'), dict(dateField='description')):
+                options = {**self.options(ident), **filters, **invalid}
+                with self.assertRaises(ValueError):
+                    self.manager.preview(ident, options)
+            self.assertEqual(invoke.call_count, 1)
+
     def test_workspace_history_does_not_wait_for_native_decision_lock(self):
         done = threading.Event()
         errors = []

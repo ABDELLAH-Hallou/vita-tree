@@ -456,6 +456,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             '/api/jobenu/decide': lambda: workspace.jobenu.decide(data['id'],data['key'],data['action'],data.get('revision')),
             '/api/jobenu/log': lambda: workspace.jobenu.log(data['id'],data.get('key')),
             '/api/jobenu/alias': lambda: workspace.jobenu.alias(data['title'],data['alias']),
+            '/api/jobenu/aliases': lambda: workspace.jobenu.aliases(data.get('aliases')),
             '/api/jobenu/discard': lambda: workspace.jobenu.discard(data['id']),
             '/api/connections': lambda: workspace.add_connection(data.get('name'), data.get('provider'), data.get('apiKey')),
             '/api/connections/remove': lambda: workspace.remove_connection(data.get('id')),
