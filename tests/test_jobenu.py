@@ -38,6 +38,117 @@ SOURCE = Path(
 
 
 class JobenuTests(unittest.TestCase):
+    def failed_batch(self):
+        ident = self.upload()
+        record = self.manager.record(ident)
+        entries = [dict(application_id='one', key='k-one', fingerprint='f-one',
+                        branch='app-one', company='Sample Co', position='Data Engineer',
+                        action='existing', status='failed', current_step='adapt', completed_steps=['analyze']),
+                   dict(application_id='two', key='k-two', fingerprint='f-two',
+                        branch='app-two', company='Other Co', position='ML Engineer',
+                        action='existing', status='awaiting_approval', pending={'step':'adapt','revision':'exact'})]
+        record.update(status='failed', startedAt=100, finishedAt=110, options={**self.options(ident), 'run':True},
+                      plan=dict(plan_id='original', base_commit='base', routing_sha256='routing', preferences_sha256='prefs', entries=entries),
+                      capturedRoutes={'adapt': {'provider':'codex','model':'fixture-captured'}},
+                      result=dict(results=entries))
+        self.manager.save(record)
+        return ident, record
+
+    def test_retry_preview_selects_only_failed_rows_and_preserves_original_batch(self):
+        ident, original = self.failed_batch()
+        native_plan = {**original['plan'], 'plan_id':'retry', 'status':'planned', 'schema_version':1,
+                       'entries':[original['plan']['entries'][0]]}
+        with patch.object(self.manager, 'command', return_value=(['fixture'], {})), patch.object(self.manager, 'invoke', return_value=(0,json.dumps(native_plan).encode(),b'')) as invoke:
+            child = self.manager.retry_preview(ident)
+        self.assertNotEqual(child['id'], ident)
+        self.assertEqual(child['parentBatchId'], ident)
+        self.assertEqual(self.manager.record(ident), original)
+        self.assertEqual(child['options']['ids'], ['one'])
+        self.assertFalse(child['options']['rerun'])
+        self.assertNotIn('--rerun', invoke.call_args.args[2])
+        self.assertEqual(invoke.call_args.args[1]['ADAPT_MODEL'], 'fixture-captured')
+        selected = json.loads(self.manager.selected_path(child['id']).read_text())
+        self.assertEqual(selected['applications'], [EXPORT['applications'][0]])
+        self.assertEqual(child['entries'][0]['completed_steps'], ['analyze'])
+        self.assertEqual(self.manager.running, set())  # Preview never launches work.
+
+    def test_retry_rejects_review_rows_unknown_keys_and_changed_configuration(self):
+        ident, original = self.failed_batch()
+        with patch.object(self.manager, 'invoke') as invoke:
+            for keys in ([], ['k-two'], ['unknown'], ['k-one','k-one']):
+                with self.assertRaises(ValueError):
+                    self.manager.retry_preview(ident, keys)
+            invoke.assert_not_called()
+        changed = {**original['plan'], 'routing_sha256':'new-route', 'plan_id':'retry',
+                   'schema_version':1, 'status':'planned', 'entries':[original['plan']['entries'][0]]}
+        with patch.object(self.manager, 'command', return_value=(['fixture'], {})), patch.object(self.manager, 'invoke', return_value=(0,json.dumps(changed).encode(),b'')):
+            with self.assertRaisesRegex(ValueError, 'settings|configuration'):
+                self.manager.retry_preview(ident, ['k-one'])
+        self.assertEqual(self.manager.record(ident), original)
+        self.assertEqual(len(self.manager.listing()['batches']), 1)
+
+    def test_retry_start_rechecks_failed_state_and_preserves_lineage_after_restart(self):
+        ident, original = self.failed_batch()
+        plan = {**original['plan'], 'plan_id':'retry', 'schema_version':1, 'status':'planned',
+                'entries':[original['plan']['entries'][0]]}
+        with patch.object(self.manager, 'command', return_value=(['fixture'], {})), patch.object(self.manager, 'invoke', return_value=(0,json.dumps(plan).encode(),b'')):
+            child = self.manager.retry_preview(ident, ['k-one'])
+        restarted = JobenuImports(self.ws)
+        self.assertEqual(next(b for b in restarted.listing()['batches'] if b['id']==child['id'])['parentBatchId'], ident)
+        original['result']['results'][0]['status']='complete'
+        self.manager.save(original)
+        with self.assertRaisesRegex(ValueError, 'failed|changed'):
+            self.manager.start(child['id'], 'retry')
+        self.assertFalse(self.manager.running)
+
+    def test_forgetting_batch_removes_retry_exports_and_rejects_active_attempts(self):
+        ident, original = self.failed_batch()
+        child = self.upload()
+        record = self.manager.record(child)
+        record.update(parentBatchId=ident, retryRootId=ident)
+        self.manager.save(record)
+        self.manager.running.add(child)
+        with self.assertRaises(ValueError):
+            self.manager.discard(ident)
+        self.assertTrue(self.manager.folder(ident).exists())
+        self.assertTrue(self.manager.folder(child).exists())
+        self.manager.running.clear()
+        self.manager.discard(ident)
+        self.assertFalse(self.manager.folder(ident).exists())
+        self.assertFalse(self.manager.folder(child).exists())
+
+    def test_retry_can_fail_repeatedly_after_restart_without_force_rerun(self):
+        ident, original = self.failed_batch()
+        plan = {**original['plan'], 'schema_version':1, 'status':'planned',
+                'entries':[original['plan']['entries'][0]]}
+        calls = []
+        def invoke(command, env, args, **kwargs):
+            calls.append(args)
+            self.assertNotIn('--rerun', args)
+            self.assertEqual(env['ADAPT_MODEL'], 'fixture-captured')
+            if '--dry-run' in args:
+                return 0, json.dumps(plan).encode(), b''
+            return 1, json.dumps(dict(schema_version=1, status='failed', results=plan['entries'])).encode(), b''
+        for _ in range(2):
+            with patch.object(self.manager, 'command', return_value=(['fixture'], {})), patch.object(self.manager, 'invoke', side_effect=invoke):
+                child = self.manager.retry_preview(ident)
+                self.manager.start(child['id'], plan['plan_id'])
+                for worker in list(self.manager.workers):
+                    worker.join(10)
+                self.assertFalse(self.manager.running)
+                self.assertEqual(self.manager.record(child['id'])['status'], 'failed')
+            self.manager = JobenuImports(self.ws)
+            self.ws.jobenu = self.manager
+        self.assertEqual(len(calls), 4)
+        self.assertEqual(self.manager.record(ident), original)
+        self.assertEqual(len(self.manager.listing()['batches']), 3)
+        index = self.root / '.vita/imports/jobenu/index.json'
+        index.parent.mkdir(parents=True,exist_ok=True)
+        index.write_text(json.dumps(dict(applications={'k-one':dict(versions={'f-one':dict(status='complete')})})))
+        history = self.manager.history('app-one')
+        self.assertEqual(len(history), 3)
+        self.assertTrue(all(run['status']=='failed' for run in history))
+
     def test_batch_aliases_validate_before_writing_and_preserve_other_settings(self):
         config = self.root / '.vita/extensions.json'
         config.parent.mkdir(exist_ok=True)

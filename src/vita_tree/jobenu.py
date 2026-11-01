@@ -159,7 +159,7 @@ class JobenuImports:
                 "message": "Jobenu support could not be verified. Select a compatible Vita CV source folder and check again.",
             }
 
-    def upload(self, filename, content):
+    def upload(self, filename, content, *, parent_batch=None, retry_keys=None):
         if not isinstance(content, str) or len(content.encode()) > 10 * 1024 * 1024:
             raise ValueError("Choose a JSON export smaller than 10 MiB.")
 
@@ -220,6 +220,12 @@ class JobenuImports:
             "status": "selecting",
             "createdAt": time.time(),
         }
+        if parent_batch is not None:
+            record.update(
+                parentBatchId=parent_batch["id"],
+                retryRootId=parent_batch.get("retryRootId") or parent_batch["id"],
+                retryKeys=retry_keys,
+            )
         self.save(record)
         return {
             **record,
@@ -269,7 +275,12 @@ class JobenuImports:
             args.extend(["--status", status])
         return args
 
-    def preview(self, ident, data):
+    def retry_preview(self, ident, keys=None):
+        from .jobenu_retry import preview
+
+        return preview(self, ident, keys)
+
+    def preview(self, ident, data, *, captured_routes=None, runtime=None):
         with self.lock:
             if self.running:
                 raise ValueError(
@@ -340,6 +351,16 @@ class JobenuImports:
                         )
                     provider_keys[route["provider"]] = key
                     env[route["provider"].upper() + "_API_KEY"] = key
+            if captured_routes is not None:
+                for step, route in captured_routes.items():
+                    if step not in PREFIXES:
+                        continue
+                    for field in ("provider", "model"):
+                        if route.get(field):
+                            env[PREFIXES[step] + "_" + field.upper()] = route[field]
+            if runtime is not None:
+                command, captured_env = runtime
+                env = dict(captured_env)
             args = ["import", "jobenu", str(path), *self.options(data), "--json"]
             code, out, _ = self.invoke(command, env, [*args, "--dry-run"])
             plan = self.envelope(code, out)
@@ -427,6 +448,9 @@ class JobenuImports:
                 != r["fileHash"]
             ):
                 raise ValueError("The selected source changed. Preview again.")
+            from .jobenu_retry import check_start
+
+            check_start(self, r)
             with self.ws.lock:
                 if self.ws._closed:
                     raise ValueError(
@@ -495,13 +519,15 @@ class JobenuImports:
                     self.running.discard(ident)
                     self.workers.discard(threading.current_thread())
 
-    def entries(self, r):
+    def entries(self, r, *, historical=False):
         plan = r.get("plan") or {}
         rows = (
             plan.get("entries", [])
             if r["status"] in {"planned", "conflict", "selecting"}
             else (r.get("result") or {}).get("results") or plan.get("entries", [])
         )
+        if historical and r.get("finishedAt") and (r.get("result") or {}).get("results"):
+            return rows
         from .workspace import safe_path
 
         try:
@@ -531,6 +557,10 @@ class JobenuImports:
                 "finishedAt",
                 "error",
                 "exitCode",
+                "parentBatchId",
+                "retryRootId",
+                "retryKeys",
+                "capturedRoutes",
             )
         }
         result["plan"] = r.get("plan")
@@ -771,17 +801,29 @@ class JobenuImports:
 
     def discard(self, ident):
         with self.lock:
-            if ident in self.running:
+            related = {ident}
+            records = []
+            for path in self.root.glob("*/session.json"):
+                try:
+                    records.append(self.record(path.parent.name))
+                except (OSError, ValueError):
+                    continue
+            while True:
+                children = {record["id"] for record in records
+                            if record.get("parentBatchId") in related
+                            or record.get("retryRootId") == ident}
+                if children <= related:
+                    break
+                related.update(children)
+            if related & self.running:
                 raise ValueError("A running batch cannot be forgotten.")
             self.history()
-            folder = self.folder(ident)
-            for name in (
-                "session.json",
-                "original.json",
-                "selected.json",
-                "execution.log",
-            ):
-                (folder / name).unlink(missing_ok=True)
-            folder.rmdir()
-            self.environments.pop(ident, None)
+            for item in related:
+                folder = self.folder(item)
+                for name in (
+                    "session.json", "original.json", "selected.json", "execution.log",
+                ):
+                    (folder / name).unlink(missing_ok=True)
+                folder.rmdir()
+                self.environments.pop(item, None)
             return {"removed": True}

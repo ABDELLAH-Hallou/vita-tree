@@ -451,6 +451,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             '/api/jobenu/upload': lambda: workspace.jobenu.upload(data.get('filename','export.json'),data.get('content')),
             '/api/jobenu/selection': lambda: workspace.jobenu.selection(data['id']),
             '/api/jobenu/preview': lambda: workspace.jobenu.preview(data['id'],data),
+            '/api/jobenu/retry-preview': lambda: workspace.jobenu.retry_preview(data['id'],data.get('keys')),
             '/api/jobenu/start': lambda: workspace.jobenu.start(data['id'],data['planId']),
             '/api/jobenu/review': lambda: workspace.jobenu.review(data['id'],data['key']),
             '/api/jobenu/decide': lambda: workspace.jobenu.decide(data['id'],data['key'],data['action'],data.get('revision')),
