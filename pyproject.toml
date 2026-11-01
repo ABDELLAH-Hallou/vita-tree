@@ -56,4 +56,4 @@ include = ["vita_tree*"]
 version = {attr = "vita_tree.__version__"}
 
 [tool.setuptools.package-data]
-vita_tree = ["static/*", "static/vendor/*", "static/vendor/standard_fonts/*", "static/vendor/cmaps/*", "static/vendor/wasm/*"]
+vita_tree = ["static/*", "static/assets/*", "static/vendor/*", "static/vendor/standard_fonts/*", "static/vendor/cmaps/*", "static/vendor/wasm/*"]

@@ -1,0 +1,577 @@
+.application {
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--ink);
+}
+/* Framed-sheet: 224px navigation + 24px gutter + remaining white sheet.
+   At <=1100px navigation folds into the real menu; canvas gutters stay equal. */
+.application :global(.topbar) {
+  position: relative;
+  height: 56px;
+  min-height: 56px;
+  background: var(--bg);
+  border: 0;
+  backdrop-filter: none;
+}
+.application :global(.topbar-inner) {
+  max-width: none;
+  width: 100%;
+  height: 56px;
+  padding: 0 24px;
+  gap: 16px;
+}
+.application :global(.brand) {
+  font-size: 16px;
+  gap: 10px;
+  color: var(--ink);
+}
+.application :global(.brand-mark) {
+  width: 26px;
+  height: 26px;
+  stroke: var(--accent);
+}
+.application :global(#repository) {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.application :global(.shell) {
+  max-width: none;
+  width: auto;
+  margin: 0;
+  padding: 8px 24px 24px;
+  min-height: calc(100dvh - 56px);
+}
+.application :global(.page-heading) {
+  margin: 0 0 20px;
+  gap: 16px;
+  align-items: center;
+}
+.application :global(h1) {
+  font-size: 26px;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+  margin: 0;
+}
+.application :global(.subtitle) {
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 8px 0 0;
+}
+.application :global(.board-layout) {
+  grid-template-columns: 224px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.application :global(.board-nav) {
+  padding: 14px 0;
+  position: sticky;
+  top: 16px;
+  gap: 6px;
+}
+.application :global(.board-nav > button) {
+  border: 0;
+  min-height: 40px;
+  border-radius: 6px;
+  color: var(--muted);
+  background: transparent;
+}
+.application :global(.board-nav > button[aria-pressed="true"]) {
+  background: var(--hover);
+  color: var(--ink);
+}
+.application :global(.workspace-note) {
+  border: 0;
+  background: transparent;
+  padding: 24px 12px;
+  font-size: 12px;
+}
+.application :global(.workspace-note strong),
+.application :global(.workspace-note p) {
+  display: none;
+}
+.application :global(.branch-table) {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 24px;
+  min-width: 0;
+  box-shadow: none;
+}
+.application :global(.list-toolbar) {
+  padding: 16px 0;
+  gap: 12px;
+}
+.application :global(.list-head) {
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--muted);
+  background: transparent;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.application :global(.branch-entry) {
+  min-width: 0;
+}
+.application :global(.branch-row) {
+  min-height: 76px;
+  padding: 14px 12px;
+  border-radius: 4px;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+}
+.application :global(.branch-row:hover) {
+  background: var(--surface);
+}
+.application :global(.branch-name) {
+  font-size: 14px;
+  font-weight: 600;
+}
+.application :global(.branch-detail),
+.application :global(.commit-meta),
+.application :global(.branch-date) {
+  font-size: 13px;
+  line-height: 1.5;
+}
+.application :global(.branch-icon) {
+  color: var(--muted);
+  font-size: 18px;
+}
+.application :global(.input-guide) {
+  margin: 0 0 12px;
+  padding: 8px 0;
+  border: 0;
+  background: transparent;
+  font-size: 13px;
+}
+.application :global(.bulk-review-toolbar) {
+  padding: 10px 0;
+  gap: 12px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  font-size: 13px;
+}
+.application :global(.bulk-review-toolbar button) {
+  font-size: 13px;
+  min-height: 36px;
+}
+.application :global(#workspace),
+.application :global(#jobenu-import) {
+  max-width: none;
+  background: var(--panel);
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.application :global(.back) {
+  margin: 0 0 16px;
+  padding: 4px 0;
+}
+.application :global(.workspace-heading) {
+  padding: 0 0 16px;
+  margin: 0;
+  gap: 16px;
+}
+.application :global(.dag-node) {
+  box-shadow: none;
+}
+.application :global(.workflow-panel) {
+  box-shadow: none;
+  border-radius: 8px;
+  background: var(--panel);
+  margin: 20px 0;
+}
+.application :global(.workflow-heading) {
+  padding: 16px;
+  gap: 12px;
+  background: var(--panel);
+}
+.application :global(.workflow-heading h2) {
+  font-size: 16px;
+  margin: 0;
+}
+.application :global(.workflow-heading p) {
+  font-size: 13px;
+  line-height: 1.5;
+}
+.application :global(.workflow-action) {
+  padding: 12px 16px;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+}
+.application :global(.workflow-action h3) {
+  font-size: 13px;
+}
+.application :global(.workflow-action p) {
+  font-size: 13px;
+  line-height: 1.5;
+  max-width: 65ch;
+}
+.application :global(.workflow-graph) {
+  padding: 16px;
+  background: var(--panel);
+  background-image: none;
+}
+.application :global(.dag-node) {
+  min-height: 104px;
+  padding: 12px;
+  border-radius: 6px;
+  background: var(--panel);
+}
+.application :global(.dag-node strong) {
+  font-size: 13px;
+  line-height: 1.4;
+}
+.application :global(.dag-status),
+.application :global(.dag-time),
+.application :global(.dag-model) {
+  font-size: 12px;
+  line-height: 1.4;
+}
+.application :global(.dag-edge) {
+  font-size: 18px;
+  width: 20px;
+}
+.application :global(.workflow-stage-group) {
+  display: contents;
+}
+.application :global(.branch-icon) {
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.6;
+  flex: none;
+}
+.application :global(.workflow-legend) {
+  padding: 10px 16px;
+  background: var(--panel);
+  font-size: 12px;
+}
+.application :global(.workspace-toolbar) {
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+  z-index: 20;
+  padding: 8px 0;
+  gap: 16px;
+  margin-top: 16px;
+}
+.application :global(.tabs) {
+  gap: 4px;
+  min-width: 0;
+}
+.application :global(.tabs button) {
+  font-size: 13px;
+  min-height: 40px;
+  padding: 8px 12px;
+}
+.application :global(.tabs button[aria-selected="true"]) {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+}
+.application :global(.pane) {
+  border-radius: 8px;
+  box-shadow: none;
+}
+.application :global(.pane-heading) {
+  min-height: 48px;
+  background: var(--surface);
+  padding: 10px 16px;
+}
+.application :global(.document-scroll),
+.application :global(.source-editor),
+.application :global(.pdf-scroll) {
+  min-height: 520px;
+}
+.application :global(.file-navigation) {
+  margin: 12px 0;
+  padding: 12px;
+  border-radius: 6px;
+  background: var(--surface);
+}
+.application :global(.comparison) {
+  gap: 20px;
+}
+.application :global(.content-panel) {
+  border-radius: 8px;
+  box-shadow: none;
+  background: var(--panel);
+}
+.application :global(.review-heading),
+.application :global(.review-controls) {
+  background: var(--panel);
+  backdrop-filter: none;
+}
+.application :global(.cm-status) {
+  font-size: 12px;
+}
+.application :global(.code-footer),
+.application :global(.lint-status) {
+  font-size: 12px;
+}
+.application :global(.primary) {
+  background: var(--ink);
+  color: var(--panel);
+  border-color: var(--ink);
+}
+.application :global(.theme-toggle) {
+  margin-left: 0;
+  background: transparent;
+  border-color: var(--border);
+}
+.application :global(.theme-toggle svg) {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+.quickTrigger,
+.navigationTrigger {
+  height: 36px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--ink);
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 20px;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+.quickTrigger kbd {
+  font-size: 11px;
+  color: var(--muted);
+  font-family: var(--sans);
+}
+.navigationTrigger {
+  display: none;
+  gap: 8px;
+}
+.navigationTrigger svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  fill: none;
+}
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: #0008;
+  z-index: 1100;
+}
+.command {
+  position: fixed;
+  z-index: 1101;
+  top: 16%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(540px, calc(100vw - 32px));
+  max-height: 75dvh;
+  overflow: auto;
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: var(--shadow);
+}
+.commandHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.commandHeading h2 {
+  font-size: 18px;
+  margin: 0;
+}
+.commandDescription {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 8px 0 16px;
+}
+.commandSearch {
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.commandSearch input {
+  width: 100%;
+  height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  background: var(--bg);
+  color: var(--ink);
+}
+.commandItems {
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+}
+.commandItems button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  padding: 10px 12px;
+  border-radius: 6px;
+  text-align: left;
+}
+.commandItems button:hover,
+.commandItems button:focus-visible {
+  background: var(--hover);
+}
+.menu {
+  z-index: 1101;
+  min-width: 224px;
+  max-width: calc(100vw - 32px);
+  padding: 6px;
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+.menuItem {
+  padding: 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  outline: none;
+}
+.menuItem[data-highlighted] {
+  background: var(--hover);
+}
+@media (max-width: 1100px) {
+  .navigationTrigger {
+    display: inline-flex;
+  }
+  .quickTrigger {
+    display: none;
+  }
+  .application :global(.board-layout) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+  .application :global(.board-nav) {
+    display: none;
+  }
+  .application :global(.shell) {
+    padding: 8px 16px 16px;
+  }
+  .application :global(.topbar-inner) {
+    padding: 0 16px;
+    gap: 12px;
+  }
+  .application :global(.brand) {
+    flex: none;
+  }
+  .application :global(.workflow-heading) {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 600px) {
+  .application :global(#document-actions) {
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+    gap: 8px;
+  }
+  .application :global(#save-state) {
+    flex-basis: 100%;
+    text-align: left;
+  }
+  .application :global(.workspace-heading > .actions) {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    width: 100%;
+  }
+  .application :global(.workspace-heading > .actions button) {
+    max-width: 100%;
+    white-space: normal;
+  }
+  .application :global(.topbar-inner) {
+    gap: 10px;
+  }
+  .application :global(.topbar .divider),
+  .application :global(#repository) {
+    display: none;
+  }
+  .navigationTrigger {
+    margin-left: auto;
+  }
+  .application :global(.shell) {
+    padding: 4px 12px 12px;
+  }
+  .application :global(.branch-table),
+  .application :global(#workspace),
+  .application :global(#jobenu-import) {
+    padding: 16px;
+    border-radius: 8px;
+  }
+  .application :global(h1) {
+    font-size: 22px;
+  }
+  .application :global(.page-heading) {
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .application :global(.page-heading button) {
+    min-height: 44px;
+    font-size: 12px;
+    padding: 8px 12px;
+    white-space: nowrap;
+  }
+  .application :global(.branch-row) {
+    padding: 12px 8px;
+    min-height: 84px;
+  }
+  .application :global(.list-toolbar) {
+    padding: 12px 0;
+  }
+  .application :global(.bulk-review-toolbar) {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .application :global(.workspace-toolbar) {
+    position: relative;
+    top: auto;
+    gap: 8px;
+  }
+  .application :global(.document-scroll),
+  .application :global(.source-editor),
+  .application :global(.pdf-scroll) {
+    min-height: 420px;
+  }
+  .application :global(.workflow-graph) {
+    padding: 12px;
+  }
+  .application :global(.workflow-heading),
+  .application :global(.workflow-action) {
+    padding: 12px;
+  }
+  .application :global(.workflow-heading .actions) {
+    width: 100%;
+    gap: 8px;
+  }
+  .application :global(.workflow-heading button),
+  .application :global(.workflow-heading select) {
+    font-size: 12px;
+  }
+  .application :global(.comparison) {
+    gap: 16px;
+  }
+}

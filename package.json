@@ -5,7 +5,11 @@
   "scripts": {
     "vendor": "node scripts/vendor-pdf.mjs && node scripts/vendor-editor.mjs",
     "build:editor": "node scripts/vendor-editor.mjs",
-    "test": "python -m unittest discover -s tests -v"
+    "test": "python -m unittest discover -s tests -v",
+    "dev": "node scripts/build-frontend.mjs --watch",
+    "build": "node scripts/build-frontend.mjs",
+    "typecheck": "tsc --noEmit",
+    "test:frontend": "node scripts/test-frontend.mjs"
   },
   "devDependencies": {
     "@codemirror/commands": "6.11.1",
@@ -16,8 +20,23 @@
     "@codemirror/state": "6.7.6",
     "@codemirror/view": "6.43.14",
     "@lezer/highlight": "1.2.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
     "axe-core": "4.11.1",
     "esbuild": "0.28.2",
-    "pdfjs-dist": "6.4.299"
+    "pdfjs-dist": "6.4.299",
+    "prettier": "3.9.10",
+    "typescript": "7.0.2",
+    "vite": "8.3.5"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "5.105.1",
+    "radix-ui": "1.8.1",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "engines": {
+    "node": ">=22.18.0"
   }
 }

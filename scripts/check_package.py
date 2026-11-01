@@ -49,6 +49,11 @@ def check(directory):
                      'scripts/vendor-pdf.mjs', 'tests/support.py', 'tests/browser_check.py',
                      'tests/smoke/run_installed_package.py', 'tests/smoke/installed_check.py', 'package-lock.json']:
             assert f'vita_tree-{version}/{path}' in source_names, path
+        for path in ['frontend/index.html', 'frontend/src/main.tsx', 'frontend/src/api/client.ts',
+                     'frontend/src/components/ApplicationShell.tsx', 'frontend/tests/views.test.tsx',
+                     'vite.config.ts', 'tsconfig.json', 'scripts/build-frontend.mjs',
+                     'scripts/test-frontend.mjs']:
+            assert f'vita_tree-{version}/{path}' in source_names, path
         for name in expected:
             assert f'vita_tree-{version}/src/{name}' in source_names, name
         # The source archive must contain the exact licensed corpus needed to
