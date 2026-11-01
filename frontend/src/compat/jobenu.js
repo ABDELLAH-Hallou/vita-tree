@@ -1,5 +1,5 @@
 import { renderLatexSnippet } from "./vendor/editor.mjs";
-export function initJobenu({ api, branches, openBranch }) {
+export function initJobenu({ api, branches, openBranch, ready }) {
   const $ = (s) => document.querySelector(s),
     make = (tag, value) => {
       const e = document.createElement(tag);
@@ -40,12 +40,13 @@ export function initJobenu({ api, branches, openBranch }) {
  <p id="jobenu-error" role="alert" class="form-error"></p><p id="jobenu-feedback" role="status"></p>
  <details id="jobenu-install"><summary>Vita installation</summary><label>Compatible Vita CV source folder<input id="jobenu-source" placeholder="Folder containing vita/__main__.py"></label><button id="jobenu-check">Check installation</button><p id="jobenu-capability" role="status"></p></details>
  <label id="jobenu-drop" class="jobenu-drop">Choose or drop a Jobenu JSON export<input id="jobenu-file" type="file" accept=".json,application/json"></label><p id="jobenu-file-info" role="status"></p>
- <div class="jobenu-scroll"><table id="jobenu-selection"><caption>Select applications</caption><thead><tr><th>Select</th><th>Company</th><th>Position</th><th>Status</th></tr></thead><tbody></tbody></table></div>
+ <div id="jobenu-date-filters" hidden><div class="jobenu-date-toolbar"><label>Date<select id="jobenu-date-field"><option value="createdAt">Added</option><option value="updatedAt">Updated</option><option value="appliedAt">Applied</option><option value="deadlineAt">Deadline</option><option value="nextActionAt">Next action</option></select></label><label>From<input id="jobenu-date-from" type="date" aria-describedby="jobenu-date-help jobenu-date-error"></label><label>To<input id="jobenu-date-to" type="date" aria-describedby="jobenu-date-help jobenu-date-error"></label><div class="actions"><button id="jobenu-today">Today</button><button id="jobenu-all-dates">All dates</button></div></div><p id="jobenu-date-help" class="helper">Dates follow the calendar day in your export. Today uses your device's date.</p><p id="jobenu-date-error" role="alert" class="form-error"></p><p id="jobenu-selection-summary" role="status"></p></div>
+ <div class="jobenu-scroll" tabindex="0" role="region" aria-label="Applications to import"><table id="jobenu-selection"><caption>Select applications</caption><thead><tr><th><input id="jobenu-select-all" type="checkbox" aria-label="Select all matching jobs"></th><th>Company</th><th>Position</th><th>Status</th><th id="jobenu-date-heading">Added</th></tr></thead><tbody></tbody></table></div>
  <div class="jobenu-settings"><label>Starting CV<input id="jobenu-base" type="search" list="jobenu-bases" autocomplete="off" placeholder="Search local branches"><datalist id="jobenu-bases"></datalist></label><label>Approval mode<select id="jobenu-approval"><option value="human">Review changes before applying</option><option value="auto">Apply verified changes automatically</option></select></label></div>
  <label><input id="jobenu-run" type="checkbox" checked> Run the AI workflow</label><p class="helper">Automatic mode can still pause for factual or canonical-requirement confirmation. Complete means the configured AI stages finished; PDFs and submission are separate.</p>
  <details><summary>Advanced</summary><div class="jobenu-settings"><label>Language override<input id="jobenu-language" placeholder="Use saved language"></label><label>Provider override<input id="jobenu-provider" placeholder="Use saved AI settings"></label><label>Status filters<input id="jobenu-statuses" value="SAVED" aria-describedby="jobenu-status-help"></label></div><p id="jobenu-status-help" class="helper">Comma-separated statuses, or ALL. Uses saved stage providers/models and native Vita reasoning preferences. Tree-only reasoning overrides are not forwarded by this batch CLI.</p><label><input id="jobenu-demo" type="checkbox"> Include demo applications</label><label><input id="jobenu-revision" type="checkbox"> Create a new source revision when records changed</label><label><input id="jobenu-rerun" type="checkbox"> Reassess completed stages (additional AI calls)</label></details>
  <div class="actions"><button id="jobenu-preview" disabled>Preview branches</button><button id="jobenu-start" class="primary" disabled>Create branches</button></div>
- <div class="jobenu-scroll"><table id="jobenu-plan"><caption>Branch preview</caption><thead><tr><th>Company</th><th>Position</th><th>Branch</th><th>Action</th></tr></thead><tbody></tbody></table></div><div id="jobenu-aliases"></div>
+ <div class="jobenu-scroll" tabindex="0" role="region" aria-label="Application preview"><table id="jobenu-plan"><caption>Branch preview</caption><thead><tr><th>Company</th><th>Position</th><th>Branch</th><th>Action</th></tr></thead><tbody></tbody></table></div><section id="jobenu-aliases" hidden aria-labelledby="jobenu-alias-title"></section>
  <h2>Batch activity</h2><p class="helper">You can leave this view while work continues. Retained sources stay private until you forget the batch; imported workspaces are preserved.</p><div id="jobenu-history"></div>
  <dialog id="jobenu-review" aria-labelledby="jobenu-review-title"><div class="dialog-heading"><h2 id="jobenu-review-title">Review imported application</h2><button id="jobenu-review-close" aria-label="Close import review">×</button></div><div id="jobenu-review-content" class="review-scroll"></div><p id="jobenu-review-error" role="alert" class="form-error"></p><footer class="dialog-footer"><button id="jobenu-reject">Reject changes</button><button id="jobenu-approve" class="primary">Approve exact revision</button></footer></dialog>`;
   $("#main-content").append(section);
@@ -58,6 +59,9 @@ export function initJobenu({ api, branches, openBranch }) {
     version = 0,
     uploadVersion = 0,
     historySignature = "";
+  let selectedIds = new Set(),
+    aliasSaving = false;
+  const aliasDrafts = new Map();
   const error = (e) => ($("#jobenu-error").textContent = e?.message || e || "");
   function invalidate() {
     version++;
@@ -65,13 +69,110 @@ export function initJobenu({ api, branches, openBranch }) {
     $("#jobenu-start").disabled = true;
     $("#jobenu-plan tbody").replaceChildren();
     $("#jobenu-aliases").replaceChildren();
+    $("#jobenu-aliases").hidden = true;
   }
+  function dateRange() {
+    return {
+      dateField: $("#jobenu-date-field").value,
+      dateFrom: $("#jobenu-date-from").value,
+      dateTo: $("#jobenu-date-to").value,
+    };
+  }
+  function matchingApplications() {
+    const { dateField, dateFrom, dateTo } = dateRange();
+    return (session?.applications || []).filter((a) => {
+      const day = a.dates?.[dateField];
+      return (
+        (!dateFrom && !dateTo) ||
+        (day && (!dateFrom || day >= dateFrom) && (!dateTo || day <= dateTo))
+      );
+    });
+  }
+  function updateSelection() {
+    const matches = matchingApplications(),
+      count = matches.filter((a) => selectedIds.has(a.id)).length;
+    const { dateField, dateFrom, dateTo } = dateRange();
+    const invalid = !!(dateFrom && dateTo && dateFrom > dateTo);
+    $("#jobenu-date-error").textContent = invalid
+      ? "The end date must be on or after the start date."
+      : "";
+    for (const name of ["from", "to"])
+      $("#jobenu-date-" + name).setAttribute("aria-invalid", String(invalid));
+    const missing = (session?.applications || []).filter(
+      (a) => !a.dates?.[dateField],
+    ).length;
+    $("#jobenu-selection-summary").textContent =
+      `${matches.length ? `${count} selected · ${matches.length} matching` : "No jobs match these dates"} · ${session?.applications?.length || 0} in export${missing ? ` · ${missing} without a date${dateFrom || dateTo ? " (excluded)" : ""}` : ""}`;
+    $("#jobenu-select-all").checked = count > 0 && count === matches.length;
+    $("#jobenu-select-all").indeterminate = count > 0 && count < matches.length;
+    $("#jobenu-select-all").disabled = !matches.length || invalid;
+    $("#jobenu-preview").disabled =
+      !available || busy || aliasSaving || invalid || !count;
+  }
+  function renderSelection() {
+    $("#jobenu-date-filters").hidden = !session;
+    $("#jobenu-date-heading").textContent =
+      $("#jobenu-date-field").selectedOptions[0].textContent;
+    const body = $("#jobenu-selection tbody");
+    body.replaceChildren();
+    for (const a of matchingApplications()) {
+      const row = document.createElement("tr"),
+        cell = document.createElement("td"),
+        input = document.createElement("input");
+      input.type = "checkbox";
+      input.value = a.id;
+      input.checked = selectedIds.has(a.id);
+      input.setAttribute("aria-label", `Select ${a.company} · ${a.position}`);
+      input.onchange = () => {
+        input.checked ? selectedIds.add(a.id) : selectedIds.delete(a.id);
+        invalidate();
+        updateSelection();
+      };
+      cell.append(input);
+      const dateCell = make(
+        "td",
+        a.dates?.[$("#jobenu-date-field").value] || "—",
+      );
+      dateCell.dataset.label = $("#jobenu-date-heading").textContent;
+      row.append(
+        cell,
+        ...["company", "position", "status"].map((k) => make("td", a[k])),
+        dateCell,
+      );
+      body.append(row);
+    }
+    updateSelection();
+  }
+  for (const id of ["field", "from", "to"])
+    $("#jobenu-date-" + id).addEventListener("input", () => {
+      invalidate();
+      renderSelection();
+    });
+  $("#jobenu-select-all").onchange = (event) => {
+    for (const a of matchingApplications())
+      event.target.checked ? selectedIds.add(a.id) : selectedIds.delete(a.id);
+    invalidate();
+    renderSelection();
+  };
+  $("#jobenu-today").onclick = () => {
+    const now = new Date(),
+      today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    $("#jobenu-date-from").value = $("#jobenu-date-to").value = today;
+    invalidate();
+    renderSelection();
+  };
+  $("#jobenu-all-dates").onclick = () => {
+    $("#jobenu-date-from").value = $("#jobenu-date-to").value = "";
+    invalidate();
+    renderSelection();
+  };
   function data() {
     return {
       id: session.id,
-      ids: [...$("#jobenu-selection").querySelectorAll("input:checked")].map(
-        (i) => i.value,
-      ),
+      ids: matchingApplications()
+        .filter((a) => selectedIds.has(a.id))
+        .map((a) => a.id),
+      ...dateRange(),
       base: $("#jobenu-base").value,
       approval: $("#jobenu-approval").value,
       run: $("#jobenu-run").checked,
@@ -88,6 +189,7 @@ export function initJobenu({ api, branches, openBranch }) {
     };
   }
   async function check() {
+    await ready();
     available = false;
     $("#jobenu-preview").disabled = true;
     invalidate();
@@ -99,7 +201,7 @@ export function initJobenu({ api, branches, openBranch }) {
       capability.message || "Jobenu batch import is available.";
     $("#jobenu-install").open = !available;
     if (!$("#jobenu-base").value) $("#jobenu-base").value = capability.base;
-    $("#jobenu-preview").disabled = !available;
+    updateSelection();
   }
   async function show() {
     section.hidden = false;
@@ -115,6 +217,7 @@ export function initJobenu({ api, branches, openBranch }) {
         }),
     );
     try {
+      await ready();
       await check();
       await refresh();
     } catch (e) {
@@ -132,8 +235,10 @@ export function initJobenu({ api, branches, openBranch }) {
     if (!file) return;
     const ticket = ++uploadVersion;
     session = null;
+    selectedIds.clear();
+    aliasDrafts.clear();
     invalidate();
-    $("#jobenu-selection tbody").replaceChildren();
+    renderSelection();
     $("#jobenu-file-info").textContent = "Reading export…";
     error("");
     if (file.size > 10 * 1024 * 1024) {
@@ -141,32 +246,23 @@ export function initJobenu({ api, branches, openBranch }) {
       return;
     }
     try {
+      await ready();
       const uploaded = await api("/api/jobenu/upload", {
         filename: file.name,
         content: await file.text(),
       });
       if (ticket !== uploadVersion) return;
       session = uploaded;
+      $("#jobenu-date-field").value = "createdAt";
+      $("#jobenu-date-from").value = $("#jobenu-date-to").value = "";
+      selectedIds = new Set(
+        session.applications
+          .filter((a) => a.status === "SAVED" && !a.isDemo)
+          .map((a) => a.id),
+      );
       $("#jobenu-file-info").textContent =
         `${session.filename} · ${session.applications.length} applications`;
-      const body = $("#jobenu-selection tbody");
-      body.replaceChildren();
-      for (const a of session.applications) {
-        const row = document.createElement("tr"),
-          cell = document.createElement("td"),
-          input = document.createElement("input");
-        input.type = "checkbox";
-        input.value = a.id;
-        input.checked = a.status === "SAVED" && !a.isDemo;
-        input.setAttribute("aria-label", `Select ${a.company} · ${a.position}`);
-        input.onchange = invalidate;
-        cell.append(input);
-        row.append(
-          cell,
-          ...["company", "position", "status"].map((k) => make("td", a[k])),
-        );
-        body.append(row);
-      }
+      renderSelection();
     } catch (e) {
       error(e);
     }
@@ -191,7 +287,8 @@ export function initJobenu({ api, branches, openBranch }) {
   ])
     $("#jobenu-" + id).addEventListener("input", invalidate);
   async function preview() {
-    if (busy || !session || !available) return;
+    if (busy || aliasSaving || !session || !available || !data().ids.length)
+      return;
     busy = true;
     invalidate();
     const capturedVersion = version;
@@ -207,31 +304,15 @@ export function initJobenu({ api, branches, openBranch }) {
       for (const e of plan.entries) {
         const row = document.createElement("tr");
         row.append(
-          ...["company", "position", "branch", "action"].map((k) =>
-            make("td", e[k]),
-          ),
+          ...["company", "position", "branch", "action"].map((k) => {
+            const cell = make("td", e[k]);
+            cell.dataset.label = k === "branch" ? "Application" : k;
+            return cell;
+          }),
         );
         body.append(row);
-        if (e.role_resolution === "slug_fallback") {
-          const label = make("label", `Short role for ${e.position}`),
-            input = document.createElement("input"),
-            save = make("button", "Save role alias");
-          label.append(input);
-          save.onclick = async () => {
-            try {
-              await api("/api/jobenu/alias", {
-                title: e.position,
-                alias: input.value,
-              });
-              invalidate();
-              await preview();
-            } catch (err) {
-              error(err);
-            }
-          };
-          $("#jobenu-aliases").append(label, save);
-        }
       }
+      renderAliases(plan.entries);
       const created = plan.entries.filter((e) => e.action === "create").length;
       $("#jobenu-start").textContent = created
         ? `Create ${created} branches${$("#jobenu-run").checked ? " and run" : ""}`
@@ -244,13 +325,104 @@ export function initJobenu({ api, branches, openBranch }) {
       error(e);
     } finally {
       busy = false;
-      $("#jobenu-preview").disabled = !available;
+      updateSelection();
     }
+  }
+  function renderAliases(entries) {
+    const titles = [
+      ...new Set(
+        entries
+          .filter((e) => e.role_resolution === "slug_fallback")
+          .map((e) => e.position),
+      ),
+    ];
+    const host = $("#jobenu-aliases");
+    host.replaceChildren();
+    host.hidden = !titles.length;
+    if (!titles.length) return;
+    const heading = make("h2", "Short role names"),
+      help = make(
+        "p",
+        "Optional: give these roles shorter names for your application branches. Save all names together.",
+      );
+    heading.id = "jobenu-alias-title";
+    help.className = "helper";
+    const form = document.createElement("form"),
+      fields = document.createElement("fieldset"),
+      list = document.createElement("div");
+    list.className = "jobenu-alias-fields";
+    const inputs = titles.map((title) => {
+      const label = make("label", title),
+        input = document.createElement("input");
+      input.value = aliasDrafts.get(title) || "";
+      input.placeholder = "e.g. ml-engineer";
+      input.pattern = "[a-z0-9][a-z0-9-]{0,63}";
+      input.maxLength = 64;
+      input.setAttribute("aria-describedby", "jobenu-alias-help");
+      input.oninput = () => {
+        aliasDrafts.set(title, input.value);
+        save.disabled = !inputs.some((i) => i.value.trim());
+      };
+      label.append(input);
+      list.append(label);
+      return input;
+    });
+    const hint = make(
+        "p",
+        "Lowercase letters, numbers and hyphens, up to 64 characters. Leave any role blank to keep its current name.",
+      ),
+      failure = make("p", ""),
+      save = make("button", "Save aliases & update preview");
+    hint.id = "jobenu-alias-help";
+    hint.className = "helper";
+    failure.id = "jobenu-alias-error";
+    failure.className = "form-error";
+    failure.setAttribute("role", "alert");
+    save.type = "submit";
+    save.disabled = !inputs.some((i) => i.value.trim());
+    fields.append(list, hint, failure, save);
+    form.append(fields);
+    form.onsubmit = async (event) => {
+      event.preventDefault();
+      if (busy || aliasSaving) return;
+      const aliases = titles
+        .map((title, i) => ({ title, alias: inputs[i].value.trim() }))
+        .filter((a) => a.alias);
+      if (!aliases.length) return;
+      aliasSaving = true;
+      fields.disabled = true;
+      save.textContent = "Saving aliases…";
+      failure.textContent = "";
+      // A previous preview must not be started while its aliases are changing.
+      version++;
+      plan = null;
+      $("#jobenu-start").disabled = true;
+      updateSelection();
+      try {
+        await api("/api/jobenu/aliases", { aliases });
+        for (const { title } of aliases) aliasDrafts.delete(title);
+        $("#jobenu-feedback").textContent =
+          `${aliases.length} role alias${aliases.length === 1 ? "" : "es"} saved. Updating preview…`;
+        aliasSaving = false;
+        await preview();
+        $("#jobenu-preview").focus();
+      } catch (err) {
+        failure.textContent = err.message;
+        if (!failure.isConnected) error(err);
+      } finally {
+        aliasSaving = false;
+        fields.disabled = false;
+        save.textContent = "Save aliases & update preview";
+        updateSelection();
+      }
+    };
+    host.append(heading, help, form);
   }
   $("#jobenu-preview").onclick = preview;
   $("#jobenu-start").onclick = async () => {
     if (busy || !plan) return;
     busy = true;
+    updateSelection();
     const token = plan.plan_id;
     $("#jobenu-start").disabled = true;
     error("");
@@ -262,6 +434,7 @@ export function initJobenu({ api, branches, openBranch }) {
       error(e);
     } finally {
       busy = false;
+      updateSelection();
     }
   };
   async function reviewEntry(batch, entry) {
@@ -496,6 +669,9 @@ export function initJobenu({ api, branches, openBranch }) {
         }
         const scroll = document.createElement("div");
         scroll.className = "jobenu-scroll";
+        scroll.tabIndex = 0;
+        scroll.setAttribute("role", "region");
+        scroll.setAttribute("aria-label", `Applications from ${batch.filename}`);
         scroll.append(table);
         group.append(scroll);
         const logs = make("button", "View logs");
@@ -531,30 +707,14 @@ export function initJobenu({ api, branches, openBranch }) {
               id: batch.id,
             });
             session.applications = original.applications;
+            selectedIds = new Set(opts.ids || []);
+            aliasDrafts.clear();
+            $("#jobenu-date-field").value = opts.dateField || "createdAt";
+            $("#jobenu-date-from").value = opts.dateFrom || "";
+            $("#jobenu-date-to").value = opts.dateTo || "";
             $("#jobenu-file-info").textContent =
               `${batch.filename} · ${original.applications.length} applications`;
-            $("#jobenu-selection tbody").replaceChildren();
-            for (const a of original.applications) {
-              const row = document.createElement("tr"),
-                cell = document.createElement("td"),
-                input = document.createElement("input");
-              input.type = "checkbox";
-              input.value = a.id;
-              input.checked = opts.ids?.includes(a.id);
-              input.setAttribute(
-                "aria-label",
-                `Select ${a.company} · ${a.position}`,
-              );
-              input.onchange = invalidate;
-              cell.append(input);
-              row.append(
-                cell,
-                make("td", a.company),
-                make("td", a.position),
-                make("td", a.status),
-              );
-              $("#jobenu-selection tbody").append(row);
-            }
+            renderSelection();
             await check();
             await preview();
           };
@@ -583,5 +743,5 @@ export function initJobenu({ api, branches, openBranch }) {
   setInterval(() => {
     if (!section.hidden) refresh();
   }, 1800);
-  return {open: show};
+  return { open: show };
 }

@@ -326,6 +326,14 @@ and preview the backend's branch plan before creating branches. Review is the
 default; automatic mode still respects factual and canonical-requirement gates.
 Import-only mode does not contact an AI provider.
 
+Use **Today** or **From / To** to narrow the export by its Added, Updated, Applied,
+Deadline, or Next action date. Dates use the calendar day recorded in the export;
+Today uses your device's date. Jobs without a valid date appear under **All dates**
+and are excluded when a range is active. Only selected, matching jobs reach the preview.
+For unfamiliar role titles, enter any short names together and click
+**Save aliases & update preview** once. Duplicate titles share a field; blank fields
+keep their existing names. A failed save preserves the entered names.
+
 The configured Vita command is checked with `import jobenu --help`. If it lacks
 the plan/JSON contract, select a compatible Vita CV source folder under **Vita
 installation**. Availability is capability-based, not inferred from a PyPI version.

@@ -1885,3 +1885,39 @@ button:focus-visible,a:focus-visible,summary:focus-visible {outline:2px solid va
 #jobenu-import label:has(input[type=checkbox]) {flex-direction:row}
 #jobenu-import [role=tab] {border:0;border-bottom:2px solid var(--accent);background:transparent;padding:12px 0;min-height:44px}
 .jobenu-tabs {display:flex;gap:20px;border-bottom:1px solid var(--line)}
+.jobenu-date-toolbar {display:flex;align-items:end;flex-wrap:wrap;gap:12px}
+.jobenu-date-toolbar label {flex:1;min-width:150px}
+#jobenu-import .jobenu-date-toolbar label {margin:0}
+.jobenu-date-toolbar .actions {margin:12px 0;gap:8px}
+#jobenu-aliases {margin:24px 0;padding:20px;background:var(--panel);border:1px solid var(--line);border-radius:8px}
+#jobenu-aliases h2 {margin:0;font-size:20px}
+#jobenu-aliases fieldset {border:0;padding:0;margin:0;min-width:0}
+.jobenu-alias-fields {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:0 20px}
+#jobenu-selection-summary {font-variant-numeric:tabular-nums}
+@media(max-width:600px){
+  #jobenu-import > .actions {flex-wrap:wrap}
+  .jobenu-date-toolbar {display:grid;grid-template-columns:1fr 1fr}
+  .jobenu-date-toolbar label:first-child {grid-column:1/-1}
+  .jobenu-date-toolbar label {min-width:120px}
+  .jobenu-date-toolbar .actions {grid-column:1/-1;width:100%;margin:0}
+  #jobenu-selection,#jobenu-plan {display:block;min-width:0!important}
+  #jobenu-selection caption,#jobenu-plan caption {display:block;text-align:left}
+  #jobenu-selection tbody,#jobenu-plan tbody {display:block}
+  #jobenu-selection thead {display:block}
+  #jobenu-selection thead tr {display:block}
+  #jobenu-selection th {display:none}
+  #jobenu-selection th:first-child {display:flex;gap:10px;align-items:center;padding:12px 0}
+  #jobenu-selection th:first-child::after {content:"Select all matching jobs";font-weight:400}
+  #jobenu-selection tbody tr {display:grid;grid-template-columns:24px minmax(0,1fr);gap:4px 10px;padding:12px 0;border-bottom:1px solid var(--line)}
+  #jobenu-selection td {grid-column:2;padding:0;border:0}
+  #jobenu-selection td:first-child {grid-column:1;grid-row:1/5}
+  #jobenu-selection td:nth-child(2) {font-weight:600}
+  #jobenu-selection td:last-child::before {content:attr(data-label) ": ";color:var(--muted)}
+  #jobenu-plan thead {display:none}
+  #jobenu-plan tr {display:block;padding:12px 0;border-bottom:1px solid var(--line)}
+  #jobenu-plan td {display:block;border:0;padding:2px 0}
+  #jobenu-plan td:first-child {font-weight:600}
+  #jobenu-plan td:nth-child(3)::before {content:"Application: ";color:var(--muted)}
+  #jobenu-aliases {padding:16px}
+  #jobenu-aliases button {width:100%}
+}

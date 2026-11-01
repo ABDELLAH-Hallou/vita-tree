@@ -168,6 +168,7 @@ jobs:
           node-version: "24"
       - run: npm ci --ignore-scripts
       - run: python tests/browser_jobenu.py
+      - run: python tests/browser_jobenu_selection.py
       - run: python tests/browser_migration.py
       - run: python tests/browser_component_dialogs.py --browser chromium
       - run: python tests/browser_custom_environment.py --browser chromium

@@ -2,6 +2,11 @@ import {renderApplicationList,disableWorkflowGraph} from '../components/renderer
 import {apiRequest} from '../api/client';
 const $ = selector => document.querySelector(selector);
 const state = {branches: [], session: null, snapshot: null, view: 'structure', generation: 0, pdfs: {}, pdfGeneration: 0, dirty: false, jobDirty: false, leaf: null, publishing: false, commitReview: null};
+let sessionRequest;
+async function ensureSession() {
+  sessionRequest ||= api('/api/session').then(session => { state.session=session; });
+  await sessionRequest;
+}
 import {createLatexEditor} from './vendor/editor.mjs';
 import {createRunMonitor, isActiveRun, runLabel, runSteps} from './runs.js';
 import {renderGraph, graphStages, statusNames} from './workflow.js';
@@ -21,7 +26,7 @@ state.syncedCommits=new Map();
 const applicationName=name=>state.branches.find(item=>item.name===name)?.displayName||(state.snapshot?.branch===name?state.snapshot.displayName:null)||name;
 state.workflowChoices=new Map();
 const aiSteps=['extract','analyze','adapt','review','cover'];
-const jobenuImport=initJobenu({api,branches:()=>state.branches,openBranch});
+const jobenuImport=initJobenu({api,branches:()=>state.branches,openBranch,ready:ensureSession});
 const stepAvailable=id=>!['extract','review','cover'].includes(id)||!!state.session?.workflow?.[id];
 state.pdfDocument='cv';
 state.runs = [];
@@ -779,7 +784,7 @@ $('#inspect-step').onclick=()=>executionInspector.open(state.displayedRun?.id,st
 $('#inspect-step-dialog').onclick=()=>{
   $('#step-ai-dialog').close();executionInspector.open(state.displayedRun?.id,state.selectedTask);
 };
-try{state.session=await api('/api/session');await loadBranches();const params=new URLSearchParams(location.search), branch=params.get('branch');if(['structure','source','pdf','changes','ai'].includes(params.get('view')))state.view=params.get('view');if(branch)await openBranch(branch);runMonitor=createRunMonitor({api,changed:runsChanged});runMonitor.start();}catch(error){$('#branch-list').innerHTML=`<p class="empty">${esc(error.message)}</p>`;}
+try{await ensureSession();await loadBranches();const params=new URLSearchParams(location.search), branch=params.get('branch');if(['structure','source','pdf','changes','ai'].includes(params.get('view')))state.view=params.get('view');if(branch)await openBranch(branch);runMonitor=createRunMonitor({api,changed:runsChanged});runMonitor.start();}catch(error){$('#branch-list').innerHTML=`<p class="empty">${esc(error.message)}</p>`;}
 
 setInterval(()=>{document.querySelectorAll(".dag-time[data-started-at]").forEach(el=>{el.textContent=`${Math.max(0,Math.floor(Date.now()/1000-Number(el.dataset.startedAt)))}s`;});},1000);
 let refreshingNativeHistory=false;

@@ -150,6 +150,7 @@ def main():
             )
             expect(page.locator("#jobenu-selection tbody tr")).to_have_count(2)
             page.locator("#jobenu-base").fill("master")
+            expect(page.locator("#jobenu-preview")).to_be_enabled()
             page.locator("#jobenu-preview").click()
             try:
                 expect(page.locator("#jobenu-plan")).to_contain_text(
@@ -234,6 +235,7 @@ def main():
             )
             page.get_by_role("button", name="Open workspace", exact=True).click()
             expect(page.locator("#workspace")).to_be_visible()
+            expect(page.locator("#workspace")).not_to_have_attribute("aria-busy", "true", timeout=30000)
             expect(page.locator("#workflow-run")).to_contain_text("Jobenu")
             expect(page.locator('.dag-node[data-step="analyze"]')).to_have_attribute(
                 "data-status", "succeeded"
