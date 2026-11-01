@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.16.1](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.16.0...v1.16.1) (2026-11-01)
+
+
+### Bug Fixes
+
+* retain Jobenu component history in imported workspaces ([6616db3](https://github.com/ABDELLAH-Hallou/vita-tree/commit/6616db3f193f811eded16f1caf80d526bae88594))
+* retain Jobenu component history in imported workspaces ([ad637ef](https://github.com/ABDELLAH-Hallou/vita-tree/commit/ad637ef6b959084666176278b950559af16bfede))
+
 ## [1.16.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.15.8...v1.16.0) (2026-10-31)
 
 
