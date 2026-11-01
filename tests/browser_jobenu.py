@@ -214,6 +214,61 @@ def main():
             page.locator("#jobenu-approve").click()
             expect(page.locator("#jobenu-review")).not_to_be_visible()
             expect(page.locator("#jobenu-feedback")).to_contain_text("Decision saved")
+            facts_path = workspace / ".vita/results/adapt.facts.json"
+            facts_path.parent.mkdir(parents=True, exist_ok=True)
+            facts_path.write_text(
+                json.dumps(
+                    {
+                        "revision": "fc-fixture",
+                        "status": "approved",
+                        "application_status": "applied",
+                    }
+                )
+            )
+            (workspace / ".vita/results/adapt.md").write_text(
+                "# Synthetic tailoring summary"
+            )
+            (workspace / "main.tex").write_text(
+                SOURCE.replace("reliable systems", "approved native systems"),
+                encoding="utf-8",
+            )
+            page.get_by_role("button", name="Open workspace", exact=True).click()
+            expect(page.locator("#workspace")).to_be_visible()
+            expect(page.locator("#workflow-run")).to_contain_text("Jobenu")
+            expect(page.locator('.dag-node[data-step="analyze"]')).to_have_attribute(
+                "data-status", "succeeded"
+            )
+            expect(page.locator('.dag-node[data-step="adapt"]')).to_have_attribute(
+                "data-status", "succeeded"
+            )
+            expect(page.locator('.dag-node[data-step="validating"]')).to_have_attribute(
+                "data-status", "unknown"
+            )
+            expect(page.locator("#workflow-summary")).to_contain_text(
+                "Changes approved and applied"
+            )
+            expect(page.locator("#workflow-graph .dag-model")).to_have_count(0)
+            page.locator("#branch-title").click()
+            page.screenshot(
+                path=".test-artifacts/jobenu-workspace-history-dark.png",
+                full_page=True,
+                animations="disabled",
+            )
+            page.locator('.dag-node[data-step="adapt"]').click()
+            expect(page.locator("#step-ai-description")).to_contain_text(
+                "did not record an AI setup"
+            )
+            page.locator("#step-ai-cancel").click()
+            page.locator("#view-run").click()
+            expect(page.locator("#artifacts")).to_contain_text(
+                "Synthetic tailoring summary"
+            )
+            page.reload()
+            expect(page.locator('.dag-node[data-step="adapt"]')).to_have_attribute(
+                "data-status", "succeeded"
+            )
+            page.locator("#inspect-run").click()
+            expect(page.locator("#jobenu-import")).to_be_visible()
             ident = manager.listing()["batches"][0]["id"]
             record = manager.record(ident)
             record["result"]["results"][0].pop("pending")
@@ -232,6 +287,7 @@ def main():
             page.get_by_role("button", name="Preview resume", exact=True).click()
             expect(page.locator("#jobenu-start")).to_be_enabled()
             expect(page.locator("#jobenu-rerun")).not_to_be_checked()
+            page.add_script_tag(url="/__fixture_axe.js")
             violations = page.evaluate(
                 "async()=> (await axe.run('#jobenu-import',{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa']}})).violations.map(v=>v.id)"
             )

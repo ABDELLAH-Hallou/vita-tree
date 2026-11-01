@@ -28,6 +28,7 @@ class JobenuImports:
         self.ws = workspace
         self.root = workspace.root / "jobenu-batches"
         self.lock = threading.RLock()
+        self.history_lock = threading.RLock()
         self.environments = {}
         self.running = set()
         self.reviewing = set()
@@ -228,6 +229,7 @@ class JobenuImports:
                 raise ValueError(
                     "A Jobenu batch is running. Wait before changing import settings."
                 )
+            self.history()
             record = self.record(ident)
             record.update(status="selecting", plan=None)
             self.environments.pop(ident, None)
@@ -303,6 +305,17 @@ class JobenuImports:
                 source=data.get("source", ""),
                 fileHash=hashlib.sha256(path.read_bytes()).hexdigest(),
                 options=data,
+                capturedRoutes={
+                    step: {
+                        field: env[prefix + "_" + suffix]
+                        for field, suffix in (
+                            ("provider", "PROVIDER"),
+                            ("model", "MODEL"),
+                        )
+                        if env.get(prefix + "_" + suffix)
+                    }
+                    for step, prefix in PREFIXES.items()
+                },
             )
             self.environments[ident] = (command, env)
             self.save(record)
@@ -370,7 +383,12 @@ class JobenuImports:
                 self.running.add(ident)
                 worker = threading.Thread(target=self._run, args=(r,), daemon=True)
                 try:
-                    r.update(status="running", startedAt=time.time())
+                    r.update(
+                        status="running",
+                        startedAt=time.time(),
+                        finishedAt=None,
+                        attempt=(r.get("attempt") or 0) + 1,
+                    )
                     self.save(r)
                     self.workers.add(worker)
                     worker.start()
@@ -490,6 +508,11 @@ class JobenuImports:
                 continue
         return {"batches": sorted(records, key=lambda r: r["createdAt"], reverse=True)}
 
+    def history(self, branch=None):
+        from .jobenu_history import history
+
+        return history(self, branch)
+
     def target(self, ident, key):
         from .workspace import safe_path
 
@@ -582,6 +605,7 @@ class JobenuImports:
                 raise ValueError(
                     "The decision could not be saved. Local work is preserved; reopen the review and inspect the workspace log."
                 )
+            self.history()
             return {"saved": True}
 
     def log(self, ident, key=None):
@@ -675,6 +699,7 @@ class JobenuImports:
         with self.lock:
             if ident in self.running:
                 raise ValueError("A running batch cannot be forgotten.")
+            self.history()
             folder = self.folder(ident)
             for name in (
                 "session.json",

@@ -358,3 +358,13 @@ Verification uses synthetic exports and mocked providers (`test_jobenu.py`,
 `browser_jobenu.py`), plus a pinned native-backend import-only CI job. No paid
 provider or personal CV is used. Browser captures cover preview, live progress,
 factual/requirements approval, both themes and a narrow viewport.
+
+Imported workspaces show native Jobenu attempts in the preparation selector and
+component graph. Existing batches are backfilled from the native index; missing
+stage, timing or AI configuration details remain unrecorded. Exact applied factual
+revisions are distinguished from proposals still awaiting review. **Import details**
+opens native logs/review/resume; these records are not Tree recovery checkpoints.
+Private metadata snapshots live in the Git common directory's
+`vita-tree/jobenu-history/`, survive restart and **Forget batch**, and have no
+automatic expiry. Explicitly remove those local history files to discard them;
+this does not remove native workspaces, proposals or the import index.
