@@ -347,6 +347,9 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         if path == "/api/session":
             self.send_json({"token": self.server.token, **self.server.workspace.capabilities()})
             return
+        if path == '/api/jobenu/history':
+            self.api_call(lambda: {"runs": self.server.workspace.jobenu.history(query.get('branch', [None])[0])})
+            return
         if path == '/api/jobenu':
             self.api_call(self.server.workspace.jobenu.listing)
             return

@@ -2,6 +2,7 @@ import json
 import os
 from pathlib import Path
 import tempfile, time, unittest
+import threading
 from unittest.mock import patch
 from support import init_repo, cleanup_repo, git
 from vita_tree.workspace import Workspace, digest, ConflictError
@@ -36,6 +37,142 @@ SOURCE = Path(
 
 
 class JobenuTests(unittest.TestCase):
+    def test_workspace_history_does_not_wait_for_native_decision_lock(self):
+        done = threading.Event()
+        errors = []
+
+        def read_workspace():
+            try:
+                self.ws.snapshot("master")
+            except Exception as error:
+                errors.append(error)
+            finally:
+                done.set()
+
+        reader = threading.Thread(target=read_workspace)
+        with self.manager.lock:
+            reader.start()
+            independent = done.wait(20)
+        reader.join(20)
+        self.assertTrue(
+            independent, "Workspace reads deadlocked with a native review/start"
+        )
+        self.assertFalse(errors)
+
+    def test_approval_history_requires_exact_applied_revision_and_separates_attempts(
+        self,
+    ):
+        ident = self.upload()
+        folder = self.root / ".vita/imports/jobenu/worktrees/fixture"
+        facts = folder / ".vita/results/adapt.facts.json"
+        facts.parent.mkdir(parents=True)
+        row = dict(
+            key="k",
+            fingerprint="f",
+            branch="master",
+            workspace=str(folder),
+            status="awaiting_approval",
+            completed_steps=["analyze"],
+            pending=dict(step="adapt", revision="fc-exact"),
+        )
+        r = self.manager.record(ident)
+        r.update(
+            status="awaiting_approval",
+            startedAt=100,
+            attempt=1,
+            result=dict(results=[row]),
+        )
+        self.manager.save(r)
+        for revision, applied, expected in [
+            ("fc-other", "applied", "review"),
+            ("fc-exact", "not_applied", "review"),
+            ("fc-exact", "applied", "succeeded"),
+        ]:
+            facts.write_text(
+                json.dumps(
+                    dict(
+                        revision=revision, status="approved", application_status=applied
+                    )
+                )
+            )
+            run = self.manager.history("master")[0]
+            self.assertEqual(
+                next(s for s in run["stages"] if s["id"] == "adapt")["status"], expected
+            )
+        first = run["id"]
+        r.update(attempt=2, startedAt=200)
+        row.update(status="failed", current_step="cover")
+        self.manager.save(r)
+        runs = self.manager.history("master")
+        self.assertEqual(len(runs), 2)
+        self.assertNotEqual(runs[0]["id"], first)
+        self.assertEqual(runs[1]["status"], "awaiting_resume")
+        facts.write_text(
+            json.dumps(
+                dict(
+                    revision="fc-exact",
+                    status="rejected",
+                    application_status="not_applied",
+                )
+            )
+        )
+        row.update(status="awaiting_approval")
+        self.manager.save(r)
+        rejected = self.manager.history("master")[0]
+        self.assertEqual(rejected["status"], "failed")
+        self.assertEqual(
+            next(s for s in rejected["stages"] if s["id"] == "adapt")["status"],
+            "failed",
+        )
+
+    def test_workspace_loads_native_component_history_without_inventing_steps(self):
+        ident = self.upload()
+        r = self.manager.record(ident)
+        row = {
+            "key": "fixture",
+            "fingerprint": "version",
+            "branch": "master",
+            "status": "awaiting_approval",
+            "completed_steps": ["analyze"],
+            "current_step": "adapt",
+            "pending": {"step": "adapt", "revision": "fc-exact"},
+        }
+        r.update(
+            status="awaiting_approval",
+            startedAt=100,
+            finishedAt=120,
+            capturedRoutes={
+                "analyze": {"provider": "gemini", "model": "fixture-model"}
+            },
+            result={"results": [row]},
+        )
+        self.manager.save(r)
+        runs = self.ws.snapshot("master")["nativeRuns"]
+        self.assertEqual(len(runs), 1)
+        run = runs[0]
+        stages = {item["id"]: item["status"] for item in run["stages"]}
+        self.assertEqual(stages["analyze"], "succeeded")
+        self.assertEqual(stages["adapt"], "review")
+        self.assertEqual(stages["validating"], "unknown")
+        self.assertEqual(run["stepConfig"]["analyze"]["model"], "fixture-model")
+        self.assertNotIn("adapt", run["stepConfig"])
+        self.assertIsNone(run['attempt'])  # Legacy imports did not record attempt counts.
+        self.assertFalse(run["resumeAvailable"])
+        self.assertNotIn(run["id"], self.ws.jobs)
+        # Retain the history after private upload cleanup and a server restart.
+        self.manager.discard(ident)
+        cache = self.ws.root / "jobenu-history" / (run["id"] + ".json")
+        tampered = json.loads(cache.read_text())
+        tampered["env"] = {"API_KEY": "fixture-unrelated-secret"}
+        cache.write_text(json.dumps(tampered))
+        restarted = Workspace(self.root)
+        try:
+            recovered = restarted.snapshot("master")["nativeRuns"][0]
+            self.assertEqual(recovered["id"], run["id"])
+            self.assertNotIn("fixture-unrelated-secret", json.dumps(recovered))
+        finally:
+            restarted.close()
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(
             prefix=".vita-tree-test-", dir=Path.cwd()

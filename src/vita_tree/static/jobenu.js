@@ -583,4 +583,5 @@ export function initJobenu({ api, branches, openBranch }) {
   setInterval(() => {
     if (!section.hidden) refresh();
   }, 1800);
+  return {open: show};
 }

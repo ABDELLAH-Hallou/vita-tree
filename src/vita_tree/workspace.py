@@ -288,7 +288,7 @@ class Workspace:
                 "diff": "".join(difflib.unified_diff(original.splitlines(True), source.splitlines(True), fromfile="original/"+self.document_path, tofile=name+"/"+self.document_path)),
                 "worktree": str(location) if location else None, "editable": bool(branch["local"]),
                 "dirty": source != self.committed(commit, self.document_path),
-                "running": self.active_job(name)}
+                "running": self.active_job(name), "nativeRuns": self.jobenu.history(name)}
 
     JOB_FIELDS = ("id", "branch", "opportunity", "status", "step", "message", "provider", "model",
                   "reasoning", "language", "createdAt", "startedAt", "finishedAt", "reviewed", "stages", "stepConfig", "parentRunId", "rootRunId", "attempt", "checkpointSteps", "outcomes", "traceId", "requirementsRevision", "requirementsDraft", "preflight", "compileEngine", "reviewPolicy")

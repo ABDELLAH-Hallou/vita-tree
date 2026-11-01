@@ -19,7 +19,7 @@ state.syncedCommits=new Map();
 const applicationName=name=>state.branches.find(item=>item.name===name)?.displayName||(state.snapshot?.branch===name?state.snapshot.displayName:null)||name;
 state.workflowChoices=new Map();
 const aiSteps=['extract','analyze','adapt','review','cover'];
-initJobenu({api,branches:()=>state.branches,openBranch});
+const jobenuImport=initJobenu({api,branches:()=>state.branches,openBranch});
 const stepAvailable=id=>!['extract','review','cover'].includes(id)||!!state.session?.workflow?.[id];
 state.pdfDocument='cv';
 state.runs = [];
@@ -465,6 +465,11 @@ async function openRun(run){
     ? current : await openBranch(run.branch,true);if(!loaded)return;
   state.graphRunId=run.id;renderWorkflow();
   setView('ai');$('#ai-status').textContent=run.message;
+  if(run.source==='jobenu'){
+    $('#selected-run').hidden=true;
+    notice('Showing the application’s current reports. Jobenu component history is recorded separately; use Import details for logs and continuation.');
+    $('#ai-panel').scrollIntoView({block:'start'});return;
+  }
   if(!isActiveRun(run)){
     const detail=await api('/api/job-result?id='+encodeURIComponent(run.id));
     if(state.snapshot!==loaded)return;
@@ -500,10 +505,10 @@ function configureWorkflow(){
 }
 function renderWorkflow(){
   if(!state.snapshot)return;
-  const runs=state.runs.filter(run=>run.branch===state.snapshot.branch);
+  const runs=[...state.runs.filter(run=>run.branch===state.snapshot.branch),...(state.snapshot.nativeRuns||[])].sort((a,b)=>b.createdAt-a.createdAt);
   const selected=state.graphRunId || state.snapshot.running?.id || runs[0]?.id || 'draft';
   const select=$('#workflow-run');
-  select.replaceChildren(new Option('New preparation','draft'),...runs.map(run=>new Option(`${run.attempt?'Attempt '+run.attempt+' · ':''}${new Date(run.createdAt*1000).toLocaleString()} — ${runSteps(run)} · ${runLabel(run)}${isActiveRun(run)?'':run.reviewed?' · Reviewed':' · Needs review'}`,run.id)));
+  select.replaceChildren(new Option('New preparation','draft'),...runs.map(run=>new Option(`${run.attempt?'Attempt '+run.attempt+' · ':''}${new Date(run.createdAt*1000).toLocaleString()} — ${runSteps(run)} · ${runLabel(run)}${run.source==='jobenu'||isActiveRun(run)?'':run.reviewed?' · Reviewed':' · Needs review'}`,run.id)));
   const run=runs.find(run=>run.id===selected) || (state.snapshot.running?.id===selected?state.snapshot.running:null);
   if(run&&!runs.some(item=>item.id===run.id))select.add(new Option('Current preparation',run.id));
   select.value=run?run.id:'draft';state.displayedRun=run;
@@ -516,10 +521,13 @@ function renderWorkflow(){
   $('#review-facts').disabled=!!state.snapshot.running||!!state.launching||!!state.openingRunId;
   $('#review-facts').textContent=run?.factualReview?.state==='resolved'?'View factual decisions':'Review factual changes';
   $('#inspect-run').hidden=!run;$('#inspect-step').hidden=!run;$('#inspect-step-dialog').hidden=!run;
+  if(run?.source==='jobenu'){
+    $('#inspect-run').textContent='Import details';$('#inspect-step').hidden=true;$('#inspect-step-dialog').hidden=true;
+  }else $('#inspect-run').textContent='Execution details';
   $('#resume-run').hidden=!run?.resumeAvailable;$('#resume-run').disabled=!!state.snapshot.running||!!state.launching||!!state.retryPlanning||!state.snapshot.editable;
   $('#view-run').hidden=!finished;$('#view-run').disabled=!!state.openingRunId;
   $('#view-run').textContent=state.openingRunId?'Opening results…':'View results';
-  const reviewButton=$('#mark-run-reviewed');reviewButton.hidden=!finished;
+  const reviewButton=$('#mark-run-reviewed');reviewButton.hidden=!finished||run?.source==='jobenu';
   reviewButton.disabled=!!run?.reviewed||!!state.reviewingRunId;
   reviewButton.textContent=run?.reviewed?'Reviewed':state.reviewingRunId===run?.id?'Saving review…':'Mark as reviewed';
    $('#workflow-summary').textContent=run ? (run.factualReview?run.message:runFailureText(run)||run.message) : 'Choose the steps for your next preparation. Only selected AI steps will use your AI service.';
@@ -529,6 +537,9 @@ function renderWorkflow(){
   next.textContent=run?.requirementsApprovalNeeded?'Review job requirements':run?.factualReview?.state==='pending'?'Review CV changes':run?.resumeAvailable?'Continue preparation':finished&&run.status==='succeeded'?'Preview your PDF':'Prepare application';
   $('#workflow-action').dataset.state=needsDecision(run)?'review':run?.status==='failed'?'failed':'ready';
   $('#workflow-next-help').textContent=needsDecision(run)?'One review, then the remaining steps continue automatically.':run?.status==='failed'?(runFailureText(run)||run.message):finished&&run.status==='succeeded'?'Your application is updated. Check the final layout before saving.':'Prepare everything, or choose individual steps in Job details & AI.';
+  if(run?.source==='jobenu'){
+    next.textContent='Open import activity';$('#workflow-next-help').textContent=run.message;
+  }
   $('#review-policy').disabled=!!state.snapshot.running||!!state.launching;
   if(state.selectedTask)updateInspector();
 }
@@ -561,6 +572,7 @@ function selectTask(task){
 }
 $('#workflow-next').onclick=()=>{
   const run=state.displayedRun;
+  if(run?.source==='jobenu')return jobenuImport.open();
   if(run?.requirementsApprovalNeeded)return requirements.open().catch(e=>notice(e.message,true));
   if(run?.factualReview?.state==='pending')return factualReview.open(run).catch(e=>notice(e.message,true));
   if(run?.resumeAvailable){state.resumeCaptured=true;$('#resume-current-config').checked=false;return reviewResume();}
@@ -673,10 +685,10 @@ $('#task-output').onclick=async()=>{
   const task=state.selectedTask, run=state.displayedRun;
   if(task==='validating'){setView('structure');$('#comparison').scrollIntoView({block:'start'});return;}
   try{
-    if(task==='cover'&&run&&!isActiveRun(run)){const detail=await api('/api/job-result?id='+encodeURIComponent(run.id));if(detail.coverPdf){await openCoverPDF(run.id);return;}}
+    if(task==='cover'&&run&&run.source!=='jobenu'&&!isActiveRun(run)){const detail=await api('/api/job-result?id='+encodeURIComponent(run.id));if(detail.coverPdf){await openCoverPDF(run.id);return;}}
     if(run&&!isActiveRun(run))await openRun(run);else setView('ai');
     const match={extract:'job.json',analyze:'analy',review:'review.',cover:'cover',adapt:'main.tex'}[task];
-    const area=run&&!isActiveRun(run)?$('#selected-run-files'):$('#artifacts');
+    const area=run&&run.source!=='jobenu'&&!isActiveRun(run)?$('#selected-run-files'):$('#artifacts');
     const item=[...area.querySelectorAll('details[data-path]')].find(el=>el.dataset.path.includes(match));
     if(item){item.open=true;item.scrollIntoView({block:'center'});item.querySelector('summary').focus();}
     else notice('This step has no saved results. Check the preparation status.');
@@ -771,7 +783,7 @@ const executionInspector=initDiagnostics({api,retry:async(id,close)=>{
   if(state.snapshot?.branch!==run.branch)throw new Error('Open this application before retrying.');
   state.resumeCaptured=true;$('#resume-current-config').checked=false;await reviewResume();
 }});
-$('#inspect-run').onclick=()=>executionInspector.open(state.displayedRun?.id);
+$('#inspect-run').onclick=()=>state.displayedRun?.source==='jobenu'?jobenuImport.open():executionInspector.open(state.displayedRun?.id);
 $('#inspect-step').onclick=()=>executionInspector.open(state.displayedRun?.id,state.selectedTask);
 $('#inspect-step-dialog').onclick=()=>{
   $('#step-ai-dialog').close();executionInspector.open(state.displayedRun?.id,state.selectedTask);
@@ -779,3 +791,17 @@ $('#inspect-step-dialog').onclick=()=>{
 try{state.session=await api('/api/session');await loadBranches();const params=new URLSearchParams(location.search), branch=params.get('branch');if(['structure','source','pdf','changes','ai'].includes(params.get('view')))state.view=params.get('view');if(branch)await openBranch(branch);runMonitor=createRunMonitor({api,changed:runsChanged});runMonitor.start();}catch(error){$('#branch-list').innerHTML=`<p class="empty">${esc(error.message)}</p>`;}
 
 setInterval(()=>{document.querySelectorAll(".dag-time[data-started-at]").forEach(el=>{el.textContent=`${Math.max(0,Math.floor(Date.now()/1000-Number(el.dataset.startedAt)))}s`;});},1000);
+let refreshingNativeHistory=false;
+setInterval(async()=>{
+  const snapshot=state.snapshot;
+  if(!snapshot||$('#workspace').hidden||refreshingNativeHistory)return;
+  refreshingNativeHistory=true;
+  try{
+    const {runs}=await api('/api/jobenu/history?branch='+encodeURIComponent(snapshot.branch));
+    if(state.snapshot!==snapshot)return;
+    if(JSON.stringify(runs)!==JSON.stringify(snapshot.nativeRuns||[])){
+      snapshot.nativeRuns=runs;renderWorkflow();
+    }
+  }catch(error){$('#ai-status').textContent='Import history could not refresh. Reload to reconnect.';}
+  finally{refreshingNativeHistory=false;}
+},2500);
