@@ -51,7 +51,7 @@ vt run [REPOSITORY] [--port 8765] [--file main.tex] [--no-browser] [--vita-sourc
 
 The server accepts localhost connections only. It can modify the chosen repository, so do not expose it through a network proxy. Compile only trusted local LaTeX: disabling shell escape is not an operating-system sandbox.
 
-## Check your input and setup
+## Check your CV files
 
 Open a complete **UTF-8 LaTeX project in Git**. AI preparation uses `main.tex` at the
 collection root, with its local classes, styles, images, fonts and includes.
@@ -59,15 +59,16 @@ Required project assets must be tracked or non-ignored files. Tree does not
 import PDF, DOCX or scanned CVs. `vt run --file other.tex` remains available for
 direct viewing and PDF previews; preparation currently requires `main.tex`.
 
-Use **Check input & setup** from the application list, including when an entry is
-missing, or **Check setup** inside an application. Save editor drafts first.
+CV files are checked automatically before preparation. For a manual check, open
+an application and choose **Check CV files**. Save editor drafts first.
 Checks validate supported JSON settings/entry fields and compile an isolated
 copy with the restricted local compiler. Missing engines, packages/classes,
 inputs and fonts have separate next actions. Install dependencies yourself with
 your TeX distribution manager; Tree never enables an installer or shell escape.
 Other Vita CV configuration/profile semantics remain the backend's responsibility.
 
-Choose Automatic, PDFLaTeX, XeLaTeX or LuaLaTeX in setup checks. Automatic uses
+Open **Technical details** in the check dialog to choose Automatic, PDFLaTeX,
+XeLaTeX or LuaLaTeX. Automatic uses
 XeLaTeX for `fontspec`, `polyglossia` or `unicode-math` declared in the entry;
 otherwise it uses PDFLaTeX. Select explicitly if an included class requires
 another engine. The choice applies to new preparations and cover-letter PDFs;
@@ -324,6 +325,22 @@ or drop a local JSON export, select applications, search for a local starting CV
 and preview the backend's branch plan before creating branches. Review is the
 default; automatic mode still respects factual and canonical-requirement gates.
 Import-only mode does not contact an AI provider.
+
+Use **Today** or **From / To** to narrow the export by its Added, Updated, Applied,
+Deadline, or Next action date. Dates use the calendar day recorded in the export;
+Today uses your device's date. Jobs without a valid date appear under **All dates**
+and are excluded when a range is active. Only selected, matching jobs reach the preview.
+For unfamiliar role titles, enter any short names together and click
+**Save aliases & update preview** once. Duplicate titles share a field; blank fields
+keep their existing names. A failed save preserves the entered names.
+
+In **Batch activity**, use **Retry** on a failed application or **Retry failed jobs**
+for the batch. Confirm the affected jobs and captured AI settings without opening
+each workspace. Retries keep matching native checkpoints, leave successful jobs
+and pending reviews alone, and appear together under **Attempts**. Changed settings
+or inputs can require a fresh preview; retries never silently force a full rerun.
+Automatic backup-provider switching requires a Vita CV fallback contract; the
+current integration retries the original provider/model.
 
 The configured Vita command is checked with `import jobenu --help`. If it lacks
 the plan/JSON contract, select a compatible Vita CV source folder under **Vita

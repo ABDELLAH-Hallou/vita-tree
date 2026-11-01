@@ -7,6 +7,7 @@ from unittest.mock import patch
 from support import init_repo, cleanup_repo, git
 from vita_tree.workspace import Workspace, digest, ConflictError
 from vita_tree.jobenu import JobenuImports
+from vita_tree import jobenu as jobenu_module
 
 EXPORT = {
     "exportedAt": "2026-01-01",
@@ -37,6 +38,174 @@ SOURCE = Path(
 
 
 class JobenuTests(unittest.TestCase):
+    def failed_batch(self):
+        ident = self.upload()
+        record = self.manager.record(ident)
+        entries = [dict(application_id='one', key='k-one', fingerprint='f-one',
+                        branch='app-one', company='Sample Co', position='Data Engineer',
+                        action='existing', status='failed', current_step='adapt', completed_steps=['analyze']),
+                   dict(application_id='two', key='k-two', fingerprint='f-two',
+                        branch='app-two', company='Other Co', position='ML Engineer',
+                        action='existing', status='awaiting_approval', pending={'step':'adapt','revision':'exact'})]
+        record.update(status='failed', startedAt=100, finishedAt=110, options={**self.options(ident), 'run':True},
+                      plan=dict(plan_id='original', base_commit='base', routing_sha256='routing', preferences_sha256='prefs', entries=entries),
+                      capturedRoutes={'adapt': {'provider':'codex','model':'fixture-captured'}},
+                      result=dict(results=entries))
+        self.manager.save(record)
+        return ident, record
+
+    def test_retry_preview_selects_only_failed_rows_and_preserves_original_batch(self):
+        ident, original = self.failed_batch()
+        native_plan = {**original['plan'], 'plan_id':'retry', 'status':'planned', 'schema_version':1,
+                       'entries':[original['plan']['entries'][0]]}
+        with patch.object(self.manager, 'command', return_value=(['fixture'], {})), patch.object(self.manager, 'invoke', return_value=(0,json.dumps(native_plan).encode(),b'')) as invoke:
+            child = self.manager.retry_preview(ident)
+        self.assertNotEqual(child['id'], ident)
+        self.assertEqual(child['parentBatchId'], ident)
+        self.assertEqual(self.manager.record(ident), original)
+        self.assertEqual(child['options']['ids'], ['one'])
+        self.assertFalse(child['options']['rerun'])
+        self.assertNotIn('--rerun', invoke.call_args.args[2])
+        self.assertEqual(invoke.call_args.args[1]['ADAPT_MODEL'], 'fixture-captured')
+        selected = json.loads(self.manager.selected_path(child['id']).read_text())
+        self.assertEqual(selected['applications'], [EXPORT['applications'][0]])
+        self.assertEqual(child['entries'][0]['completed_steps'], ['analyze'])
+        self.assertEqual(self.manager.running, set())  # Preview never launches work.
+
+    def test_retry_rejects_review_rows_unknown_keys_and_changed_configuration(self):
+        ident, original = self.failed_batch()
+        with patch.object(self.manager, 'invoke') as invoke:
+            for keys in ([], ['k-two'], ['unknown'], ['k-one','k-one']):
+                with self.assertRaises(ValueError):
+                    self.manager.retry_preview(ident, keys)
+            invoke.assert_not_called()
+        changed = {**original['plan'], 'routing_sha256':'new-route', 'plan_id':'retry',
+                   'schema_version':1, 'status':'planned', 'entries':[original['plan']['entries'][0]]}
+        with patch.object(self.manager, 'command', return_value=(['fixture'], {})), patch.object(self.manager, 'invoke', return_value=(0,json.dumps(changed).encode(),b'')):
+            with self.assertRaisesRegex(ValueError, 'settings|configuration'):
+                self.manager.retry_preview(ident, ['k-one'])
+        self.assertEqual(self.manager.record(ident), original)
+        self.assertEqual(len(self.manager.listing()['batches']), 1)
+
+    def test_retry_start_rechecks_failed_state_and_preserves_lineage_after_restart(self):
+        ident, original = self.failed_batch()
+        plan = {**original['plan'], 'plan_id':'retry', 'schema_version':1, 'status':'planned',
+                'entries':[original['plan']['entries'][0]]}
+        with patch.object(self.manager, 'command', return_value=(['fixture'], {})), patch.object(self.manager, 'invoke', return_value=(0,json.dumps(plan).encode(),b'')):
+            child = self.manager.retry_preview(ident, ['k-one'])
+        restarted = JobenuImports(self.ws)
+        self.assertEqual(next(b for b in restarted.listing()['batches'] if b['id']==child['id'])['parentBatchId'], ident)
+        original['result']['results'][0]['status']='complete'
+        self.manager.save(original)
+        with self.assertRaisesRegex(ValueError, 'failed|changed'):
+            self.manager.start(child['id'], 'retry')
+        self.assertFalse(self.manager.running)
+
+    def test_forgetting_batch_removes_retry_exports_and_rejects_active_attempts(self):
+        ident, original = self.failed_batch()
+        child = self.upload()
+        record = self.manager.record(child)
+        record.update(parentBatchId=ident, retryRootId=ident)
+        self.manager.save(record)
+        self.manager.running.add(child)
+        with self.assertRaises(ValueError):
+            self.manager.discard(ident)
+        self.assertTrue(self.manager.folder(ident).exists())
+        self.assertTrue(self.manager.folder(child).exists())
+        self.manager.running.clear()
+        self.manager.discard(ident)
+        self.assertFalse(self.manager.folder(ident).exists())
+        self.assertFalse(self.manager.folder(child).exists())
+
+    def test_retry_can_fail_repeatedly_after_restart_without_force_rerun(self):
+        ident, original = self.failed_batch()
+        plan = {**original['plan'], 'schema_version':1, 'status':'planned',
+                'entries':[original['plan']['entries'][0]]}
+        calls = []
+        def invoke(command, env, args, **kwargs):
+            calls.append(args)
+            self.assertNotIn('--rerun', args)
+            self.assertEqual(env['ADAPT_MODEL'], 'fixture-captured')
+            if '--dry-run' in args:
+                return 0, json.dumps(plan).encode(), b''
+            return 1, json.dumps(dict(schema_version=1, status='failed', results=plan['entries'])).encode(), b''
+        for _ in range(2):
+            with patch.object(self.manager, 'command', return_value=(['fixture'], {})), patch.object(self.manager, 'invoke', side_effect=invoke):
+                child = self.manager.retry_preview(ident)
+                self.manager.start(child['id'], plan['plan_id'])
+                for worker in list(self.manager.workers):
+                    worker.join(10)
+                self.assertFalse(self.manager.running)
+                self.assertEqual(self.manager.record(child['id'])['status'], 'failed')
+            self.manager = JobenuImports(self.ws)
+            self.ws.jobenu = self.manager
+        self.assertEqual(len(calls), 4)
+        self.assertEqual(self.manager.record(ident), original)
+        self.assertEqual(len(self.manager.listing()['batches']), 3)
+        index = self.root / '.vita/imports/jobenu/index.json'
+        index.parent.mkdir(parents=True,exist_ok=True)
+        index.write_text(json.dumps(dict(applications={'k-one':dict(versions={'f-one':dict(status='complete')})})))
+        history = self.manager.history('app-one')
+        self.assertEqual(len(history), 3)
+        self.assertTrue(all(run['status']=='failed' for run in history))
+
+    def test_batch_aliases_validate_before_writing_and_preserve_other_settings(self):
+        config = self.root / '.vita/extensions.json'
+        config.parent.mkdir(exist_ok=True)
+        original = {'language_map': {'sv': 'Swedish'}, 'role_aliases': {'Existing': 'old'}}
+        config.write_text(json.dumps(original))
+        items = [{'title': 'Data Engineer', 'alias': 'data'},
+                 {'title': 'ML Engineer', 'alias': 'ml'}]
+        for invalid in ([], 'bad', items + [items[0]],
+                        [items[0], {'title': 'Other', 'alias': 'BAD ALIAS'}]):
+            with self.assertRaises(ValueError):
+                self.manager.aliases(invalid)
+            self.assertEqual(json.loads(config.read_text()), original)
+        with patch('vita_tree.jobenu.atomic_write_bytes', wraps=jobenu_module.atomic_write_bytes) as write:
+            self.assertEqual(self.manager.aliases(items)['count'], 2)
+            self.assertEqual(write.call_count, 1)
+        self.assertEqual(json.loads(config.read_text()), {
+            **original, 'role_aliases': {'Existing': 'old', 'Data Engineer': 'data', 'ML Engineer': 'ml'}})
+        self.manager.running.add('fixture')
+        with self.assertRaises(ValueError):
+            self.manager.aliases([{'title': 'Blocked', 'alias': 'blocked'}])
+        self.assertNotIn('Blocked', json.loads(config.read_text())['role_aliases'])
+
+    def test_export_dates_are_available_after_upload_and_restart(self):
+        export = json.loads(json.dumps(EXPORT))
+        export['applications'][0].update(createdAt='2026-10-31T23:45:00-04:00',
+                                         updatedAt='2026-11-01', appliedAt=None,
+                                         deadlineAt='invalid')
+        export['applications'][1].update(createdAt='2026-02-30')
+        uploaded = self.manager.upload('dated.json', json.dumps(export))
+        dates = uploaded['applications'][0]['dates']
+        self.assertEqual(dates['createdAt'], '2026-10-31')
+        self.assertEqual(dates['updatedAt'], '2026-11-01')
+        self.assertIsNone(dates['appliedAt'])
+        self.assertIsNone(dates['deadlineAt'])
+        restarted = JobenuImports(self.ws)
+        self.assertEqual(restarted.selection(uploaded['id'])['applications'][0]['dates'], dates)
+        self.assertIsNone(uploaded['applications'][1]['dates']['createdAt'])
+        self.assertEqual(json.loads((self.manager.folder(uploaded['id'])/'original.json').read_text()) , export)
+
+    def test_date_filter_checks_selected_ids_before_calling_vita(self):
+        export = json.loads(json.dumps(EXPORT))
+        export['applications'][0]['createdAt'] = '2026-10-31T23:45:00-04:00'
+        export['applications'][1]['createdAt'] = '2026-11-01'
+        ident = self.manager.upload('dated.json', json.dumps(export))['id']
+        filters = dict(dateField='createdAt', dateFrom='2026-10-31', dateTo='2026-10-31')
+        with patch.object(self.manager, 'command', return_value=(['fixture'], {})), patch.object(self.manager, 'invoke', return_value=(0, json.dumps(dict(schema_version=1, status='planned', plan_id='dated', entries=[])).encode(), b'')) as invoke:
+            self.manager.preview(ident, self.options(ident, **filters))
+            selected = json.loads((self.manager.folder(ident)/'selected.json').read_text())
+            self.assertEqual([a['id'] for a in selected['applications']], ['one'])
+            self.assertEqual(self.manager.record(ident)['options']['dateFrom'], '2026-10-31')
+            for invalid in (dict(ids=['two']), dict(ids=[]), dict(dateFrom='bad'),
+                            dict(dateFrom='2026-11-02'), dict(dateField='description')):
+                options = {**self.options(ident), **filters, **invalid}
+                with self.assertRaises(ValueError):
+                    self.manager.preview(ident, options)
+            self.assertEqual(invoke.call_count, 1)
+
     def test_workspace_history_does_not_wait_for_native_decision_lock(self):
         done = threading.Event()
         errors = []

@@ -1,0 +1,13 @@
+# Keep frontend sources and generated modules reproducible across platforms.
+frontend/** text eol=lf
+vite.config.ts text eol=lf
+tsconfig.json text eol=lf
+scripts/*.mjs text eol=lf
+src/vita_tree/static/*.js text eol=lf
+src/vita_tree/static/*.css text eol=lf
+src/vita_tree/static/index.html text eol=lf
+src/vita_tree/static/frontend-manifest.json text eol=lf
+src/vita_tree/static/assets/*.js text eol=lf
+# Generated dependency modules retain upstream CSS template whitespace verbatim.
+src/vita_tree/static/app.js -whitespace
+src/vita_tree/static/assets/*.js -whitespace

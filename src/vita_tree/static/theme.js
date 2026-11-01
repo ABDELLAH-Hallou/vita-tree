@@ -1,27 +1,7 @@
-// Run before styles load to avoid a light flash when dark mode is selected.
-(() => {
-  const media = window.matchMedia('(prefers-color-scheme: dark)');
-  let preference = 'system';
-  try { preference = localStorage.getItem('vita-tree-theme') || 'system'; } catch {}
-  if (!['light', 'dark', 'system'].includes(preference)) preference = 'system';
-  function apply() {
-    const theme = preference === 'system' ? (media.matches ? 'dark' : 'light') : preference;
-    document.documentElement.dataset.theme = theme;
-    const button = document.querySelector('#theme');
-    if(button) {
-      const label = `Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`;
-      button.setAttribute('aria-label', label);
-      button.title = label;
-    }
-  }
-  apply();
-  media.addEventListener('change', apply);
-  document.addEventListener('DOMContentLoaded', () => {
-    apply();
-    document.querySelector('#theme').addEventListener('click', () => {
-      preference = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
-      try { localStorage.setItem('vita-tree-theme', preference); } catch {}
-      apply();
-    });
-  });
-})();
+// frontend/src/theme-bootstrap.ts
+try {
+	let e = localStorage.getItem("vita-tree-theme");
+	document.documentElement.dataset.theme = e === "light" || e === "dark" ? e : matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+} catch {
+	document.documentElement.dataset.theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}

@@ -1,0 +1,91 @@
+/* Offline, product-owned tokens. CV/PDF typography remains document-owned. */
+:root {
+  color-scheme: light;
+  --sans: "Segoe UI Variable Text", "Segoe UI", Tahoma, sans-serif;
+  --mono: "Cascadia Code", Consolas, "SFMono-Regular", monospace;
+  font: 14px/1.5 var(--sans);
+  font-synthesis: none;
+  --bg: #f5f6f7;
+  --panel: #ffffff;
+  --surface: #f3f4f5;
+  --hover: #ebedef;
+  --ink: #182126;
+  --muted: #566169;
+  --soft: #626c73;
+  --line: #e1e5e8;
+  --border: #bec6cd;
+  --accent: #245dc1;
+  --accent-light: #eef3fc;
+  --button: #20292f;
+  --positive: #216548;
+  --positive-bg: #e8f4ec;
+  --negative: #a23542;
+  --negative-bg: #fcebef;
+  --notice-bg: #f1f4f8;
+  --notice-ink: #304860;
+  --shadow: 0 8px 32px #172d4214;
+  --glass: var(--panel);
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #151617;
+  --panel: #1c1e20;
+  --surface: #252729;
+  --hover: #303335;
+  --ink: #edf0f2;
+  --muted: #b7bec3;
+  --soft: #aab2b9;
+  --line: #35393c;
+  --border: #596168;
+  --accent: #9ac0ff;
+  --accent-light: #26354b;
+  --button: #edf0f2;
+  --positive: #8cdbb6;
+  --positive-bg: #21392d;
+  --negative: #ffacb8;
+  --negative-bg: #472b31;
+  --notice-bg: #28323e;
+  --notice-ink: #c9dcf5;
+  --glass: var(--panel);
+}
+html {
+  background: var(--bg);
+  font-variant-numeric: tabular-nums;
+}
+body {
+  margin: 0;
+  color: var(--ink);
+  background: var(--bg);
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+button:disabled {
+  opacity: 1;
+  color: var(--muted);
+  background: var(--surface);
+  cursor: not-allowed;
+}
+button:focus-visible,
+a:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+::selection {
+  background: var(--accent);
+  color: var(--panel);
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation: none !important;
+    transition: none !important;
+  }
+}

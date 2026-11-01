@@ -2,6 +2,7 @@
 
 import hashlib
 from contextlib import contextmanager
+from datetime import date, datetime
 import json
 import os
 from pathlib import Path
@@ -15,6 +16,48 @@ import uuid
 
 from .fileio import atomic_write_bytes
 from .security import credential_name, redact
+
+DATE_FIELDS = ("createdAt", "updatedAt", "appliedAt", "deadlineAt", "nextActionAt")
+
+
+def export_day(value):
+    """Keep the export's calendar day, including timestamps with UTC offsets."""
+    if not isinstance(value, str) or len(value) > 100:
+        return None
+    try:
+        if len(value) == 10:
+            return date.fromisoformat(value).isoformat()
+        if len(value) > 10 and value[10] == "T":
+            return datetime.fromisoformat(value.replace("Z", "+00:00")).date().isoformat()
+    except ValueError:
+        pass
+    return None
+
+
+def application_dates(app):
+    return {field: export_day(app.get(field)) for field in DATE_FIELDS}
+
+
+def date_filter(data):
+    field = data.get("dateField", "createdAt")
+    start, end = data.get("dateFrom", ""), data.get("dateTo", "")
+    if field not in DATE_FIELDS:
+        raise ValueError("Choose a supported job date.")
+    for value in (start, end):
+        if not isinstance(value, str) or (
+            value and (len(value) != 10 or export_day(value) != value)
+        ):
+            raise ValueError("Choose a valid date in the date filter.")
+    if start and end and start > end:
+        raise ValueError("The end date must be on or after the start date.")
+    return field, start, end
+
+
+def matches_dates(app, field, start, end):
+    if not start and not end:
+        return True
+    day = export_day(app.get(field))
+    return bool(day and (not start or day >= start) and (not end or day <= end))
 
 
 def read_json(path):
@@ -116,7 +159,7 @@ class JobenuImports:
                 "message": "Jobenu support could not be verified. Select a compatible Vita CV source folder and check again.",
             }
 
-    def upload(self, filename, content):
+    def upload(self, filename, content, *, parent_batch=None, retry_keys=None):
         if not isinstance(content, str) or len(content.encode()) > 10 * 1024 * 1024:
             raise ValueError("Choose a JSON export smaller than 10 MiB.")
 
@@ -177,13 +220,22 @@ class JobenuImports:
             "status": "selecting",
             "createdAt": time.time(),
         }
+        if parent_batch is not None:
+            record.update(
+                parentBatchId=parent_batch["id"],
+                retryRootId=parent_batch.get("retryRootId") or parent_batch["id"],
+                retryKeys=retry_keys,
+            )
         self.save(record)
         return {
             **record,
             "applications": [
                 {
-                    k: app.get(k, "SAVED" if k == "status" else "")
-                    for k in ("id", "company", "position", "status", "isDemo")
+                    "dates": application_dates(app),
+                    **{
+                        k: app.get(k, "SAVED" if k == "status" else "")
+                        for k in ("id", "company", "position", "status", "isDemo")
+                    },
                 }
                 for app in apps
             ],
@@ -223,7 +275,12 @@ class JobenuImports:
             args.extend(["--status", status])
         return args
 
-    def preview(self, ident, data):
+    def retry_preview(self, ident, keys=None):
+        from .jobenu_retry import preview
+
+        return preview(self, ident, keys)
+
+    def preview(self, ident, data, *, captured_routes=None, runtime=None):
         with self.lock:
             if self.running:
                 raise ValueError(
@@ -238,6 +295,7 @@ class JobenuImports:
             ids = data.get("ids")
             if (
                 not isinstance(ids, list)
+                or not ids
                 or any(not isinstance(i, str) for i in ids)
                 or len(set(ids)) != len(ids)
             ):
@@ -245,6 +303,14 @@ class JobenuImports:
             known = {a["id"] for a in original["applications"]}
             if not set(ids) <= known:
                 raise ValueError("An application is not in this export.")
+            field, start, end = date_filter(data)
+            if any(
+                a["id"] in ids and not matches_dates(a, field, start, end)
+                for a in original["applications"]
+            ):
+                raise ValueError(
+                    "The selection includes jobs outside the date filter. Select jobs again."
+                )
             filtered = {
                 **original,
                 "applications": [a for a in original["applications"] if a["id"] in ids],
@@ -285,6 +351,16 @@ class JobenuImports:
                         )
                     provider_keys[route["provider"]] = key
                     env[route["provider"].upper() + "_API_KEY"] = key
+            if captured_routes is not None:
+                for step, route in captured_routes.items():
+                    if step not in PREFIXES:
+                        continue
+                    for field in ("provider", "model"):
+                        if route.get(field):
+                            env[PREFIXES[step] + "_" + field.upper()] = route[field]
+            if runtime is not None:
+                command, captured_env = runtime
+                env = dict(captured_env)
             args = ["import", "jobenu", str(path), *self.options(data), "--json"]
             code, out, _ = self.invoke(command, env, [*args, "--dry-run"])
             plan = self.envelope(code, out)
@@ -372,6 +448,9 @@ class JobenuImports:
                 != r["fileHash"]
             ):
                 raise ValueError("The selected source changed. Preview again.")
+            from .jobenu_retry import check_start
+
+            check_start(self, r)
             with self.ws.lock:
                 if self.ws._closed:
                     raise ValueError(
@@ -440,13 +519,15 @@ class JobenuImports:
                     self.running.discard(ident)
                     self.workers.discard(threading.current_thread())
 
-    def entries(self, r):
+    def entries(self, r, *, historical=False):
         plan = r.get("plan") or {}
         rows = (
             plan.get("entries", [])
             if r["status"] in {"planned", "conflict", "selecting"}
             else (r.get("result") or {}).get("results") or plan.get("entries", [])
         )
+        if historical and r.get("finishedAt") and (r.get("result") or {}).get("results"):
+            return rows
         from .workspace import safe_path
 
         try:
@@ -476,6 +557,10 @@ class JobenuImports:
                 "finishedAt",
                 "error",
                 "exitCode",
+                "parentBatchId",
+                "retryRootId",
+                "retryKeys",
+                "capturedRoutes",
             )
         }
         result["plan"] = r.get("plan")
@@ -491,8 +576,9 @@ class JobenuImports:
 
     def selection(self, ident):
         return {
-            "applications": read_json(self.folder(ident) / "original.json")[
-                "applications"
+            "applications": [
+                {**app, "dates": application_dates(app)}
+                for app in read_json(self.folder(ident) / "original.json")["applications"]
             ]
         }
 
@@ -676,38 +762,68 @@ class JobenuImports:
         return clean(value)
 
     def alias(self, title, alias):
+        return self.aliases([{"title": title, "alias": alias}])
+
+    def aliases(self, items):
         from .workspace import safe_path
 
-        if self.running:
-            raise ValueError("Wait for the batch before changing aliases.")
-        if (
-            not isinstance(title, str)
-            or not title.strip()
-            or not isinstance(alias, str)
-            or not re.fullmatch("[a-z0-9][a-z0-9-]{0,63}", alias)
-        ):
-            raise ValueError("Use a role title and a short lowercase role alias.")
-        path = safe_path(self.ws.repository, ".vita/extensions.json")
-        data = read_json(path) if path.exists() else {}
-        data.setdefault("role_aliases", {})[title] = alias
-        atomic_write_bytes(
-            path, json.dumps(data, ensure_ascii=False, indent=2).encode()
-        )
-        return {"saved": True}
+        if not isinstance(items, list) or not 1 <= len(items) <= 1000:
+            raise ValueError("Enter at least one role alias (up to 1,000).")
+        aliases = {}
+        for item in items:
+            if not isinstance(item, dict):
+                raise ValueError("Use a role title and a short lowercase role alias.")
+            title, alias = item.get("title"), item.get("alias")
+            if (
+                not isinstance(title, str)
+                or not title.strip()
+                or len(title) > 2048
+                or "\0" in title
+                or title in aliases
+                or not isinstance(alias, str)
+                or not re.fullmatch("[a-z0-9][a-z0-9-]{0,63}", alias)
+            ):
+                raise ValueError(
+                    "Use unique role titles and aliases with lowercase letters, "
+                    "numbers or hyphens (up to 64 characters)."
+                )
+            aliases[title] = alias
+        with self.lock:
+            if self.running:
+                raise ValueError("Wait for the batch before changing aliases.")
+            path = safe_path(self.ws.repository, ".vita/extensions.json")
+            data = read_json(path) if path.exists() else {}
+            if not isinstance(data, dict) or not isinstance(data.get("role_aliases", {}), dict):
+                raise ValueError("Fix role_aliases in .vita/extensions.json; it must be an object.")
+            data.setdefault("role_aliases", {}).update(aliases)
+            atomic_write_bytes(path, json.dumps(data, ensure_ascii=False, indent=2).encode())
+        return {"saved": True, "count": len(aliases)}
 
     def discard(self, ident):
         with self.lock:
-            if ident in self.running:
+            related = {ident}
+            records = []
+            for path in self.root.glob("*/session.json"):
+                try:
+                    records.append(self.record(path.parent.name))
+                except (OSError, ValueError):
+                    continue
+            while True:
+                children = {record["id"] for record in records
+                            if record.get("parentBatchId") in related
+                            or record.get("retryRootId") == ident}
+                if children <= related:
+                    break
+                related.update(children)
+            if related & self.running:
                 raise ValueError("A running batch cannot be forgotten.")
             self.history()
-            folder = self.folder(ident)
-            for name in (
-                "session.json",
-                "original.json",
-                "selected.json",
-                "execution.log",
-            ):
-                (folder / name).unlink(missing_ok=True)
-            folder.rmdir()
-            self.environments.pop(ident, None)
+            for item in related:
+                folder = self.folder(item)
+                for name in (
+                    "session.json", "original.json", "selected.json", "execution.log",
+                ):
+                    (folder / name).unlink(missing_ok=True)
+                folder.rmdir()
+                self.environments.pop(item, None)
             return {"removed": True}
