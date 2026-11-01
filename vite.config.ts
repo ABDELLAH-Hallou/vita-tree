@@ -24,12 +24,26 @@ export default defineConfig({
   root: resolve(root, "frontend"),
   publicDir: resolve(root, "src/vita_tree/static"),
   plugins: [
+    {
+      name: "vita-portable-source",
+      enforce: "pre",
+      load(id) {
+        const local = relative(source, id);
+        if (!local.startsWith("..") && /\.[jt]sx?$/.test(id)) {
+          // Template literals must bundle identically on CRLF and LF checkouts.
+          return readFileSync(id, "utf8").replaceAll("\r\n", "\n");
+        }
+      },
+    },
     react(),
     {
       name: "vita-offline-assets",
       resolveId(id) {
         if (id.includes("/vendor/"))
-          return { id: "/vendor/" + id.split("/vendor/")[1], external: true };
+          return {
+            id: "vita-vendor/" + id.split("/vendor/")[1],
+            external: true,
+          };
       },
       generateBundle(_options, bundle) {
         const packages = new Map<string, string>();
@@ -146,6 +160,10 @@ export default defineConfig({
     cssCodeSplit: false,
     rollupOptions: {
       output: {
+        paths: (id) =>
+          id.startsWith("vita-vendor/")
+            ? "/vendor/" + id.slice("vita-vendor/".length)
+            : id,
         entryFileNames: "[name].js",
         chunkFileNames: "assets/frontend-[name]-[hash].js",
         assetFileNames: (asset) =>

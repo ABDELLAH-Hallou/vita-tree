@@ -4870,17 +4870,17 @@ var Hs = Object.defineProperty, Us = (e, t) => Hs(e, "name", {
 		ref: t
 	});
 }, "DropdownMenuItem")), $ = {
-	application: "_application_17fuq_1",
-	quickTrigger: "_quickTrigger_17fuq_332",
-	navigationTrigger: "_navigationTrigger_17fuq_333",
-	overlay: "_overlay_17fuq_361",
-	command: "_command_17fuq_367",
-	commandHeading: "_commandHeading_17fuq_383",
-	commandDescription: "_commandDescription_17fuq_393",
-	commandSearch: "_commandSearch_17fuq_398",
-	commandItems: "_commandItems_17fuq_413",
-	menu: "_menu_17fuq_435",
-	menuItem: "_menuItem_17fuq_446"
+	application: "_application_14jpy_1",
+	quickTrigger: "_quickTrigger_14jpy_342",
+	navigationTrigger: "_navigationTrigger_14jpy_343",
+	overlay: "_overlay_14jpy_371",
+	command: "_command_14jpy_377",
+	commandHeading: "_commandHeading_14jpy_393",
+	commandDescription: "_commandDescription_14jpy_403",
+	commandSearch: "_commandSearch_14jpy_408",
+	commandItems: "_commandItems_14jpy_423",
+	menu: "_menu_14jpy_445",
+	menuItem: "_menuItem_14jpy_456"
 }, rc = [
 	{
 		name: "New application",

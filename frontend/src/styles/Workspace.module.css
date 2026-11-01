@@ -37,7 +37,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.application :global(.shell) {
+.application :global(main.shell) {
   max-width: none;
   width: auto;
   margin: 0;
@@ -177,6 +177,16 @@
 }
 .application :global(.dag-node) {
   box-shadow: none;
+  min-width: 0;
+}
+.application :global(.dag-time) {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.application :global(.dag-model) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .application :global(.workflow-panel) {
   box-shadow: none;

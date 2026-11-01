@@ -57,13 +57,13 @@
     "frontend/src/components/renderers.tsx": "b4fcd9a9c49721b3fb6ff4bdd766b7f93d5303d2c134cc402fdec617b0c4d7ec",
     "frontend/src/main.tsx": "d5ad070c1bf9ae5dc8cefba7600180ebe194ac110120b13ee5371260f0e2a000",
     "frontend/src/model.ts": "fa371d87813e3e4b33049bfebafef0221cd682d1ca2befcc93cc53534cd32faa",
-    "frontend/src/styles/Workspace.module.css": "431e88f001903e6d1de671aa7c97accc856ec1f3733a7c83832da3e904a61a4b",
+    "frontend/src/styles/Workspace.module.css": "9024d6b305030c95aaa313b2c770756b93842f4d8f8f277fdc0259bee48083f5",
     "frontend/src/styles/tokens.css": "e52bd48b5d397e1af6743853a5de47e1fef0c36e5cdf3ebce5c5d0894554fbfa",
     "frontend/src/theme-bootstrap.ts": "cb37e02857289c7a54f2d15787a575b80da5f39e77f9294d5fc47eed3c92d4a8",
     "frontend/tests/api.test.ts": "473cea0d3cea315e3b41d5d92a61afd72879c97457519fc7016df2bf49030c58",
     "frontend/tests/views.test.tsx": "41ac7c07fcd0883bdbbe49c989712f913ab8b2c08a20f79244608a04051adb7c",
     "package-lock.json": "dc33b18cbe30d91663c8314675935dc6a1365f6bd2f4b2fea23793b31eadd5da",
     "tsconfig.json": "c1b9e5dc5f1f65ee6480513fbe45c712103c3f0c9b0ba112d41cf29148c6c27e",
-    "vite.config.ts": "6d082605aae5739d49321e61c6f23594e64c72cb257ba3c641cfaaaeca294964"
+    "vite.config.ts": "ae9af8b992a4b4de4bcf1a2f39a8f779e2897d5c947627c794d843337a3182f9"
   }
 }
