@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.17.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.16.1...v1.17.0) (2026-11-02)
+
+
+### Features
+
+* migrate application UI to a React workbench ([5a538b7](https://github.com/ABDELLAH-Hallou/vita-tree/commit/5a538b79a185528b9050ac38e9b9738e0be5aff2))
+* migrate Vita Tree to a React workbench ([9c45c24](https://github.com/ABDELLAH-Hallou/vita-tree/commit/9c45c2419295b0eb79664041ceab9468ae8163c5))
+* prepare failed-only Jobenu retries with captured settings ([ae01904](https://github.com/ABDELLAH-Hallou/vita-tree/commit/ae01904a7df3e6a93e0a201330ad10012f5e191a))
+* retry failed Jobenu jobs from batch activity ([6199a45](https://github.com/ABDELLAH-Hallou/vita-tree/commit/6199a45c00b6689019c7394abd796cf782362067))
+* streamline Jobenu batch selection and role naming ([c516469](https://github.com/ABDELLAH-Hallou/vita-tree/commit/c5164692b90b0d822d6fc192595fff112c133115))
+* validate Jobenu alias batches and date-scoped selections ([f375026](https://github.com/ABDELLAH-Hallou/vita-tree/commit/f375026ba598e7ee74cb48aa793545ab97faf276))
+
+
+### Bug Fixes
+
+* make frontend builds portable and follow mobile navigation ([3790a5c](https://github.com/ABDELLAH-Hallou/vita-tree/commit/3790a5c2f291813dc979d1d3d24103477a3f42de))
+* simplify CV setup guidance and checks ([f4ddfe1](https://github.com/ABDELLAH-Hallou/vita-tree/commit/f4ddfe1694cce20c0882e8b287972e1505b7b734))
+
+
+### Documentation
+
+* update the CV check instructions ([b0d7a61](https://github.com/ABDELLAH-Hallou/vita-tree/commit/b0d7a61f04a30fefdf89d7d739fe5f6f7ed6b090))
+
 ## [1.16.1](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.16.0...v1.16.1) (2026-11-01)
 
 
