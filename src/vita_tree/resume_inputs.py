@@ -78,7 +78,7 @@ def capture(workspace, context, record):
     context['stepSkills'] = {step: fingerprint({name: content for name, content in context['skills'].items() if name.startswith('.vita/skills/' + step + '/')}) for step in context['stepConfig']}
     context['credentialHashes'] = {}
     for step, route in context['stepConfig'].items():
-        env = stage_environment(context['env'], route, context['keys'].get(step))
+        env = stage_environment(context['env'], route, context['keys'].get(step), context['keys'].get(step + ':backup'))
         relevant = {key: value for key, value in env.items() if
                     re.search(r'(?:KEY|TOKEN|BASE_URL|ENDPOINT)$', key) or
                     key.startswith(('OPENAI_', 'ANTHROPIC_', 'GEMINI_', 'CODEX_', 'GOOGLE_')) or

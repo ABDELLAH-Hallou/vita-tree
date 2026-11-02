@@ -306,7 +306,7 @@ class Workspace:
         result['checkpointSteps'] = [step for step in record.get('checkpointSteps') or []
                                      if (self.root/'checkpoints'/record['id']/step/'manifest.json').is_file()]
         parent = (self.jobs if parents is None else parents).get(record.get('parentRunId'))
-        route_fields = ('provider','model','reasoning','connection')
+        route_fields = ('provider','model','reasoning','connection','backup')
         route_values = lambda item: {step: {k: route.get(k) for k in route_fields} for step, route in (item.get('stepConfig') or {}).items()}
         result['configurationChanged'] = bool(parent and (route_values(record) != route_values(parent) or record.get('language') != parent.get('language')))
         if secrets is None:
@@ -354,7 +354,7 @@ class Workspace:
                 prior_origins = self.inspector.read_tree(parent).get('configuration',{})
                 captured_origins = {step: prior_origins.get(step,{}).get('origin','captured') for step in parent.get('stepConfig') or {}}
                 routes = parent.get('stepConfig') or {}
-                clean = {step: {key: value for key, value in route.items() if key in {'provider','model','reasoning','connection'}}
+                clean = {step: {key: value for key, value in route.items() if key in {'provider','model','reasoning','connection','backup'}}
                          for step, route in routes.items()}
                 ai_config = {'default': next(iter(clean.values()), {}), 'steps': clean}
             return self.start_ai(parent['branch'], revision, job_revision, language=language or parent['language'],
@@ -425,6 +425,11 @@ class Workspace:
                 record['stepConfig'] = {step: {key: value for key, value in route.items()
                                               if key in {'provider', 'model', 'reasoning', 'connection', 'connectionName'} and isinstance(value, str)}
                                         for step, route in routes.items() if step in REPORTS and isinstance(route, dict)} if isinstance(routes, dict) else {}
+                from .fallback import history_backup
+                for step, route in record['stepConfig'].items():
+                    backup = history_backup(routes[step].get('backup'))
+                    if backup or routes[step].get('backup', 'absent') is None:
+                        route['backup'] = backup
                 for field in ('parentRunId', 'rootRunId', 'traceId'):
                     value = record.get(field)
                     record[field] = value if isinstance(value, str) and re.fullmatch(r'[a-f0-9]{32}', value) else None
@@ -468,7 +473,7 @@ class Workspace:
                     native = None
                 if isinstance(native, dict):
                     native = safe_outcome({'schema_version': 1, 'status': native.get('status'),
-                                           'attempts': native.get('attempts'), 'run_id': native.get('backendRunId'),
+                                           'attempts': native.get('attempts'), 'run_id': native.get('backendRunId'), 'routing': native.get('routing'),
                                            'error': {**(native.get('providerError') or {}), **(native.get('errorDetails') if isinstance(native.get('errorDetails'),dict) else {}), 'code': native.get('errorCode')}}, secrets)
                 result[step] = {'status': value.get('status') if value.get('status') in {'success','failed'} else 'failed',
                                 'verified': value.get('verified') is True, 'backend': native}
@@ -1029,6 +1034,12 @@ class Workspace:
                 # change a submitted run, and one step's key never replaces another's.
                 keys = {step: self.connections.get(route['connection'], route['provider'])
                         for step, route in routes.items() if route['connection']}
+                for step, route in routes.items():
+                    backup = route.get('backup')
+                    if backup and backup['connection']:
+                        keys[step + ':backup'] = self.connections.get(backup['connection'], backup['provider'])
+                    if backup and backup['provider'] == route['provider'] and backup['connection'] != route['connection']:
+                        raise ValueError('Use the same API connection for primary and backup models from the same provider.')
                 names = {item['id']: item['name'] for item in self.connections.list()}
                 for route in routes.values():
                     route['connectionName'] = names.get(route['connection']) or ('Local Codex login' if route['provider'] == 'codex' else 'Existing local credentials')
@@ -1285,7 +1296,7 @@ class Workspace:
                     return
                 step_pdf = None
                 route = context['stepConfig'][step]
-                env = stage_environment(context['env'], route, context['keys'].get(step))
+                env = stage_environment(context['env'], route, context['keys'].get(step), context['keys'].get(step + ':backup'))
                 execution_id = uuid.uuid4().hex
                 env.update(self.inspector.environment(record, step))
                 env['VITA_TREE_EXECUTION_ID'] = execution_id

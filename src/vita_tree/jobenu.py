@@ -322,6 +322,7 @@ class JobenuImports:
             # mechanism, never invented batch command flags. Secrets remain in RAM.
             settings = self.ws.ai_settings(data["base"])
             from .ai_config import effective_settings, PREFIXES
+            from .fallback import environment as fallback_environment
 
             provider_keys = {}
             saved = (
@@ -338,19 +339,14 @@ class JobenuImports:
                     env[prefix + "_PROVIDER"] = route["provider"]
                 if route.get("model"):
                     env[prefix + "_MODEL"] = route["model"]
-                if route.get("connection"):
-                    key = self.ws.connections.get(
-                        route["connection"], route["provider"]
-                    )
-                    if (
-                        route["provider"] in provider_keys
-                        and provider_keys[route["provider"]] != key
-                    ):
-                        raise ValueError(
-                            "This batch backend uses one credential per provider. Use the same connection for that provider in all selected steps."
-                        )
-                    provider_keys[route["provider"]] = key
-                    env[route["provider"].upper() + "_API_KEY"] = key
+                fallback_environment(env, route.get('backup'), (prefix,))
+                for selected_route in (route, route.get('backup')):
+                    if selected_route and selected_route.get('connection'):
+                        key = self.ws.connections.get(selected_route['connection'], selected_route['provider'])
+                        if selected_route['provider'] in provider_keys and provider_keys[selected_route['provider']] != key:
+                            raise ValueError('This batch backend uses one credential per provider. Use the same connection for that provider in all selected steps.')
+                        provider_keys[selected_route['provider']] = key
+                        env[selected_route['provider'].upper() + '_API_KEY'] = key
             if captured_routes is not None:
                 for step, route in captured_routes.items():
                     if step not in PREFIXES:
@@ -358,6 +354,8 @@ class JobenuImports:
                     for field in ("provider", "model"):
                         if route.get(field):
                             env[PREFIXES[step] + "_" + field.upper()] = route[field]
+                    if 'backup' in route:
+                        fallback_environment(env, route['backup'], (PREFIXES[step],))
             if runtime is not None:
                 command, captured_env = runtime
                 env = dict(captured_env)
@@ -374,6 +372,7 @@ class JobenuImports:
                         self.secrets(env),
                     )
                 )
+            captured_settings = captured_routes if captured_routes is not None else routes
             record.update(
                 status="planned" if code == 0 else "conflict",
                 plan=plan,
@@ -383,12 +382,13 @@ class JobenuImports:
                 options=data,
                 capturedRoutes={
                     step: {
-                        field: env[prefix + "_" + suffix]
+                        **({'backup': captured_settings[step].get('backup')} if step in captured_settings else {}),
+                        **{field: env[prefix + "_" + suffix]
                         for field, suffix in (
                             ("provider", "PROVIDER"),
                             ("model", "MODEL"),
                         )
-                        if env.get(prefix + "_" + suffix)
+                        if env.get(prefix + "_" + suffix)}
                     }
                     for step, prefix in PREFIXES.items()
                 },

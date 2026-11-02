@@ -662,6 +662,8 @@ class JobenuTests(unittest.TestCase):
             },
         }
         saved = self.ws.root / "ai-settings" / (digest("master") + ".json")
+        settings['default']['backup'] = {'provider': 'gemini', 'model': 'fixture-backup',
+                                         'reasoning': '', 'connection': '', 'categories': ['timeout']}
         saved.parent.mkdir(parents=True)
         saved.write_text(json.dumps(settings))
         plan = {
@@ -681,6 +683,10 @@ class JobenuTests(unittest.TestCase):
         env = self.manager.environments[ident][1]
         self.assertEqual(env["ANALYSIS_MODEL"], "fixture-shared")
         self.assertEqual(env["ADAPT_MODEL"], "fixture-adapt")
+        self.assertEqual(env['ANALYSIS_FALLBACK_MODEL'], 'fixture-backup')
+        self.assertEqual(env['ANALYSIS_FALLBACK_ENABLED'], 'true')
+        self.assertEqual(env['ADAPT_FALLBACK_ENABLED'], 'false')
+        self.assertEqual(self.manager.record(ident)['capturedRoutes']['analyze']['backup']['model'], 'fixture-backup')
         self.assertNotIn("VITA_TREE_REASONING", env)
         self.assertNotIn("--model", self.manager.record(ident)["args"])
         config = self.root / ".vita/extensions.json"

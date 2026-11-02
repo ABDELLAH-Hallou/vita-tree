@@ -92,7 +92,8 @@ def configure(llm):
         original_codex = llm._call_codex_cli
         if 'reasoning_effort' in inspect.signature(original_codex).parameters:
             def configured_codex(system, user, model='', **options):
-                options['reasoning_effort'] = reasoning
+                if options.get('reasoning_effort') is None and model == os.environ.get('ADAPT_MODEL'):
+                    options['reasoning_effort'] = reasoning
                 return original_codex(system, user, model, **options)
             llm._call_codex_cli = configured_codex
         else:

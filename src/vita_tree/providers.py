@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+from .fallback import capabilities as fallback_capabilities
 
 
 SUPPORTED = {'codex', 'gemini', 'google', 'openai', 'anthropic', 'groq', 'mistral',
@@ -112,7 +113,7 @@ def discover(workspace, branch):
                         'supported': provider in SUPPORTED,
                         'reasoning': efforts.get(model, []) if provider == 'codex' else []})
     return {'options': options, 'languages': languages(workspace, branch), 'default': {'provider': current[0][0], 'model': current[0][1]},
-            'refCount': len(refs), 'reasoningBridge': workspace.ai_bridge(),
+            'refCount': len(refs), 'reasoningBridge': workspace.ai_bridge(), 'fallback': fallback_capabilities(workspace),
             'providers': [{'id': p, 'name': PROVIDER_NAMES[p],
                            'auth': 'login' if p == 'codex' else 'apiKey',
                            'keyVariable': '' if p == 'codex' else p.upper() + '_API_KEY',
