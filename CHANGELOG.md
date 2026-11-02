@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.18.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.17.0...v1.18.0) (2026-11-02)
+
+
+### Features
+
+* add backup AI and improve imported-job reruns ([0e60436](https://github.com/ABDELLAH-Hallou/vita-tree/commit/0e6043614b6a1334a0a90623942737e8d9fe821e))
+* connect native backup AI policies ([faed693](https://github.com/ABDELLAH-Hallou/vita-tree/commit/faed6939ac5813afc2d2a4bf94f38494e55d10b7))
+
+
+### Bug Fixes
+
+* clarify imported-job reruns and hide empty previews ([4177cd8](https://github.com/ABDELLAH-Hallou/vita-tree/commit/4177cd83535e0a469b93829b87cf3303a2680702))
+* own capability probe process trees ([058d68b](https://github.com/ABDELLAH-Hallou/vita-tree/commit/058d68bed20b999dac7e816a1b3aaef67f8f8a6e))
+* preserve Codex reasoning without a model marker ([9b145a7](https://github.com/ABDELLAH-Hallou/vita-tree/commit/9b145a7e69989ffa7f6fecaea881ca8b867d2503))
+
 ## [1.17.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.16.1...v1.17.0) (2026-11-02)
 
 
