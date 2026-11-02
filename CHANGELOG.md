@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.19.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.18.0...v1.19.0) (2026-11-02)
+
+
+### Features
+
+* **jobenu:** add explicit no-review batch approval ([8b35d3b](https://github.com/ABDELLAH-Hallou/vita-tree/commit/8b35d3b8a40e6cfcc5f04e94e07a25244134ee61))
+
 ## [1.18.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.17.0...v1.18.0) (2026-11-02)
 
 
