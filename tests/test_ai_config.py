@@ -141,7 +141,7 @@ class AIConfigTests(unittest.TestCase):
 
     def test_legacy_installation_does_not_probe_an_unsupported_command(self):
         self.workspace.vita_source = self.root / 'legacy-source'
-        with patch.object(self.workspace, 'vita_command', return_value=['synthetic-cli']), patch('vita_tree.fallback.subprocess.run') as invoke:
+        with patch.object(self.workspace, 'vita_command', return_value=['synthetic-cli']), patch.object(self.workspace.processes, 'run') as invoke:
             self.assertIsNone(fallback_capabilities(self.workspace))
         invoke.assert_not_called()
 

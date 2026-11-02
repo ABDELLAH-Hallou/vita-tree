@@ -3,6 +3,7 @@ import json
 import os
 import subprocess
 import re
+import tempfile
 
 from .diagnostics_contract import CATEGORIES, PROVIDERS, token
 
@@ -42,9 +43,12 @@ def capabilities(workspace):
         if workspace.vita_source:
             env['PYTHONPATH'] = str(workspace.vita_source) + os.pathsep + env.get('PYTHONPATH', '')
         try:
-            process = subprocess.run([*command, 'fallback', 'capabilities', '--json'],
-                                     cwd=workspace.repository, env=env, capture_output=True, timeout=10)
-            data = json.loads(process.stdout) if process.returncode == 0 else {}
+            with tempfile.TemporaryFile() as output:
+                process = workspace.processes.run([*command, 'fallback', 'capabilities', '--json'],
+                    cwd=workspace.repository, env=env, stdin=subprocess.DEVNULL,
+                    stdout=output, stderr=subprocess.DEVNULL, timeout=10)
+                output.seek(0)
+                data = json.loads(output.read(100_001)) if process.returncode == 0 else {}
             if (isinstance(data, dict) and data.get('schema_version') == 1 and data.get('version') == VERSION
                     and data.get('max_backups') == 1
                     and isinstance(data.get('allowed_categories'), list)
