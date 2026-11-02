@@ -1,12 +1,12 @@
-import { a as e, n as t, o as n, r, t as i } from "./frontend-workflow-DqtU3Lxp.js";
+import { a as e, n as t, o as n, r, t as i } from "./frontend-workflow-CuJDKIt5.js";
 import { t as a } from "./frontend-client-Cqgf6Pc4.js";
-import { i as o, n as s, r as c, t as l } from "./frontend-runs-DVF8sgEZ.js";
+import { i as o, n as s, r as c, t as l } from "./frontend-runs-P9iN8Afn.js";
 import { r as u, t as d } from "./frontend-reports-CzIybQiE.js";
 import { t as f } from "./frontend-diagnostics-DPKkcqsI.js";
-import { t as p } from "./frontend-ai-settings-R078Tb1d.js";
+import { t as p } from "./frontend-ai-settings-Dr2u_7AL.js";
 import { n as m, t as h } from "./frontend-provider-failures-uMyQIdg2.js";
 import { t as g } from "./frontend-factual-review-C1JvgUhX.js";
-import { t as ee } from "./frontend-jobenu-D3uI5jg7.js";
+import { t as ee } from "./frontend-jobenu-BoAOEtuo.js";
 import { t as te } from "./frontend-requirements-CEEL9r4B.js";
 import { t as ne } from "./frontend-preflight-CXA8w4x8.js";
 import { createLatexEditor as re } from "/vendor/editor.mjs";
@@ -652,7 +652,7 @@ function J() {
 		config: i?.stepConfig || Object.fromEntries(C.map((e) => [e, A.route(e)]))
 	});
 	let u = _("#workflow-next");
-	u.disabled = !!v.snapshot.running || !!v.launching, u.textContent = i?.requirementsApprovalNeeded ? "Review job requirements" : i?.factualReview?.state === "pending" ? "Review CV changes" : i?.resumeAvailable ? "Continue preparation" : a && i.status === "succeeded" ? "Preview your PDF" : "Prepare application", _("#workflow-action").dataset.state = U(i) ? "review" : i?.status === "failed" ? "failed" : "ready", _("#workflow-next-help").textContent = U(i) ? "One review, then the remaining steps continue automatically." : i?.status === "failed" ? m(i) || i.message : a && i.status === "succeeded" ? "Your application is updated. Check the final layout before saving." : "Prepare everything, or choose individual steps in Job details & AI.", i?.source === "jobenu" && (u.textContent = "Open import activity", _("#workflow-next-help").textContent = i.message), _("#review-policy").disabled = !!v.snapshot.running || !!v.launching, v.selectedTask && Te();
+	u.disabled = !!v.snapshot.running || !!v.launching, u.textContent = i?.requirementsApprovalNeeded ? "Review job requirements" : i?.factualReview?.state === "pending" ? "Review CV changes" : i?.resumeAvailable ? "Continue preparation" : a && i.status === "succeeded" ? "Preview your PDF" : "Prepare application", _("#workflow-action").dataset.state = U(i) ? "review" : i?.status === "failed" ? "failed" : "ready", _("#workflow-next-help").textContent = U(i) ? "One review, then the remaining steps continue automatically." : i?.status === "failed" ? m(i) || i.message : a && i.status === "succeeded" ? "Your application is updated. Check the final layout before saving." : "Prepare everything, or choose individual steps in Job details & AI.", i?.source === "jobenu" && (u.textContent = i.status === "failed" ? "Start selected steps" : "Open import activity", _("#workflow-next-help").textContent = i.status === "failed" ? "Start a new preparation with your current AI setup. The imported attempt keeps its captured settings." : i.message), _("#review-policy").disabled = !!v.snapshot.running || !!v.launching, v.selectedTask && Te();
 }
 function Te() {
 	let e = i(v.displayedRun, K(), v.session.workflow).find((e) => e.id === v.selectedTask);
@@ -671,7 +671,7 @@ function Ee(e) {
 }
 _("#workflow-next").onclick = () => {
 	let e = v.displayedRun;
-	if (e?.source === "jobenu") return oe.open();
+	if (e?.source === "jobenu") return e.status === "failed" ? W(K().steps) : oe.open();
 	if (e?.requirementsApprovalNeeded) return b.open().catch((e) => N(e.message, !0));
 	if (e?.factualReview?.state === "pending") return x.open(e).catch((e) => N(e.message, !0));
 	if (e?.resumeAvailable) return v.resumeCaptured = !0, _("#resume-current-config").checked = !1, X();

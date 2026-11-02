@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 
 from .fileio import atomic_write_bytes
+from .outcomes import safe_outcome
 
 STEPS = ("extract", "analyze", "adapt", "review", "cover", "validating")
 ROUTE_FIELDS = ("provider", "model", "reasoning")
@@ -28,6 +29,7 @@ HISTORY_FIELDS = (
     "nativeKey",
     "language",
     "message",
+    "outcomes",
 )
 
 
@@ -150,6 +152,10 @@ def project(record, row, active, decision):
         reviewed=True,
         stages=stages,
         stepConfig=routes,
+        outcomes={step: {'status': outcome.get('status'), 'verified': False,
+                         'backend': safe_outcome({**outcome, 'schema_version': 1})}
+                  for step, outcome in (row.get('operation_outcomes') or {}).items()
+                  if step in STEPS and isinstance(outcome, dict)},
         resumeAvailable=False,
         attempt=attempt,
         nativeBatchId=record["id"],
@@ -217,6 +223,7 @@ def history(manager, branch=None):
                         for step, route in record["stepConfig"].items()
                         if step in STEPS and isinstance(route, dict)
                     }
+                    record['outcomes'] = manager.ws._safe_outcomes(record.get('outcomes'))
                     records[path.stem] = manager.clean_report(record, {})
             except (OSError, ValueError):
                 continue
@@ -262,6 +269,7 @@ def history(manager, branch=None):
                                 error,
                                 operation="jobenu_history",
                             )
+                    record['outcomes'] = manager.ws._safe_outcomes(record.get('outcomes'))
                     records[record["id"]] = record
             except (OSError, ValueError, TypeError):
                 continue

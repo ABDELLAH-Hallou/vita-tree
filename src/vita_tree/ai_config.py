@@ -9,7 +9,7 @@ from .security import credential_name
 
 STEPS = ('extract', 'analyze', 'adapt', 'review', 'cover')
 PREFIXES = dict(zip(STEPS, ('EXTRACTION', 'ANALYSIS', 'ADAPT', 'REVIEW', 'COVER')))
-FIELDS = {'provider', 'model', 'reasoning', 'connection'}
+FIELDS = {'provider', 'model', 'reasoning', 'connection', 'backup'}
 
 
 class Connections:
@@ -56,8 +56,8 @@ def clean_settings(workspace, branch, raw, default=None):
         raise ValueError('AI overrides must refer to a supported workflow step.')
     catalog = discover(workspace, branch)
 
-    def route(value, base=None):
-        if not isinstance(value, dict) or set(value) - FIELDS:
+    def route(value, base=None, backup=False):
+        if not isinstance(value, dict) or set(value) - (FIELDS - {'backup'} if backup else FIELDS):
             raise ValueError('AI setup accepts service, model, reasoning, and connection only.')
         merged = {**(base or {}), **value}
         if base and value.get('provider', base['provider']) != base['provider']:
@@ -68,7 +68,27 @@ def clean_settings(workspace, branch, raw, default=None):
             raise ValueError('Choose a connection from the list.')
         if connection and provider == 'codex':
             raise ValueError('Codex uses your local CLI login. Choose the local connection.')
-        return dict(provider=provider, model=model, reasoning=reasoning, connection=connection)
+        result = dict(provider=provider, model=model, reasoning=reasoning, connection=connection)
+        if not backup and 'backup' in merged:
+            result['backup'] = None
+        if not backup and merged.get('backup') is not None:
+            contract = catalog.get('fallback')
+            if not contract:
+                raise ValueError('Update Vita CV and restart Vita Tree to enable a backup AI setup.')
+            raw_backup = merged['backup']
+            if not isinstance(raw_backup, dict):
+                raise ValueError('Choose a backup provider and exact model ID.')
+            categories = raw_backup.get('categories', contract['default_categories'])
+            if (not isinstance(categories, list) or not categories or
+                    any(not isinstance(c, str) or c not in contract['allowed_categories'] for c in categories)):
+                raise ValueError('Choose supported provider failure categories for the backup.')
+            alternate = route({k: v for k, v in raw_backup.items() if k != 'categories'}, backup=True)
+            if not alternate['model'] or (alternate['provider'], alternate['model']) == (provider, model):
+                raise ValueError('The backup needs an exact model ID and must differ from the primary setup.')
+            if alternate['provider'] == provider and alternate['connection'] != connection:
+                raise ValueError('Use the same API connection for primary and backup models from the same provider.')
+            result['backup'] = {**alternate, 'categories': sorted(set(categories))}
+        return result
 
     shared = route(shared)
     return {'default': shared, 'steps': {step: route(value, shared) for step, value in steps.items()}}
@@ -78,13 +98,16 @@ def effective_settings(settings, selected):
     return {step: dict(settings['steps'].get(step, settings['default'])) for step in STEPS if step in selected}
 
 
-def stage_environment(base, route, key=None):
+def stage_environment(base, route, key=None, backup_key=None):
     """A fresh environment per process prevents credentials leaking between steps."""
     provider = route['provider'].upper()
     aliases = {provider}
-    if provider in {'GEMINI','GOOGLE'}:
+    backup = route.get('backup')
+    if backup:
+        aliases.add(backup['provider'].upper())
+    if aliases & {'GEMINI','GOOGLE'}:
         aliases.update({'GEMINI','GOOGLE'})
-    if provider == 'CODEX':
+    if 'CODEX' in aliases:
         aliases.add('OPENAI')  # Explicit Codex API authentication remains supported.
     allowed_keys = {alias+'_API_KEY' for alias in aliases}
     env = {name:value for name,value in base.items()
@@ -97,7 +120,11 @@ def stage_environment(base, route, key=None):
         env[prefix + '_PROVIDER'] = route['provider']
         env[prefix + '_MODEL'] = route['model']
     if key is not None:
-        for alias in aliases:
+        for alias in ({provider} | ({'GEMINI','GOOGLE'} if provider in {'GEMINI','GOOGLE'} else set()) | ({'OPENAI'} if provider=='CODEX' else set())):
             env.pop(alias+'_API_KEY', None)
         env[route['provider'].upper() + '_API_KEY'] = key
+    if backup_key is not None and backup:
+        env[backup['provider'].upper() + '_API_KEY'] = backup_key
+    from .fallback import environment
+    environment(env, backup)
     return env

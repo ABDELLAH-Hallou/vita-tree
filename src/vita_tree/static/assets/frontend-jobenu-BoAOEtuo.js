@@ -1,4 +1,4 @@
-import { n as e, r as t, t as n } from "./frontend-jobenu-history-CwRp7Dw0.js";
+import { n as e, r as t, t as n } from "./frontend-jobenu-history-DAQVDk9-.js";
 import { renderLatexSnippet as r } from "/vendor/editor.mjs";
 // frontend/src/compat/jobenu.js
 function i({ api: i, branches: a, openBranch: o, ready: s }) {

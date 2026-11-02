@@ -42,6 +42,15 @@ export function WorkflowGraph({
         )
           label += " · requirements changed";
         const route = config[task.id];
+        const routing = run?.outcomes?.[task.id]?.backend?.routing;
+        const effective = routing?.effective;
+        const usedBackup =
+          !!routing?.chain?.length &&
+          routing.chain.length > 1 &&
+          ((!!effective?.model &&
+            effective.model !== routing.chain[0]?.model) ||
+            (!!effective?.provider &&
+              effective.provider !== routing.chain[0]?.provider));
         const title = task.previousRun
           ? "This step completed in an earlier preparation. Its results were not loaded or verified for this preparation. Use Retry on that earlier preparation to check checkpoint reuse."
           : task.id === "validating"
@@ -130,9 +139,19 @@ export function WorkflowGraph({
               {route && (
                 <span
                   className="dag-model"
-                  title={`${route.provider} · ${route.reasoning || "Automatic reasoning"}`}
+                  title={
+                    effective?.provider
+                      ? `Used ${effective.provider} / ${effective.model || "model unreported"}${usedBackup ? " (backup)" : ""}. Requested ${route.provider} / ${route.model}`
+                      : `${route.provider} · ${route.reasoning || "Automatic reasoning"}`
+                  }
                 >
-                  {route.model || `${route.provider} default`}
+                  {(effective?.provider
+                    ? effective.model ||
+                      `${effective.provider} · model unreported`
+                    : null) ||
+                    route.model ||
+                    `${route.provider} default`}
+                  {usedBackup ? " · Backup" : ""}
                 </span>
               )}
             </button>

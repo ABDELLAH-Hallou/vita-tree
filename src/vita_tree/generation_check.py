@@ -39,7 +39,7 @@ def run(workspace, name, step, raw, confirmed=False):
         # Existing worktree when present; no new checkout or captured CV/JD.
         location = workspace.location(name, create=False) or workspace.repository
         context = workspace._ai_context(location, '', '', command, route['provider'], route['model'], route['reasoning'])
-        env = stage_environment(context['env'], route, key)
+        env = stage_environment(context['env'], {**route, 'backup': None}, key)
         secrets = [v for k, v in env.items() if any(part in k.upper() for part in ('KEY','TOKEN','SECRET','PASSWORD')) and v]
         pending.add(identity)
     try:

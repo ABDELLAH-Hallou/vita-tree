@@ -6,6 +6,26 @@ import {
   retryable,
 } from "../src/compat/jobenu-history.js";
 
+test("abandoned empty previews are not execution history; real failures remain visible", () => {
+  const draft = {
+    id: "preview",
+    createdAt: 1,
+    status: "selecting",
+    entries: [],
+  };
+  const failed = {
+    id: "failed",
+    createdAt: 2,
+    startedAt: 3,
+    status: "failed",
+    entries: [],
+  };
+  assert.deepEqual(
+    batchGroups([draft, failed]).map((group) => group.batch.id),
+    ["failed"],
+  );
+});
+
 test("retry attempts update their rows without losing other applications or original outcomes", () => {
   const original = {
     id: "root",

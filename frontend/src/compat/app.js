@@ -534,7 +534,8 @@ function renderWorkflow(){
   $('#workflow-action').dataset.state=needsDecision(run)?'review':run?.status==='failed'?'failed':'ready';
   $('#workflow-next-help').textContent=needsDecision(run)?'One review, then the remaining steps continue automatically.':run?.status==='failed'?(runFailureText(run)||run.message):finished&&run.status==='succeeded'?'Your application is updated. Check the final layout before saving.':'Prepare everything, or choose individual steps in Job details & AI.';
   if(run?.source==='jobenu'){
-    next.textContent='Open import activity';$('#workflow-next-help').textContent=run.message;
+    next.textContent=run.status==='failed'?'Start selected steps':'Open import activity';
+    $('#workflow-next-help').textContent=run.status==='failed'?'Start a new preparation with your current AI setup. The imported attempt keeps its captured settings.':run.message;
   }
   $('#review-policy').disabled=!!state.snapshot.running||!!state.launching;
   if(state.selectedTask)updateInspector();
@@ -568,7 +569,7 @@ function selectTask(task){
 }
 $('#workflow-next').onclick=()=>{
   const run=state.displayedRun;
-  if(run?.source==='jobenu')return jobenuImport.open();
+  if(run?.source==='jobenu')return run.status==='failed'?runAdapt(workflowOptions().steps):jobenuImport.open();
   if(run?.requirementsApprovalNeeded)return requirements.open().catch(e=>notice(e.message,true));
   if(run?.factualReview?.state==='pending')return factualReview.open(run).catch(e=>notice(e.message,true));
   if(run?.resumeAvailable){state.resumeCaptured=true;$('#resume-current-config').checked=false;return reviewResume();}

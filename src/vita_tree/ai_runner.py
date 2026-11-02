@@ -88,11 +88,13 @@ def configure(llm):
     # process must also be visible, without writing a second credentials file.
     llm.load_env = lambda: {**original_load(), **os.environ}
     reasoning = os.environ.get('VITA_TREE_REASONING', '')
+    primary_model = os.environ.get('ADAPT_MODEL', '')
     if reasoning:
         original_codex = llm._call_codex_cli
         if 'reasoning_effort' in inspect.signature(original_codex).parameters:
             def configured_codex(system, user, model='', **options):
-                options['reasoning_effort'] = reasoning
+                if options.get('reasoning_effort') is None and (not primary_model or model == primary_model):
+                    options['reasoning_effort'] = reasoning
                 return original_codex(system, user, model, **options)
             llm._call_codex_cli = configured_codex
         else:

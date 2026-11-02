@@ -36,6 +36,12 @@ export interface GraphRun {
   requirementsStatus?: string;
   requirementsApprovalNeeded?: boolean;
   factualReview?: { state: string; step: string };
+  outcomes?: Partial<
+    Record<
+      StepId,
+      { backend?: { routing?: { effective?: Route; chain?: Route[] } } }
+    >
+  >;
 }
 export interface Branch {
   name: string;

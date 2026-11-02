@@ -73,7 +73,7 @@ export function createAIConfiguration(container, {api, onChange}) {
   const providerFor = route => catalog?.providers.find(p=>p.id===route.provider);
   function summary(route) {
     if(!route)return '';
-    return `${providerFor(route)?.name||route.provider} · ${route.model||'Provider default'} · ${route.reasoning?effortNames[route.reasoning]||route.reasoning:'Automatic reasoning'}`;
+    return `${providerFor(route)?.name||route.provider} · ${route.model||'Provider default'} · ${route.reasoning?effortNames[route.reasoning]||route.reasoning:'Automatic reasoning'}${route.backup?` · Backup: ${providerFor(route.backup)?.name||route.backup.provider} / ${route.backup.model}`:''}`;
   }
   function connectionName(route) {
     if(route.connectionName)return route.connectionName;
@@ -98,8 +98,8 @@ export function createAIConfiguration(container, {api, onChange}) {
       if(badge)badge.textContent=`${settings.steps[step]?'Custom':'Shared'} · ${routeFor(step).model||providerFor(routeFor(step))?.name||routeFor(step).provider}`;
     }
   }
-  function makeFields(step, editor=null) {
-    const route=editor?editor.route:routeFor(step), shared=step==='default', prefix=editor?'popup-':shared?'':step+'-';
+  function makeFields(step, editor=null, backup=false) {
+    const primary=editor?editor.route:routeFor(step), route=backup?primary.backup:primary, shared=step==='default', prefix=(editor?'popup-':shared?'':step+'-')+(backup?'backup-':'');
     const locked=disabled||!!editor?.readOnly||!!editor?.saving||(!!editor&&!editor.custom);
     const notify=()=>editor?updatePopupSummary():changed();
     const repaint=()=>editor?renderPopupFields():replaceFields(step);
@@ -164,13 +164,42 @@ export function createAIConfiguration(container, {api, onChange}) {
       $('#generation-check-dialog').showModal();
     };
     host.querySelector('[data-add-key]').onclick=()=>{
-      connectionTarget={route,step,branch,editor,repaint,notify};$('#connection-service').textContent=`${provider?.name} · reusable by any step with this provider`;
+      connectionTarget={route,step,branch,editor,repaint,notify,backup};$('#connection-service').textContent=`${provider?.name} · reusable by any step with this provider`;
       $('#connection-name').value=`${provider?.name} account`;$('#connection-key').value='';$('#connection-key').type='password';$('#show-connection-key').checked=false;$('#connection-error').hidden=true;$('#connection-dialog').showModal();
     };
     host.querySelector('[data-remove-key]').onclick=async()=>{
       try{connections=(await api('/api/connections/remove',{id:route.connection})).connections;render();changed();}
       catch(error){showError(error.message);}
     };
+    if(!backup){
+      const section=document.createElement('fieldset');
+      section.className='ai-backup';
+      section.innerHTML='<legend>Backup AI</legend><label class="ai-override-toggle"><input type="checkbox"><span>Use a backup if this AI fails</span></label><p class="helper"></p><div data-backup-fields></div>';
+      const toggle=section.querySelector('input');toggle.checked=!!route.backup;toggle.disabled=locked||!catalog.fallback;
+      section.querySelector('p').textContent=catalog.fallback?'Uses the same attempt budget and may use credits from the backup service. Reviews and file conflicts still stop the workflow.':'Update Vita CV and restart Vita Tree to use a backup.';
+      const fields=section.querySelector('[data-backup-fields]');
+      if(route.backup)fields.append(makeFields(step,editor,true));
+      toggle.onchange=()=>{
+        if(toggle.checked)route.backup={provider:route.provider,model:'',reasoning:'',connection:route.connection,categories:[...catalog.fallback.default_categories]};
+        else route.backup=null;
+        repaint();notify();
+      };
+      if(route.backup){
+        const advanced=document.createElement('details');
+        const title=document.createElement('summary');title.textContent='When to use the backup';advanced.append(title);
+        for(const category of catalog.fallback?.allowed_categories||route.backup.categories){
+          const label=document.createElement('label');label.className='ai-override-toggle';
+          const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=route.backup.categories.includes(category);checkbox.disabled=locked;
+          checkbox.onchange=()=>{route.backup.categories=checkbox.checked?[...route.backup.categories,category]:route.backup.categories.filter(value=>value!==category);notify();};
+          label.append(checkbox,document.createTextNode(category.replaceAll('_',' ')));advanced.append(label);
+        }
+        section.append(advanced);
+      }
+      host.append(section);
+    }else{
+      host.querySelector('[data-check-generation]').hidden=true;
+      field('model-help').textContent='Enter the exact backup model ID. It must differ from the primary setup.';
+    }
     return host;
   }
   function replaceFields(step) {
@@ -204,6 +233,14 @@ export function createAIConfiguration(container, {api, onChange}) {
     if(!providerFor(route))return `${name}: choose a supported provider.`;
     if(route.model.length>160||(route.model&&!/^[a-zA-Z0-9][a-zA-Z0-9_./:@+-]*$/.test(route.model)))return `${name}: enter an exact model ID without spaces.`;
     if(route.connection&&!connections.some(c=>c.id===route.connection&&c.provider===route.provider))return `${name}: add or select a connection again; the previous session connection expired.`;
+    if(route.backup){
+      if(!catalog.fallback)return 'Update Vita CV and restart Vita Tree to use a backup.';
+      const issue=routeProblem(route.backup,`${name} backup`);if(issue)return issue;
+      if(!route.backup.model)return `${name}: enter an exact backup model ID.`;
+      if(route.backup.provider===route.provider&&route.backup.model===route.model)return `${name}: choose a different backup model or provider.`;
+      if(!route.backup.categories.length)return `${name}: choose at least one failure category for the backup.`;
+      if(route.backup.provider===route.provider&&route.backup.connection!==route.connection)return `${name}: use the same connection for models from the same provider.`;
+    }
     return '';
   }
   function problem(selected=steps.map(([step])=>step)) {
@@ -327,12 +364,12 @@ export function createAIConfiguration(container, {api, onChange}) {
     $('#add-connection').disabled=true;$('#connection-error').hidden=true;
     try {
       const connection=await api('/api/connections',payload);connections.push(connection);
-      const current=branch===target&&(selection.editor?selection.editor===stepEditor:route===routeFor(selection.step));
+      const current=branch===target&&(selection.editor?selection.editor===stepEditor:route===(selection.backup?routeFor(selection.step).backup:routeFor(selection.step)));
       if(current){route.connection=connection.id;selection.repaint();selection.notify();}
       $('#connection-dialog').close();$('#connection-key').value='';$('#connection-key').type='password';
       // Repainting replaces the native dialog opener. Restore focus to the
       // updated connection field rather than leaving it in the closed dialog.
-      if(current)$('#'+(selection.editor?'popup-':selection.step==='default'?'':selection.step+'-')+'connection')?.focus({preventScroll:true});
+      if(current)$('#'+(selection.editor?'popup-':selection.step==='default'?'':selection.step+'-')+(selection.backup?'backup-':'')+'connection')?.focus({preventScroll:true});
     } catch(error){$('#connection-error').textContent=error.message;$('#connection-error').hidden=false;}
     finally{payload.apiKey='';$('#add-connection').disabled=false;}
   };

@@ -339,8 +339,15 @@ for the batch. Confirm the affected jobs and captured AI settings without openin
 each workspace. Retries keep matching native checkpoints, leave successful jobs
 and pending reviews alone, and appear together under **Attempts**. Changed settings
 or inputs can require a fresh preview; retries never silently force a full rerun.
-Automatic backup-provider switching requires a Vita CV fallback contract; the
-current integration retries the original provider/model.
+To change AI in an imported workspace, configure the next run and start the
+selected steps there. Batch retries keep their original setup.
+
+**Backup AI** in the shared or component setup optionally switches to another
+provider/model on selected provider failures. It requires Vita CV's
+`provider-fallback/1` capability, shares the operation's attempt budget, and may
+use the backup service's credits. It never bypasses approvals or file conflicts.
+The graph shows the model actually used, including a backup when reported by the
+backend. Generation checks test only the selected primary model.
 
 The configured Vita command is checked with `import jobenu --help`. If it lacks
 the plan/JSON contract, select a compatible Vita CV source folder under **Vita

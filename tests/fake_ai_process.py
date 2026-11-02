@@ -30,6 +30,13 @@ def outcome():
               'error': None if success else {'code': 'provider_error'}}
     backend = {'status': native['status'], 'backendRunId': native['run_id'], 'attempts': native['attempts'],
                'errorCode': None if success else 'provider_error'} if step in {'extract','analyze','review'} else None
+    backup_file = control / (label + '.' + step + '.expected-backup.json')
+    if backend and success and backup_file.exists():
+        backup = json.loads(backup_file.read_text())
+        requested = {'provider': os.environ['ADAPT_PROVIDER'], 'model': os.environ['ADAPT_MODEL']}
+        effective = {key: backup[key] for key in ('provider', 'model')}
+        backend['routing'] = {'version': 'provider-fallback/1', 'requested': requested,
+                              'effective': effective, 'chain': [requested, effective]}
     if not success and job.get('provider_error'):
         provider=sys.argv[sys.argv.index('--provider')+1]
         model=json.loads(Path('.vita/extensions.json').read_text(encoding='utf-8'))['llm_providers'][provider]['model']
@@ -62,6 +69,14 @@ if expected_ai.exists():
         assert os.environ[prefix + '_PROVIDER'] == expected['provider']
         assert os.environ[prefix + '_MODEL'] == expected['model']
     (control / (label + '.' + step + '.verified-ai')).touch()
+expected_backup = control / (label + '.' + step + '.expected-backup.json')
+if expected_backup.exists():
+    expected = json.loads(expected_backup.read_text())
+    assert os.environ['VITA_FALLBACK_PROVIDER'] == expected['provider']
+    assert os.environ['VITA_FALLBACK_MODEL'] == expected['model']
+    assert os.environ['VITA_FALLBACK_ENABLED'] == 'true'
+    assert os.environ[expected['provider'].upper() + '_API_KEY'] == expected['key']
+    (control / (label + '.' + step + '.verified-backup')).touch()
 if job.get('pipeline'):
     (control / (label + '.' + step + '.started')).write_text(str(time.time()))
     if job.get('hold') == step:

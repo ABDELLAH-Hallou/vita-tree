@@ -2,7 +2,7 @@
 function e(e) {
 	let t = new Map(e.map((e) => [e.id, e])), n = /* @__PURE__ */ new Map();
 	for (let r of e) {
-		if (r.parentBatchId && !r.startedAt) continue;
+		if (r.parentBatchId && !r.startedAt || !r.startedAt && !r.entries.length && !r.error) continue;
 		let e = r.retryRootId || r.id;
 		n.has(e) || n.set(e, {
 			batch: t.get(e) || r,

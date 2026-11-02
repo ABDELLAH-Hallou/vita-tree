@@ -104,7 +104,7 @@ function c({ stages: e, run: t, selected: n, select: r, config: i, statusNames: 
 			"review",
 			"cover"
 		].includes(c.id) && c.status === "succeeded" && t?.requirementsStatus && t.requirementsStatus !== "current" && (u += " · requirements changed");
-		let d = i[c.id], f = c.previousRun ? "This step completed in an earlier preparation. Its results were not loaded or verified for this preparation. Use Retry on that earlier preparation to check checkpoint reuse." : c.id === "validating" ? void 0 : t ? "View the AI settings captured for this step" : "Configure the AI for this step";
+		let d = i[c.id], f = t?.outcomes?.[c.id]?.backend?.routing, p = f?.effective, m = !!f?.chain?.length && f.chain.length > 1 && (!!p?.model && p.model !== f.chain[0]?.model || !!p?.provider && p.provider !== f.chain[0]?.provider), h = c.previousRun ? "This step completed in an earlier preparation. Its results were not loaded or verified for this preparation. Use Retry on that earlier preparation to check checkpoint reuse." : c.id === "validating" ? void 0 : t ? "View the AI settings captured for this step" : "Configure the AI for this step";
 		return /* @__PURE__ */ (0, o.jsxs)("span", {
 			className: "workflow-stage-group",
 			children: [l > 0 && /* @__PURE__ */ (0, o.jsx)("span", {
@@ -121,7 +121,7 @@ function c({ stages: e, run: t, selected: n, select: r, config: i, statusNames: 
 				"aria-pressed": n === c.id,
 				"aria-haspopup": c.id === "validating" ? void 0 : "dialog",
 				"aria-label": `${c.title}: ${a[c.status] || c.status}. ${c.detail}`,
-				title: f,
+				title: h,
 				onClick: () => r(c),
 				onFocus: (e) => {
 					let t = e.currentTarget;
@@ -158,10 +158,10 @@ function c({ stages: e, run: t, selected: n, select: r, config: i, statusNames: 
 						title: t.requirementsRevision,
 						children: ["Requirements ", t.requirementsRevision.slice(0, 12)]
 					}),
-					d && /* @__PURE__ */ (0, o.jsx)("span", {
+					d && /* @__PURE__ */ (0, o.jsxs)("span", {
 						className: "dag-model",
-						title: `${d.provider} · ${d.reasoning || "Automatic reasoning"}`,
-						children: d.model || `${d.provider} default`
+						title: p?.provider ? `Used ${p.provider} / ${p.model || "model unreported"}${m ? " (backup)" : ""}. Requested ${d.provider} / ${d.model}` : `${d.provider} · ${d.reasoning || "Automatic reasoning"}`,
+						children: [(p?.provider ? p.model || `${p.provider} · model unreported` : null) || d.model || `${d.provider} default`, m ? " · Backup" : ""]
 					})
 				]
 			})]
