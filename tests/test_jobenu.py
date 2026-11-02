@@ -382,6 +382,48 @@ class JobenuTests(unittest.TestCase):
         self.manager.discard(ident)
         self.assertFalse(self.manager.folder(ident).exists())
 
+    def test_unattended_preview_and_start_keep_explicit_native_policy(self):
+        ident=self.upload()
+        options=self.options(ident);options.update(approval='unattended',run=True)
+        policy={'version':'approval-policy/1','mode':'unattended'}
+        plan={'schema_version':1,'status':'planned','plan_id':'automatic-plan',
+              'approval':'unattended','approval_policy':policy,'entries':[]}
+        calls=[]
+        def invoke(command,env,args,**kwargs):
+            calls.append(list(args))
+            if args[0]=='approval-policies':
+                result={'schema_version':1,'policy_version':'approval-policy/1',
+                        'modes':[{'id':'human'},{'id':'auto'},{'id':'unattended'}],
+                        'requires_explicit_selection':['unattended'],'generated_prompt_consent':False}
+            else:result=plan if '--dry-run' in args else {'schema_version':1,'status':'complete','results':[]}
+            return 0,json.dumps(result).encode(),b''
+        with patch.object(self.manager,'command',return_value=(['fixture'],{})),patch.object(self.manager,'invoke',side_effect=invoke):
+            preview=self.manager.preview(ident,options)
+            self.assertEqual(preview['options']['approval'],'unattended')
+            self.manager.start(ident,plan['plan_id'])
+            deadline=time.monotonic()+5
+            while ident in self.manager.running and time.monotonic()<deadline:time.sleep(.01)
+        self.assertNotIn(ident,self.manager.running)
+        self.assertEqual(self.manager.record(ident)['status'],'complete')
+        for args in calls[1:]:self.assertEqual(args[args.index('--approval')+1],'unattended')
+        self.assertEqual(calls[1][:-1],calls[2][:-3])
+
+    def test_unattended_requires_supported_capability_and_matching_plan(self):
+        ident=self.upload();options=self.options(ident);options.update(approval='unattended',run=True)
+        with patch.object(self.manager,'command',return_value=(['fixture'],{})),patch.object(self.manager,'invoke',return_value=(2,b'unknown command',b'')) as invoke:
+            with self.assertRaisesRegex(ValueError,'Update Vita CV'):self.manager.preview(ident,options)
+            self.assertEqual(invoke.call_args.args[2],['approval-policies','--json'])
+        with patch.object(self.manager,'command',return_value=(['fixture'],{})),patch.object(self.manager,'supports_unattended',return_value=True),patch.object(self.manager,'invoke',return_value=(0,json.dumps({'schema_version':1,'status':'planned','plan_id':'wrong-policy','entries':[]}).encode(),b'')):
+            with self.assertRaisesRegex(ValueError,'confirm.*approval'):self.manager.preview(ident,options)
+        self.assertIsNone(self.manager.record(ident).get('plan'))
+
+    def test_changing_saved_review_mode_requires_explicit_fresh_run(self):
+        ident,original=self.failed_batch()
+        original['options']['approval']='auto';self.manager.save(original)
+        options=self.options(ident);options.update(approval='unattended',run=True)
+        with self.assertRaisesRegex(ValueError,'rerun completed steps'):self.manager.preview(ident,options)
+        self.assertEqual(self.manager.record(ident)['options']['approval'],'auto')
+
     def test_exit_statuses_require_structured_contract(self):
         for code, out in [
             (2, b"usage: error"),

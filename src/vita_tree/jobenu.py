@@ -130,6 +130,19 @@ class JobenuImports:
             err.seek(0)
             return result.returncode, out.read(16_000_001), err.read(2_000_000)
 
+    def supports_unattended(self, command, env):
+        code, out, _ = self.invoke(command, env, ['approval-policies', '--json'])
+        try:
+            data = json.loads(out) if code == 0 else {}
+            return (isinstance(data, dict) and data.get('schema_version') == 1
+                    and data.get('policy_version') == 'approval-policy/1'
+                    and isinstance(data.get('modes'), list)
+                    and any(isinstance(mode, dict) and mode.get('id') == 'unattended' for mode in data['modes'])
+                    and data.get('requires_explicit_selection') == ['unattended']
+                    and data.get('generated_prompt_consent') is False)
+        except (ValueError, TypeError):
+            return False
+
     def capability(self, source=""):
         try:
             command, env = self.command(source)
@@ -147,6 +160,7 @@ class JobenuImports:
             )
             return {
                 "available": supported,
+                "unattended": bool(supported and b'unattended' in out and self.supports_unattended(command, env)),
                 "base": base,
                 "message": ""
                 if supported
@@ -246,7 +260,7 @@ class JobenuImports:
         if not self.ws.branch(base)["local"]:
             raise ValueError("Choose an existing local base branch.")
         approval = data.get("approval", "human")
-        if approval not in {"human", "auto"}:
+        if approval not in {"human", "auto", "unattended"}:
             raise ValueError("Choose an approval mode.")
         args = ["--base-branch", base, "--approval", approval]
         for flag, key in (
@@ -288,6 +302,11 @@ class JobenuImports:
                 )
             self.history()
             record = self.record(ident)
+            previous = (record.get('options') or {}).get('approval', 'human')
+            selected = data.get('approval', 'human')
+            if (record.get('startedAt') and (record.get('options') or {}).get('run') is True and previous != selected
+                    and 'unattended' in (previous, selected) and data.get('rerun') is not True):
+                raise ValueError('To change this batch’s approval mode, explicitly select rerun completed steps and preview a fresh run. This can use additional AI credits.')
             record.update(status="selecting", plan=None)
             self.environments.pop(ident, None)
             self.save(record)
@@ -318,6 +337,8 @@ class JobenuImports:
             path = self.folder(ident) / "selected.json"
             atomic_write_bytes(path, json.dumps(filtered, ensure_ascii=False).encode())
             command, env = self.command(data.get("source", ""))
+            if data.get('approval') == 'unattended' and not self.supports_unattended(command, env):
+                raise ValueError('Update Vita CV to an installation supporting unattended approval, then check the installation and preview again.')
             # Existing Tree stage provider/model preferences use Vita's environment
             # mechanism, never invented batch command flags. Secrets remain in RAM.
             settings = self.ws.ai_settings(data["base"])
@@ -362,6 +383,11 @@ class JobenuImports:
             args = ["import", "jobenu", str(path), *self.options(data), "--json"]
             code, out, _ = self.invoke(command, env, [*args, "--dry-run"])
             plan = self.envelope(code, out)
+            if data.get('approval') == 'unattended' and (
+                plan.get('approval') != 'unattended'
+                or plan.get('approval_policy') != {'version':'approval-policy/1','mode':'unattended'}
+            ):
+                raise ValueError('Vita CV did not confirm unattended approval in this plan. Update Vita CV and preview again; no workflow was started.')
             if not isinstance(plan.get("plan_id"), str):
                 raise ValueError(
                     redact(

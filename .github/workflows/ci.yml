@@ -171,6 +171,7 @@ jobs:
       - run: python tests/browser_jobenu_selection.py
       - run: python tests/browser_jobenu_retry.py
       - run: python tests/browser_jobenu_routing.py
+      - run: python tests/browser_jobenu_approval.py
       - run: python tests/browser_migration.py
       - run: python tests/browser_component_dialogs.py --browser chromium
       - run: python tests/browser_custom_environment.py --browser chromium
