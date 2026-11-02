@@ -1,0 +1,10 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Verified frontend source SHA-256 entries, never API credentials"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''^src/vita_tree/static/frontend-manifest\.json$''']
+regexTarget = "line"
+regexes = ['''^\s*"frontend/[^"\r\n]+": "[a-f0-9]{64}",?\s*$''']

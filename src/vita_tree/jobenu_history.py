@@ -220,16 +220,23 @@ def history(manager, branch=None):
                     records[path.stem] = manager.clean_report(record, {})
             except (OSError, ValueError):
                 continue
+        batches = []
         for path in manager.root.glob("*/session.json"):
             try:
-                batch = manager.record(path.parent.name)
+                batches.append(manager.record(path.parent.name))
+            except (OSError, ValueError):
+                continue
+        superseded = {batch.get("parentBatchId") for batch in batches if batch.get("startedAt")}
+        for batch in batches:
+            try:
                 if batch.get("status") in {
                     "planned",
                     "selecting",
                     "conflict",
                 } or not batch.get("startedAt"):
                     continue
-                for row in manager.entries(batch):
+                historical = bool(batch.get("parentBatchId")) or batch["id"] in superseded
+                for row in manager.entries(batch, historical=historical):
                     if not isinstance(row.get("branch"), str):
                         continue
                     if branch is not None and row["branch"] != branch:

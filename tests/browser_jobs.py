@@ -150,12 +150,14 @@ def main():
             page.set_viewport_size({'width': 390, 'height': 844})
             assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), 'Review inbox overflows mobile screen'
             page.screenshot(path=str(artifacts/'review-inbox-mobile.png'), full_page=True)
-            page.locator('#show-activity').click()
+            page.get_by_role('button',name='Navigation',exact=True).click()
+            page.get_by_role('menuitem',name='Activity & support',exact=True).click()
             expect(page.locator('#metric-failed')).to_have_text('1')
             assert page.locator('#diagnostics-dialog').evaluate('el=>el.scrollWidth<=el.clientWidth'), 'Activity panel overflows mobile'
             page.screenshot(path=str(artifacts/'activity-mobile.png'),full_page=True)
             page.get_by_role('button',name='Close activity and support').click()
-            page.locator('[data-filter=failed]').click()
+            page.get_by_role('button',name='Navigation',exact=True).click()
+            page.get_by_role('menuitem',name='Needs attention',exact=True).click()
             page.get_by_role('button', name='Open beta', exact=True).click()
             page.locator('#view-run').click()
             expect(page.locator('#current-label')).to_have_text('beta', timeout=30000)
