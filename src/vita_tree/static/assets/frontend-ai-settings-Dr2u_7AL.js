@@ -30,7 +30,7 @@ function r(r, { api: i, onChange: a }) {
 	});
 	let b = (e) => e === "default" ? u.default : u.steps[e] || u.default, x = (e) => c?.providers.find((t) => t.id === e.provider);
 	function S(e) {
-		return e ? `${x(e)?.name || e.provider} · ${e.model || "Provider default"} · ${e.reasoning ? t[e.reasoning] || e.reasoning : "Automatic reasoning"}` : "";
+		return e ? `${x(e)?.name || e.provider} · ${e.model || "Provider default"} · ${e.reasoning ? t[e.reasoning] || e.reasoning : "Automatic reasoning"}${e.backup ? ` · Backup: ${x(e.backup)?.name || e.backup.provider} / ${e.backup.model}` : ""}` : "";
 	}
 	function C(e) {
 		return e.connectionName ? e.connectionName : e.connection ? l.find((t) => t.id === e.connection && t.provider === e.provider)?.name || "Connection expired · add it again" : e.provider === "codex" ? "Local Codex login" : "Existing local credentials";
@@ -52,76 +52,107 @@ function r(r, { api: i, onChange: a }) {
 			n && (n.textContent = `${u.steps[t] ? "Custom" : "Shared"} · ${b(t).model || x(b(t))?.name || b(t).provider}`);
 		}
 	}
-	function E(e, r = null) {
-		let a = r ? r.route : b(e), o = e === "default", f = r ? "popup-" : o ? "" : e + "-", p = d || !!r?.readOnly || !!r?.saving || !!r && !r.custom, h = () => r ? M() : w(), _ = () => r ? N() : D(e), v = document.createElement("div");
-		v.className = "ai-route-fields", v.innerHTML = `<div class="ai-controls">
-      <label>Provider<select id="${f}provider" aria-label="${o ? "Shared" : e} provider"></select></label>
-      <label>Model ID<input id="${f}model" list="${f}model-suggestions" maxlength="160" autocomplete="off" spellcheck="false" placeholder="Choose a suggestion or type any model ID" aria-describedby="${f}model-help"><datalist id="${f}model-suggestions"></datalist></label>
-      <label>Reasoning<select id="${f}reasoning" aria-describedby="${f}reasoning-help"></select></label>
-      <label>Connection<select id="${f}connection"></select></label>
+	function E(e, r = null, a = !1) {
+		let o = r ? r.route : b(e), f = a ? o.backup : o, p = e === "default", h = (r ? "popup-" : p ? "" : e + "-") + (a ? "backup-" : ""), _ = d || !!r?.readOnly || !!r?.saving || !!r && !r.custom, v = () => r ? M() : w(), T = () => r ? N() : D(e), j = document.createElement("div");
+		j.className = "ai-route-fields", j.innerHTML = `<div class="ai-controls">
+      <label>Provider<select id="${h}provider" aria-label="${p ? "Shared" : e} provider"></select></label>
+      <label>Model ID<input id="${h}model" list="${h}model-suggestions" maxlength="160" autocomplete="off" spellcheck="false" placeholder="Choose a suggestion or type any model ID" aria-describedby="${h}model-help"><datalist id="${h}model-suggestions"></datalist></label>
+      <label>Reasoning<select id="${h}reasoning" aria-describedby="${h}reasoning-help"></select></label>
+      <label>Connection<select id="${h}connection"></select></label>
     </div>
-    <p id="${f}model-help" class="helper">Choose a suggested model or enter the exact model ID from your provider. Leave empty for its default. Your account must have access.</p>
-    <p id="${f}reasoning-help" class="helper"></p>
-    <div class="connection-actions"><span class="helper" id="${f}connection-help"></span><button type="button" data-check-generation>Check generation…</button><button type="button" data-add-key>Add API key…</button><button type="button" data-remove-key class="quiet">Remove connection</button></div>`;
-		let T = (e) => v.querySelector("#" + f + e);
-		T("provider").replaceChildren(...c.providers.map((e) => new Option(e.name, e.id))), T("provider").value = a.provider, T("model").value = a.model;
-		let E = c.options.filter((e) => e.provider === a.provider && e.supported && e.model);
-		for (let e of [u.default, ...Object.values(u.steps)]) e.provider === a.provider && e.model && !E.some((t) => t.model === e.model) && E.push({
+    <p id="${h}model-help" class="helper">Choose a suggested model or enter the exact model ID from your provider. Leave empty for its default. Your account must have access.</p>
+    <p id="${h}reasoning-help" class="helper"></p>
+    <div class="connection-actions"><span class="helper" id="${h}connection-help"></span><button type="button" data-check-generation>Check generation…</button><button type="button" data-add-key>Add API key…</button><button type="button" data-remove-key class="quiet">Remove connection</button></div>`;
+		let P = (e) => j.querySelector("#" + h + e);
+		P("provider").replaceChildren(...c.providers.map((e) => new Option(e.name, e.id))), P("provider").value = f.provider, P("model").value = f.model;
+		let F = c.options.filter((e) => e.provider === f.provider && e.supported && e.model);
+		for (let e of [u.default, ...Object.values(u.steps)]) e.provider === f.provider && e.model && !F.some((t) => t.model === e.model) && F.push({
 			...e,
 			reasoning: []
 		});
-		T("model-suggestions").replaceChildren(...[...new Set(E.map((e) => e.model))].map((e) => new Option(e, e)));
-		let j = x(a);
-		function P() {
-			let e = c.options.find((e) => e.provider === a.provider && e.model === a.model), n = [...e?.reasoning?.length ? e.reasoning : j?.reasoning || []];
-			r?.readOnly && a.reasoning && !n.includes(a.reasoning) && n.push(a.reasoning), n.includes(a.reasoning) || (a.reasoning = ""), T("reasoning").replaceChildren(new Option("Automatic", ""), ...n.map((e) => new Option(t[e] || e, e))), T("reasoning").value = a.reasoning, T("reasoning").disabled = p || !n.length;
+		P("model-suggestions").replaceChildren(...[...new Set(F.map((e) => e.model))].map((e) => new Option(e, e)));
+		let I = x(f);
+		function L() {
+			let e = c.options.find((e) => e.provider === f.provider && e.model === f.model), n = [...e?.reasoning?.length ? e.reasoning : I?.reasoning || []];
+			r?.readOnly && f.reasoning && !n.includes(f.reasoning) && n.push(f.reasoning), n.includes(f.reasoning) || (f.reasoning = ""), P("reasoning").replaceChildren(new Option("Automatic", ""), ...n.map((e) => new Option(t[e] || e, e))), P("reasoning").value = f.reasoning, P("reasoning").disabled = _ || !n.length;
 		}
-		P(), T("reasoning-help").textContent = a.provider === "codex" ? c.reasoningBridge ? "For custom model IDs, check which reasoning levels that model accepts. Higher levels may take longer." : "Custom reasoning needs the Vita CV source connection. Automatic is available." : "Vita CV currently uses automatic reasoning for this provider.", T("connection").replaceChildren(new Option(a.provider === "codex" ? "Local Codex login" : "Existing local credentials", ""), ...l.filter((e) => e.provider === a.provider).map((e) => new Option(e.name, e.id))), a.connection && !l.some((e) => e.id === a.connection && e.provider === a.provider) && T("connection").add(new Option(r?.readOnly && a.connectionName ? a.connectionName : "Connection expired · add it again", a.connection)), T("connection").value = a.connection || "", T("connection-help").textContent = a.connection ? `${C(a)} · session only; key access is checked when a step runs.` : a.provider === "codex" ? "Uses the Codex CLI account already signed in on this computer." : `Uses ${j?.keyVariable || "the provider API key"} from your local environment or .vita/.env. Or add a key here.`, v.querySelector("[data-add-key]").hidden = a.provider === "codex" || !!r?.readOnly, v.querySelector("[data-remove-key]").hidden = !!r || !a.connection || !l.some((e) => e.id === a.connection);
-		for (let e of v.querySelectorAll("input,select,button")) p && (e.disabled = !0);
-		return v.querySelector("[data-check-generation]").disabled = d || !!r?.readOnly || !!r?.saving, T("provider").onchange = () => {
-			let e = T("provider").value, t = c.options.find((t) => t.provider === e && t.supported);
-			Object.assign(a, {
+		L(), P("reasoning-help").textContent = f.provider === "codex" ? c.reasoningBridge ? "For custom model IDs, check which reasoning levels that model accepts. Higher levels may take longer." : "Custom reasoning needs the Vita CV source connection. Automatic is available." : "Vita CV currently uses automatic reasoning for this provider.", P("connection").replaceChildren(new Option(f.provider === "codex" ? "Local Codex login" : "Existing local credentials", ""), ...l.filter((e) => e.provider === f.provider).map((e) => new Option(e.name, e.id))), f.connection && !l.some((e) => e.id === f.connection && e.provider === f.provider) && P("connection").add(new Option(r?.readOnly && f.connectionName ? f.connectionName : "Connection expired · add it again", f.connection)), P("connection").value = f.connection || "", P("connection-help").textContent = f.connection ? `${C(f)} · session only; key access is checked when a step runs.` : f.provider === "codex" ? "Uses the Codex CLI account already signed in on this computer." : `Uses ${I?.keyVariable || "the provider API key"} from your local environment or .vita/.env. Or add a key here.`, j.querySelector("[data-add-key]").hidden = f.provider === "codex" || !!r?.readOnly, j.querySelector("[data-remove-key]").hidden = !!r || !f.connection || !l.some((e) => e.id === f.connection);
+		for (let e of j.querySelectorAll("input,select,button")) _ && (e.disabled = !0);
+		if (j.querySelector("[data-check-generation]").disabled = d || !!r?.readOnly || !!r?.saving, P("provider").onchange = () => {
+			let e = P("provider").value, t = c.options.find((t) => t.provider === e && t.supported);
+			Object.assign(f, {
 				provider: e,
 				model: t?.model || "",
 				reasoning: "",
 				connection: ""
-			}), _(), h();
-		}, T("model").oninput = () => {
-			a.model = T("model").value, h();
-		}, T("model").onchange = () => {
-			a.model = a.model.trim(), T("model").value = a.model, P(), h();
-		}, T("reasoning").onchange = () => {
-			a.reasoning = T("reasoning").value, h();
-		}, T("connection").onchange = () => {
-			a.connection = T("connection").value, _(), h();
-		}, v.querySelector("[data-check-generation]").onclick = () => {
-			let t = A(a, "Generation check");
+			}), T(), v();
+		}, P("model").oninput = () => {
+			f.model = P("model").value, v();
+		}, P("model").onchange = () => {
+			f.model = f.model.trim(), P("model").value = f.model, L(), v();
+		}, P("reasoning").onchange = () => {
+			f.reasoning = P("reasoning").value, v();
+		}, P("connection").onchange = () => {
+			f.connection = P("connection").value, T(), v();
+		}, j.querySelector("[data-check-generation]").onclick = () => {
+			let t = A(f, "Generation check");
 			if (t) {
 				r ? (y("#step-ai-error").textContent = t, y("#step-ai-error").hidden = !1) : O(t);
 				return;
 			}
 			let i = n(u);
-			r && !r.custom && delete i.steps[e], e === "default" ? i.steps = {} : (!r || r.custom) && (i.steps[e] = n(a)), g = {
+			r && !r.custom && delete i.steps[e], e === "default" ? i.steps = {} : (!r || r.custom) && (i.steps[e] = n(f)), g = {
 				branch: s,
 				step: e === "default" ? "analyze" : e,
 				settings: i
-			}, y("#generation-check-route").textContent = `${r && !r.custom || e === "default" || !u.steps[e] && !r ? "Shared setup" : "Step setup"} · ${S(a)} · ${C(a)}`, y("#generation-check-result").textContent = "No request has been sent.", y("#cancel-generation-check").textContent = "Cancel", y("#confirm-generation-check").disabled = !1, y("#cancel-generation-check").disabled = !1, y("#generation-check-dialog").showModal();
-		}, v.querySelector("[data-add-key]").onclick = () => {
+			}, y("#generation-check-route").textContent = `${r && !r.custom || e === "default" || !u.steps[e] && !r ? "Shared setup" : "Step setup"} · ${S(f)} · ${C(f)}`, y("#generation-check-result").textContent = "No request has been sent.", y("#cancel-generation-check").textContent = "Cancel", y("#confirm-generation-check").disabled = !1, y("#cancel-generation-check").disabled = !1, y("#generation-check-dialog").showModal();
+		}, j.querySelector("[data-add-key]").onclick = () => {
 			m = {
-				route: a,
+				route: f,
 				step: e,
 				branch: s,
 				editor: r,
-				repaint: _,
-				notify: h
-			}, y("#connection-service").textContent = `${j?.name} · reusable by any step with this provider`, y("#connection-name").value = `${j?.name} account`, y("#connection-key").value = "", y("#connection-key").type = "password", y("#show-connection-key").checked = !1, y("#connection-error").hidden = !0, y("#connection-dialog").showModal();
-		}, v.querySelector("[data-remove-key]").onclick = async () => {
+				repaint: T,
+				notify: v,
+				backup: a
+			}, y("#connection-service").textContent = `${I?.name} · reusable by any step with this provider`, y("#connection-name").value = `${I?.name} account`, y("#connection-key").value = "", y("#connection-key").type = "password", y("#show-connection-key").checked = !1, y("#connection-error").hidden = !0, y("#connection-dialog").showModal();
+		}, j.querySelector("[data-remove-key]").onclick = async () => {
 			try {
-				l = (await i("/api/connections/remove", { id: a.connection })).connections, k(), w();
+				l = (await i("/api/connections/remove", { id: f.connection })).connections, k(), w();
 			} catch (e) {
 				O(e.message);
 			}
-		}, v;
+		}, a) j.querySelector("[data-check-generation]").hidden = !0, P("model-help").textContent = "Enter the exact backup model ID. It must differ from the primary setup.";
+		else {
+			let t = document.createElement("fieldset");
+			t.className = "ai-backup", t.innerHTML = "<legend>Backup AI</legend><label class=\"ai-override-toggle\"><input type=\"checkbox\"><span>Use a backup if this AI fails</span></label><p class=\"helper\"></p><div data-backup-fields></div>";
+			let n = t.querySelector("input");
+			n.checked = !!f.backup, n.disabled = _ || !c.fallback, t.querySelector("p").textContent = c.fallback ? "Uses the same attempt budget and may use credits from the backup service. Reviews and file conflicts still stop the workflow." : "Update Vita CV and restart Vita Tree to use a backup.";
+			let i = t.querySelector("[data-backup-fields]");
+			if (f.backup && i.append(E(e, r, !0)), n.onchange = () => {
+				n.checked ? f.backup = {
+					provider: f.provider,
+					model: "",
+					reasoning: "",
+					connection: f.connection,
+					categories: [...c.fallback.default_categories]
+				} : f.backup = null, T(), v();
+			}, f.backup) {
+				let e = document.createElement("details"), n = document.createElement("summary");
+				n.textContent = "When to use the backup", e.append(n);
+				for (let t of c.fallback?.allowed_categories || f.backup.categories) {
+					let n = document.createElement("label");
+					n.className = "ai-override-toggle";
+					let r = document.createElement("input");
+					r.type = "checkbox", r.checked = f.backup.categories.includes(t), r.disabled = _, r.onchange = () => {
+						f.backup.categories = r.checked ? [...f.backup.categories, t] : f.backup.categories.filter((e) => e !== t), v();
+					}, n.append(r, document.createTextNode(t.replaceAll("_", " "))), e.append(n);
+				}
+				t.append(e);
+			}
+			j.append(t);
+		}
+		return j;
 	}
 	function D(e) {
 		y(e === "default" ? "#shared-ai-fields" : `[data-ai-fields="${e}"]`).replaceChildren(E(e));
@@ -146,7 +177,19 @@ function r(r, { api: i, onChange: a }) {
 		y("#save-ai-setup").disabled = d || f, T(), h && N();
 	}
 	function A(e, t) {
-		return x(e) ? e.model.length > 160 || e.model && !/^[a-zA-Z0-9][a-zA-Z0-9_./:@+-]*$/.test(e.model) ? `${t}: enter an exact model ID without spaces.` : e.connection && !l.some((t) => t.id === e.connection && t.provider === e.provider) ? `${t}: add or select a connection again; the previous session connection expired.` : "" : `${t}: choose a supported provider.`;
+		if (!x(e)) return `${t}: choose a supported provider.`;
+		if (e.model.length > 160 || e.model && !/^[a-zA-Z0-9][a-zA-Z0-9_./:@+-]*$/.test(e.model)) return `${t}: enter an exact model ID without spaces.`;
+		if (e.connection && !l.some((t) => t.id === e.connection && t.provider === e.provider)) return `${t}: add or select a connection again; the previous session connection expired.`;
+		if (e.backup) {
+			if (!c.fallback) return "Update Vita CV and restart Vita Tree to use a backup.";
+			let n = A(e.backup, `${t} backup`);
+			if (n) return n;
+			if (!e.backup.model) return `${t}: enter an exact backup model ID.`;
+			if (e.backup.provider === e.provider && e.backup.model === e.model) return `${t}: choose a different backup model or provider.`;
+			if (!e.backup.categories.length) return `${t}: choose at least one failure category for the backup.`;
+			if (e.backup.provider === e.provider && e.backup.connection !== e.connection) return `${t}: use the same connection for models from the same provider.`;
+		}
+		return "";
 	}
 	function j(t = e.map(([e]) => e)) {
 		if (!u) return "AI setup is loading.";
@@ -291,8 +334,8 @@ function r(r, { api: i, onChange: a }) {
 		try {
 			let e = await i("/api/connections", a);
 			l.push(e);
-			let o = s === r && (t.editor ? t.editor === h : n === b(t.step));
-			o && (n.connection = e.id, t.repaint(), t.notify()), y("#connection-dialog").close(), y("#connection-key").value = "", y("#connection-key").type = "password", o && y("#" + (t.editor ? "popup-" : t.step === "default" ? "" : t.step + "-") + "connection")?.focus({ preventScroll: !0 });
+			let o = s === r && (t.editor ? t.editor === h : n === (t.backup ? b(t.step).backup : b(t.step)));
+			o && (n.connection = e.id, t.repaint(), t.notify()), y("#connection-dialog").close(), y("#connection-key").value = "", y("#connection-key").type = "password", o && y("#" + (t.editor ? "popup-" : t.step === "default" ? "" : t.step + "-") + (t.backup ? "backup-" : "") + "connection")?.focus({ preventScroll: !0 });
 		} catch (e) {
 			y("#connection-error").textContent = e.message, y("#connection-error").hidden = !1;
 		} finally {

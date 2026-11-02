@@ -4,6 +4,79 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { ApplicationList } from "../src/components/ApplicationList";
 import { WorkflowGraph } from "../src/components/WorkflowGraph";
 
+test("a withheld effective model is not replaced with the old primary model", () => {
+  const html = renderToStaticMarkup(
+    <WorkflowGraph
+      stages={[
+        {
+          id: "analyze",
+          title: "Check CV match",
+          detail: "Compare",
+          output: "Analysis",
+          status: "succeeded",
+        },
+      ]}
+      run={{
+        id: "run",
+        outcomes: {
+          analyze: {
+            backend: {
+              routing: {
+                effective: { provider: "gemini" },
+                chain: [
+                  { provider: "openai", model: "old-primary" },
+                  { provider: "gemini" },
+                ],
+              },
+            },
+          },
+        },
+      }}
+      config={{ analyze: { provider: "openai", model: "old-primary" } }}
+      statusNames={{ succeeded: "Done" }}
+      select={() => {}}
+    />,
+  );
+  assert.match(html, />gemini · model unreported/);
+});
+
+test("workflow graph shows the effective backup model without rewriting captured configuration", () => {
+  const html = renderToStaticMarkup(
+    <WorkflowGraph
+      stages={[
+        {
+          id: "analyze",
+          title: "Check CV match",
+          detail: "Compare CV",
+          output: "Analysis",
+          status: "succeeded",
+        },
+      ]}
+      run={{
+        id: "run",
+        outcomes: {
+          analyze: {
+            backend: {
+              routing: {
+                effective: { provider: "gemini", model: "backup-model" },
+                chain: [
+                  { provider: "openai", model: "primary-model" },
+                  { provider: "gemini", model: "backup-model" },
+                ],
+              },
+            },
+          },
+        },
+      }}
+      config={{ analyze: { provider: "openai", model: "primary-model" } }}
+      statusNames={{ succeeded: "Done" }}
+      select={() => {}}
+    />,
+  );
+  assert.match(html, /backup-model.*Backup/);
+  assert.match(html, /Requested openai \/ primary-model/);
+});
+
 test("application identities, disabled selection and untrusted labels survive React rendering", () => {
   const html = renderToStaticMarkup(
     <ApplicationList

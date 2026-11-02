@@ -4,6 +4,7 @@ export function batchGroups(batches) {
   const groups = new Map();
   for (const batch of batches) {
     if (batch.parentBatchId && !batch.startedAt) continue;
+    if (!batch.startedAt && !batch.entries.length && !batch.error) continue;
     const rootId = batch.retryRootId || batch.id;
     if (!groups.has(rootId)) {
       groups.set(rootId, { batch: byId.get(rootId) || batch, attempts: [] });
