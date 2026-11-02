@@ -352,6 +352,13 @@ backend. Generation checks test only the selected primary model.
 The configured Vita command is checked with `import jobenu --help`. If it lacks
 the plan/JSON contract, select a compatible Vita CV source folder under **Vita
 installation**. Availability is capability-based, not inferred from a PyPI version.
+Choose **Run without manual reviews** to approve job requirements and AI proposals
+automatically, including proposals that need factual confirmation. This option
+requires Vita CV's `approval-policy/1` unattended support. **Apply verified changes
+automatically** remains a separate mode that can still pause for review. Validation,
+file conflicts and provider errors can still stop either mode. Switching an existing
+AI batch into or out of no-review mode requires a fresh preview and explicit
+**Rerun completed steps** selection; completed steps may use AI credits again.
 The integration targets Vita CV's Jobenu contract introduced by
 [Vita CV #94](https://github.com/ABDELLAH-Hallou/vita-cv/pull/94).
 
@@ -368,7 +375,7 @@ Open Workspace uses the branch's existing linked worktree. Tree blocks edits for
 applications in the active batch. Factual reviews show original/proposed wording,
 source references and the exact revision; requirements have a separate canonical
 approval path. Resume always obtains a new plan and does not set `--rerun` unless
-**Reassess completed stages** is explicitly selected. Completion describes AI
+**Rerun completed steps** is explicitly selected. Completion describes AI
 stages, not PDF generation, commits, pushes or job submission.
 
 Saved Tree provider/model settings for the chosen base are passed through Vita's

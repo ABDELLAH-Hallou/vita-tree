@@ -43,9 +43,10 @@ export function initJobenu({ api, branches, openBranch, ready }) {
  <label id="jobenu-drop" class="jobenu-drop">Choose or drop a Jobenu JSON export<input id="jobenu-file" type="file" accept=".json,application/json"></label><p id="jobenu-file-info" role="status"></p>
  <div id="jobenu-date-filters" hidden><div class="jobenu-date-toolbar"><label>Date<select id="jobenu-date-field"><option value="createdAt">Added</option><option value="updatedAt">Updated</option><option value="appliedAt">Applied</option><option value="deadlineAt">Deadline</option><option value="nextActionAt">Next action</option></select></label><label>From<input id="jobenu-date-from" type="date" aria-describedby="jobenu-date-help jobenu-date-error"></label><label>To<input id="jobenu-date-to" type="date" aria-describedby="jobenu-date-help jobenu-date-error"></label><div class="actions"><button id="jobenu-today">Today</button><button id="jobenu-all-dates">All dates</button></div></div><p id="jobenu-date-help" class="helper">Dates follow the calendar day in your export. Today uses your device's date.</p><p id="jobenu-date-error" role="alert" class="form-error"></p><p id="jobenu-selection-summary" role="status"></p></div>
  <div class="jobenu-scroll" tabindex="0" role="region" aria-label="Applications to import"><table id="jobenu-selection"><caption>Select applications</caption><thead><tr><th><input id="jobenu-select-all" type="checkbox" aria-label="Select all matching jobs"></th><th>Company</th><th>Position</th><th>Status</th><th id="jobenu-date-heading">Added</th></tr></thead><tbody></tbody></table></div>
- <div class="jobenu-settings"><label>Starting CV<input id="jobenu-base" type="search" list="jobenu-bases" autocomplete="off" placeholder="Search local branches"><datalist id="jobenu-bases"></datalist></label><label>Approval mode<select id="jobenu-approval"><option value="human">Review changes before applying</option><option value="auto">Apply verified changes automatically</option></select></label></div>
- <label><input id="jobenu-run" type="checkbox" checked> Run the AI workflow</label><p class="helper">Automatic mode can still pause for factual or canonical-requirement confirmation. Complete means the configured AI stages finished; PDFs and submission are separate.</p>
- <details><summary>Advanced</summary><div class="jobenu-settings"><label>Language override<input id="jobenu-language" placeholder="Use saved language"></label><label>Provider override<input id="jobenu-provider" placeholder="Use saved AI settings"></label><label>Status filters<input id="jobenu-statuses" value="SAVED" aria-describedby="jobenu-status-help"></label></div><p id="jobenu-status-help" class="helper">Comma-separated statuses, or ALL. Uses saved stage providers/models and native Vita reasoning preferences. Tree-only reasoning overrides are not forwarded by this batch CLI.</p><label><input id="jobenu-demo" type="checkbox"> Include demo applications</label><label><input id="jobenu-revision" type="checkbox"> Create a new source revision when records changed</label><label><input id="jobenu-rerun" type="checkbox"> Reassess completed stages (additional AI calls)</label></details>
+ <div class="jobenu-settings"><label>Starting CV<input id="jobenu-base" type="search" list="jobenu-bases" autocomplete="off" placeholder="Search local branches"><datalist id="jobenu-bases"></datalist></label><label>Approval mode<select id="jobenu-approval" aria-describedby="jobenu-approval-help"><option value="human">Review changes before applying</option><option value="auto">Apply verified changes automatically</option><option value="unattended" disabled>Run without manual reviews</option></select></label></div>
+ <p id="jobenu-approval-help" class="helper" role="status"></p><div id="jobenu-approval-change" hidden></div>
+ <label><input id="jobenu-run" type="checkbox" checked> Run the AI workflow</label><p class="helper">Complete means the configured AI stages finished; PDFs and submission are separate.</p>
+ <details id="jobenu-advanced"><summary>Advanced</summary><div class="jobenu-settings"><label>Language override<input id="jobenu-language" placeholder="Use saved language"></label><label>Provider override<input id="jobenu-provider" placeholder="Use saved AI settings"></label><label>Status filters<input id="jobenu-statuses" value="SAVED" aria-describedby="jobenu-status-help"></label></div><p id="jobenu-status-help" class="helper">Comma-separated statuses, or ALL. Uses saved stage providers/models and native Vita reasoning preferences. Tree-only reasoning overrides are not forwarded by this batch CLI.</p><label><input id="jobenu-demo" type="checkbox"> Include demo applications</label><label><input id="jobenu-revision" type="checkbox"> Create a new source revision when records changed</label><label id="jobenu-rerun-choice"><input id="jobenu-rerun" type="checkbox"> Rerun completed steps (uses AI credits)</label></details>
  <div class="actions"><button id="jobenu-preview" disabled>Preview branches</button><button id="jobenu-start" class="primary" disabled>Create branches</button></div>
  <div class="jobenu-scroll" tabindex="0" role="region" aria-label="Application preview"><table id="jobenu-plan"><caption>Branch preview</caption><thead><tr><th>Company</th><th>Position</th><th>Branch</th><th>Action</th></tr></thead><tbody></tbody></table></div><section id="jobenu-aliases" hidden aria-labelledby="jobenu-alias-title"></section>
  <h2>Batch activity</h2><p class="helper">You can leave this view while work continues. Retained sources stay private until you forget the batch; imported workspaces are preserved.</p><div id="jobenu-history" tabindex="-1" role="region" aria-label="Batch activity"></div>
@@ -55,6 +56,8 @@ export function initJobenu({ api, branches, openBranch, ready }) {
   let session = null,
     plan = null,
     available = false,
+    unattendedAvailable = false,
+    savedApproval = null,
     busy = false,
     review = null,
     polling = false,
@@ -203,6 +206,38 @@ export function initJobenu({ api, branches, openBranch, ready }) {
     $("#jobenu-plan tbody").replaceChildren();
     $("#jobenu-aliases").replaceChildren();
     $("#jobenu-aliases").hidden = true;
+    updateSelection();
+  }
+  function approvalHelp() {
+    const mode = $("#jobenu-approval").value;
+    const changed =
+      savedApproval &&
+      savedApproval !== mode &&
+      [savedApproval, mode].includes("unattended");
+    const target = $(changed ? "#jobenu-approval-change" : "#jobenu-advanced");
+    const choice = $("#jobenu-rerun-choice");
+    if (choice.parentElement !== target) target.append(choice);
+    $("#jobenu-approval-change").hidden = !changed;
+    const unsupported = mode === "unattended" && !unattendedAvailable;
+    const message = unsupported
+      ? "Update Vita CV and check the installation to run without manual reviews."
+      : ({
+          human: "Review changes and job requirements before continuing.",
+          auto: "Only verified changes apply automatically. Other changes and job requirements can still need review.",
+          unattended:
+            "AI changes and job requirements are approved without review. AI wording can be inaccurate. Validation and file-conflict checks still run.",
+        }[mode] || "") +
+        (changed
+          ? $("#jobenu-rerun").checked
+            ? " Completed steps will run again and use AI credits."
+            : " To switch this saved batch, select Rerun completed steps (uses AI credits)."
+          : "") +
+        (available && !unattendedAvailable
+          ? " Update Vita CV to enable running without manual reviews."
+          : "");
+    const help = $("#jobenu-approval-help");
+    if (help.textContent !== message) help.textContent = message;
+    return unsupported || !!(changed && !$("#jobenu-rerun").checked);
   }
   function dateRange() {
     return {
@@ -222,6 +257,7 @@ export function initJobenu({ api, branches, openBranch, ready }) {
     });
   }
   function updateSelection() {
+    const approvalBlocked = approvalHelp();
     const matches = matchingApplications(),
       count = matches.filter((a) => selectedIds.has(a.id)).length;
     const { dateField, dateFrom, dateTo } = dateRange();
@@ -240,7 +276,7 @@ export function initJobenu({ api, branches, openBranch, ready }) {
     $("#jobenu-select-all").indeterminate = count > 0 && count < matches.length;
     $("#jobenu-select-all").disabled = !matches.length || invalid;
     $("#jobenu-preview").disabled =
-      !available || busy || aliasSaving || invalid || !count;
+      !available || busy || aliasSaving || invalid || !count || approvalBlocked;
   }
   function renderSelection() {
     $("#jobenu-date-filters").hidden = !session;
@@ -330,6 +366,9 @@ export function initJobenu({ api, branches, openBranch, ready }) {
       source: $("#jobenu-source").value,
     });
     available = capability.available;
+    unattendedAvailable = capability.unattended === true;
+    $("#jobenu-approval option[value=unattended]").disabled =
+      !unattendedAvailable;
     $("#jobenu-capability").textContent =
       capability.message || "Jobenu batch import is available.";
     $("#jobenu-install").open = !available;
@@ -368,6 +407,8 @@ export function initJobenu({ api, branches, openBranch, ready }) {
     if (!file) return;
     const ticket = ++uploadVersion;
     session = null;
+    savedApproval = null;
+    $("#jobenu-rerun").checked = false;
     selectedIds.clear();
     aliasDrafts.clear();
     invalidate();
@@ -871,6 +912,8 @@ export function initJobenu({ api, branches, openBranch, ready }) {
             invalidate();
             session = { id: batch.id };
             const opts = batch.options || {};
+            savedApproval =
+              batch.startedAt && opts.run ? opts.approval || "human" : null;
             $("#jobenu-base").value = opts.base || "";
             $("#jobenu-source").value = opts.source || "";
             $("#jobenu-approval").value = opts.approval || "human";
