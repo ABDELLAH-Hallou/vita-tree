@@ -27,6 +27,6 @@ ENV VITA_CODEX=/usr/local/bin/vita-codex-client
 USER vita
 WORKDIR /workspace
 EXPOSE 8765
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/health', timeout=3)"
+HEALTHCHECK --interval=30s --timeout=15s --start-period=30s \
+    CMD python -c "import os,socket; port=os.environ.get('VITA_TREE_PUBLIC_PORT','8765'); s=socket.create_connection(('127.0.0.1',8765),3); s.sendall(('GET /health HTTP/1.0\r\nHost: localhost:'+port+'\r\n\r\n').encode()); assert s.makefile('rb').readline(128).split()[1] == b'200'"
 ENTRYPOINT ["/usr/bin/tini", "--", "python", "/usr/local/bin/vita-container"]

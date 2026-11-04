@@ -1,6 +1,7 @@
 #!/usr/local/bin/python
 """Start a persistent container workspace; never modify incompatible worktrees."""
 import os
+import json
 from pathlib import Path
 import subprocess
 import sys
@@ -18,12 +19,16 @@ def main():
     if not any(root.iterdir()):
         subprocess.run(['git', 'init', '-b', 'main'], check=True)
         subprocess.run(['vita', 'init'], check=True)
+        config_path = root/'.vita/config.json'
+        config = json.loads(config_path.read_text(encoding='utf-8'))
+        config.update(default_base_branch='main', author='Your_Name')
+        config_path.write_text(json.dumps(config, indent=2), encoding='utf-8')
         (root/'main.tex').write_text(
             r'\documentclass{article}\begin{document}' '\n'
             r'\begin{center}\Large Your Name\end{center}' '\n'
             r'\section*{Summary}Replace this starter with your own CV.' '\n'
             r'\end{document}' '\n', encoding='utf-8')
-        (root/'.gitignore').write_text('.vita/\n*.pdf\n*.aux\n*.log\n*.out\n', encoding='utf-8')
+        (root/'.gitignore').write_text('.vita/\nout/\n*.pdf\n*.aux\n*.log\n*.out\n', encoding='utf-8')
         subprocess.run(['git', 'add', 'main.tex', '.gitignore'], check=True)
         subprocess.run(['git', '-c', 'user.name=Vita Tree', '-c', 'user.email=local@example.invalid',
                         'commit', '-m', 'Create starter CV'], check=True)

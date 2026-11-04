@@ -62,7 +62,7 @@ if prompt.startswith('parallel-'):
  time.sleep(.2)
 else:time.sleep(.8)
 schema=json.loads(Path(args[args.index('--output-schema')+1]).read_text()) if '--output-schema' in args else None
-output={'prompt':prompt,'source':Path('main.tex').read_text(),'args':args,'schema':schema,'start':start,'end':time.time()}
+output={'prompt':prompt,'source':Path('main.tex').read_text(),'inputFiles':[p.as_posix() for p in Path('.').rglob('*.tex')],'args':args,'schema':schema,'start':start,'end':time.time()}
 Path(args[args.index('--output-last-message')+1]).write_text(json.dumps(output))
 ''',encoding='utf-8')
         executable = root/('codex.cmd' if os.name=='nt' else 'codex')
@@ -122,10 +122,13 @@ Path(args[args.index('--output-last-message')+1]).write_text(json.dumps(output))
         with patch.object(job['temporary'],'cleanup',side_effect=PermissionError('Synthetic transient lock')):
             self.assertTrue(self.request('DELETE','/v1/jobs/'+value['id'])['cancelled'])
             self.assertTrue(self.server.retired)
-        self.server.reap()
-        self.assertFalse(self.server.retired)
         from test_process_lifecycle import ProcessLifecycleTests
         for pid in pids:ProcessLifecycleTests.assert_stopped(self,pid)
+        deadline=time.monotonic()+5
+        while self.server.retired and time.monotonic()<deadline:
+            self.server.reap()
+            if self.server.retired:time.sleep(.05)
+        self.assertFalse(self.server.retired,'Cancelled snapshot was not reclaimed')
         self.assertFalse(job['thread'].is_alive())
 
     def test_host_capacity_rejects_without_queue(self):

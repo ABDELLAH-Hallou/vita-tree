@@ -58,10 +58,14 @@ def main():
         token=ready()
         assert execute('import os;print(os.getuid())')!='0','Runtime unexpectedly root'
         assert 'build' in docker('exec',name,'vita','--help')
+        docker('exec',name,'vita','build')
+        assert execute('from pathlib import Path;print(Path("out/cv-Your_Name.pdf").is_file())')=='True'
         original=api('/api/workspace?branch=main')
         created=api('/api/create',{'base':'main','name':'synthetic-role','job':'Synthetic role description',
                                    'revision':original['revision'],'projectRevision':original['projectRevision']})
         content=created['content'].replace('Replace this starter with your own CV.','Synthetic reviewed result.')
+        content=content.replace(r'\end{document}',r'\input{sections/details}\end{document}')
+        execute('from pathlib import Path;p=Path('+repr(created['worktree'])+')/"sections";p.mkdir();(p/"details.tex").write_text("Nested included paragraph.")')
         api('/api/save',{'branch':'synthetic-role','path':'main.tex','revision':created['revision'],
                          'projectRevision':created['projectRevision'],'content':content})
         assert api('/api/workspace?branch=main')['content']==original['content'],'Cross-branch contamination'
@@ -75,6 +79,7 @@ def main():
             output=json.loads(docker('exec','-w',created['worktree'],name,'python','-c',
                 'from pathlib import Path;print(Path(".vita/tmp/host-reply.txt").read_text())'))
             assert output['source']==content and output['prompt']=='Synthetic prompt from actual image'
+            assert 'sections/details.tex' in output['inputFiles']
             assert 'synthetic-model' in output['args'] and 'model_reasoning_effort="high"' in output['args']
             # Exercise the bundled backend itself, not only the transport shim.
             native_code='''import json
@@ -92,6 +97,7 @@ print('Native Vita CV schema/host transport verified')
             from pypdf import PdfReader
             reader=PdfReader(BytesIO(pdf));assert len(reader.pages)==1
             assert 'Synthetic reviewed result.' in reader.pages[0].extract_text()
+            assert 'Nested included paragraph.' in reader.pages[0].extract_text()
             (args.artifacts/(engine+'.pdf')).write_bytes(pdf)
         saved=api('/api/pdf-save',{'branch':'synthetic-role','id':preview['id']})
         assert saved['saved']
@@ -113,8 +119,7 @@ print('Native Vita CV schema/host transport verified')
             for theme in ('light','dark'):
                 if page.locator('html').get_attribute('data-theme')!=theme:
                     page.get_by_role('button',name=f'Switch to {theme} mode',exact=True).click()
-                page.wait_for_timeout(300)  # Let the existing theme transition settle before capture.
-                page.screenshot(path=str(args.artifacts/(theme+'.png')),full_page=True)
+                page.screenshot(path=str(args.artifacts/(theme+'.png')),full_page=True,animations='disabled')
             page.get_by_role('tab',name='PDF preview',exact=True).click()
             page.get_by_role('button',name='Create PDF previews',exact=True).click()
             expect(page.locator('#current-pdf .textLayer')).to_contain_text('Synthetic reviewed result.',timeout=180000)
@@ -135,6 +140,12 @@ git('config','user.name','Synthetic User');git('config','user.email','tests@exam
         assert result['pushed']
         refs=execute("import subprocess;print(subprocess.check_output(['git','--git-dir=/tmp/synthetic-remote.git','for-each-ref','--format=%(refname)'],text=True).strip())")
         assert refs=='refs/heads/synthetic-role',refs
+        deadline=time.monotonic()+60
+        health=docker('inspect',name,'--format','{{.State.Health.Status}}')
+        while health!='healthy' and time.monotonic()<deadline:
+            time.sleep(1)
+            health=docker('inspect',name,'--format','{{.State.Health.Status}}')
+        assert health=='healthy','Container health did not become healthy'
         docker('stop',name)
         # Refuse incompatible worktrees without pruning or rewriting pointers.
         docker('run','--rm','--mount',f'type=volume,source={volume},target=/workspace',args.image,
@@ -147,9 +158,9 @@ git('config','user.name','Synthetic User');git('config','user.email','tests@exam
         assert pointer=='Z:/synthetic-missing-project/.git'
         metadata={'image':args.image,'id':docker('image','inspect',args.image,'--format','{{.Id}}'),
                   'engines':['pdflatex','xelatex','lualatex'],'nativeArchitecture':docker('image','inspect',args.image,'--format','{{.Architecture}}'),
-                  'checks':['nonroot','vita-cli','create','save','branch-isolation','three-pdf-engines','pdf-export',
-                            'cover-pdf-export','browser-themes','pdf-selectable-text','restart-persistence',
-                            'selected-branch-local-push','incompatible-worktree-preserved']}
+                  'checks':['nonroot','vita-cli','native-vita-build','create','save','branch-isolation','three-pdf-engines','pdf-export',
+                            'nested-includes','cover-pdf-export','browser-themes','pdf-selectable-text','restart-persistence',
+                            'selected-branch-local-push','incompatible-worktree-preserved','docker-health']}
         if host:metadata['checks'].append('actual-image-to-native-host-codex-fixture')
         (args.artifacts/'result.json').write_text(json.dumps(metadata,indent=2))
         print('PASS: actual image runtime, browser, Git, PDF and restart checks')

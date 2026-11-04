@@ -41,6 +41,8 @@ layers do not contain provider or Git credentials.
 You can bind mount a complete repository at `/workspace` instead of the named
 volume. Bind mounts are writable: changes affect the mounted project. Supply
 all local classes, styles, includes, images and required fonts.
+Linux filenames are case sensitive: include commands must match the actual
+filename case, even if a mismatch worked in the native Windows checkout.
 
 For Windows repositories with existing linked worktrees, use a **separate clone**
 for Docker. Their Git metadata may contain absolute native paths that Linux
