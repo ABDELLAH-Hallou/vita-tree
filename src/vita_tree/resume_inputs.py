@@ -83,6 +83,10 @@ def capture(workspace, context, record):
                     re.search(r'(?:KEY|TOKEN|BASE_URL|ENDPOINT)$', key) or
                     key.startswith(('OPENAI_', 'ANTHROPIC_', 'GEMINI_', 'CODEX_', 'GOOGLE_')) or
                     key in {'VITA_CODEX','HTTP_PROXY','HTTPS_PROXY','NO_PROXY'} or (route['provider']=='codex' and key=='PATH')}
+        if route['provider'] == 'codex' or (route.get('backup') or {}).get('provider') == 'codex':
+            relevant.update({k:v for k,v in env.items() if k.startswith('VITA_CODEX_HOST_')})
+            if env.get('VITA_CODEX_HOST_AUTH_FILE'):
+                relevant['host_transport_auth'] = Path(env['VITA_CODEX_HOST_AUTH_FILE']).read_text(encoding='utf-8').strip()
         # Only a keyed digest is retained, never keys, endpoints, or raw env.
         context['credentialHashes'][step] = hmac.new(salt.read_bytes(), json.dumps(relevant, sort_keys=True).encode(), hashlib.sha256).hexdigest()
     context['criteria'] = criteria

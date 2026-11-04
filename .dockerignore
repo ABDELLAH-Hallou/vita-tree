@@ -1,0 +1,17 @@
+**
+!pyproject.toml
+!MANIFEST.in
+!README.md
+!SECURITY.md
+!LICENSE
+!THIRD_PARTY_NOTICES.md
+!CHANGELOG.md
+!src/
+!src/**
+!docker/
+!docker/entrypoint.py
+**/__pycache__
+**/*.pyc
+**/.env*
+**/.git
+**/LOCAL_*

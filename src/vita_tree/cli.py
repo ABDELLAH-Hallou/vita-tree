@@ -26,6 +26,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="Git repository to inspect (default: current directory)",
     )
     run.add_argument("--host", default="127.0.0.1")
+    run.add_argument("--container", action="store_true", help="Allow container interface binding; publish only on host loopback")
+    run.add_argument("--public-port", type=int, help="Host browser port in explicit container mode")
     run.add_argument("--port", default=8765, type=int)
     run.add_argument(
         "--file",
@@ -54,8 +56,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 vita_source=args.vita_source.resolve() if args.vita_source else None,
                 log_dir=args.log_dir.resolve() if args.log_dir else None,
                 log_level=args.log_level,
+                container_mode=args.container, public_port=args.public_port,
             )
-        except (OSError, RuntimeError) as error:
+        except (OSError, RuntimeError, ValueError) as error:
             print(f"vt: {error}", file=sys.stderr)
             return 1
     return 0

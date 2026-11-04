@@ -1,0 +1,12 @@
+services:
+  vita:
+    environment:
+      VITA_CODEX_HOST_URL: ${CODEX_HOST_URL:-http://host.docker.internal:8766}
+      VITA_CODEX_HOST_AUTH_FILE: /run/secrets/codex_host_auth
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    secrets:
+      - codex_host_auth
+secrets:
+  codex_host_auth:
+    file: ${CODEX_HOST_AUTH_FILE:?Set CODEX_HOST_AUTH_FILE to the host connector authentication file}
