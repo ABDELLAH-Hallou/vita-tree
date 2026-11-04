@@ -12,6 +12,7 @@ import socket
 import subprocess
 import time
 from urllib.request import Request, build_opener, ProxyHandler
+from urllib.error import HTTPError
 import uuid
 
 
@@ -34,7 +35,10 @@ def main():
     def api(path,data=None):
         req=Request(url+path,data=json.dumps(data).encode() if data is not None else None,
                     headers={'Content-Type':'application/json',**({'X-Vita-Token':token} if token else {})})
-        with opener.open(req,timeout=120) as response:return json.load(response)
+        try:
+            with opener.open(req,timeout=120) as response:return json.load(response)
+        except HTTPError as error:
+            raise RuntimeError(f'{path}: HTTP {error.code}: {error.read(12000).decode(errors="replace")}') from error
     def ready():
         deadline=time.monotonic()+90
         while time.monotonic()<deadline:
