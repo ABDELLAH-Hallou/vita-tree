@@ -69,7 +69,7 @@ def worker(path):
         diagnostics.seek(max(0, diagnostics.tell()-64000))
         tail = diagnostics.read(64000)
     # Forward only stable error markers used by Vita CV; never raw diagnostics.
-    status = re.search(rb'\b(401|402|403|408|429|500|502|503|504|529)\b',tail)
+    status = re.search(rb'\b(?:HTTP(?: status)?|status(?: code)?)[: =]+(401|402|403|408|429|500|502|503|504|529)\b',tail,re.I)
     error = 'HTTP '+status[1].decode() if status else 'Codex host execution failed; check host login and model access.'
     if re.search(rb'model_not_found|invalid_model', tail, re.I): error = 'model_not_found'
     if re.search(rb"(?:unexpected|unknown) argument ['\"]--output-schema['\"]", tail):

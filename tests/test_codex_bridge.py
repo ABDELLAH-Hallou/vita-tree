@@ -33,6 +33,22 @@ class CodexBridgeTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             parse_arguments(['exec', '--sandbox', 'read-only', '--output-last-message', 'reply.txt', '--dangerously-bypass-approvals-and-sandbox', '-'])
 
+    def test_host_forwards_only_explicit_http_status_markers(self):
+        from vita_tree.codex_host import worker
+        with tempfile.TemporaryDirectory() as directory:
+            folder=Path(directory)
+            request=folder/'request.json'
+            request.write_text(json.dumps({'executable':'synthetic-codex','model':'','reasoning':'','schema':None,'prompt':'synthetic'}))
+            for message,expected in [('HTTP status 429: overload','HTTP 429'),('missing file at line 429',None)]:
+                def failed(*args,**options):
+                    options['stderr'].write(message.encode());options['stderr'].flush()
+                    return subprocess.CompletedProcess(args[0],1)
+                with patch('vita_tree.codex_host.subprocess.run',side_effect=failed):worker(str(request))
+                result=json.loads((folder/'result.json').read_text())
+                self.assertEqual(result['status'],'failed')
+                if expected:self.assertEqual(result['error'],expected)
+                else:self.assertNotIn('HTTP',result['error'])
+
     def test_snapshot_rejects_traversal_credentials_and_excess_size(self):
         for files in ({'../main.tex': 'x'}, {'.env': 'secret'}, {'.vita/.env': 'secret'},
                       {'main.tex': 'x' * 8_000_001}):
