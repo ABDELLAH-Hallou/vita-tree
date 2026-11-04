@@ -1,0 +1,17 @@
+services:
+  vita:
+    image: ${VITA_IMAGE:-abdellahhallou/vita-tree:local}
+    build: .
+    ports:
+      - "127.0.0.1:${VITA_PORT:-8765}:8765"
+    environment:
+      VITA_TREE_PUBLIC_PORT: ${VITA_PORT:-8765}
+      GIT_AUTHOR_NAME: ${GIT_AUTHOR_NAME:-Vita Tree User}
+      GIT_AUTHOR_EMAIL: ${GIT_AUTHOR_EMAIL:-local@example.invalid}
+      GIT_COMMITTER_NAME: ${GIT_AUTHOR_NAME:-Vita Tree User}
+      GIT_COMMITTER_EMAIL: ${GIT_AUTHOR_EMAIL:-local@example.invalid}
+    volumes:
+      - workspace:/workspace
+    stop_grace_period: 20s
+volumes:
+  workspace:

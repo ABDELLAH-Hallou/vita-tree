@@ -2,6 +2,12 @@
 
 Browse, edit, and adapt LaTeX CVs across Git branches. Compare versions side by side, keep a job description with each branch, and preview the compiled PDFs.
 
+## Docker
+
+Use the self-contained image for Vita Tree, Vita CV and PDF tools, with a persistent
+workspace and optional authenticated host Codex connector. See [Docker setup](docs/DOCKER.md)
+for Compose, native-worktree limitations, local builds and manual publishing.
+
 ## Install and run
 
 Requires **Python 3.10+**, **Git**, and a Git repository containing a LaTeX CV.

@@ -202,8 +202,13 @@ class VitaTreeServer(ThreadingHTTPServer):
         vita_source: Path | None = None,
         log_dir: Path | None = None,
         log_level: str = 'INFO',
+        container_mode: bool = False,
+        public_port: int | None = None,
     ) -> None:
-        if address[0] not in {'127.0.0.1','localhost'}:
+        if public_port is not None and (not container_mode or type(public_port) is not int or not 1 <= public_port <= 65535):
+            raise ValueError('A public port requires explicit container mode and a valid port.')
+        self.public_port = public_port
+        if address[0] not in ({'127.0.0.1','localhost','0.0.0.0'} if container_mode else {'127.0.0.1','localhost'}):
             raise ValueError('Vita Tree supports loopback addresses only.')
         from .workspace import Workspace
         from .pdf import PDFCompiler
@@ -412,7 +417,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         # Loopback service with same-origin checks: unrelated web pages cannot
         # read the token, run AI, or mutate local repositories through a browser.
         host = self.headers.get("Host", "")
-        allowed = {f"127.0.0.1:{self.server.server_port}", f"localhost:{self.server.server_port}"}
+        port = self.server.public_port or self.server.server_port
+        allowed = {f"127.0.0.1:{port}", f"localhost:{port}"}
         origin = self.headers.get("Origin")
         site = self.headers.get('Sec-Fetch-Site')
         if host not in allowed or (origin and origin != "http://" + host) or site not in {None,'none','same-origin'}:
@@ -575,14 +581,16 @@ def serve(
     vita_source: Path | None = None,
     log_dir: Path | None = None,
     log_level: str = 'INFO',
+    container_mode: bool = False,
+    public_port: int | None = None,
 ) -> None:
     if not STATIC_ROOT.is_dir():
         raise RuntimeError(f"Dashboard assets not found: {STATIC_ROOT}")
 
-    if host not in {"127.0.0.1", "localhost"}:
+    if host not in ({"127.0.0.1", "localhost", "0.0.0.0"} if container_mode else {"127.0.0.1", "localhost"}):
         raise RuntimeError("Vita Tree supports localhost only because it can edit files and run AI.")
-    server = VitaTreeServer((host, port), repository, document_path, vita_source, log_dir, log_level)
-    url = f"http://{host}:{server.server_port}"
+    server = VitaTreeServer((host, port), repository, document_path, vita_source, log_dir, log_level, container_mode=container_mode, public_port=public_port)
+    url = f"http://{'localhost' if container_mode else host}:{public_port or server.server_port}"
     print(f"vita-tree · {repository}")
     print(f"Dashboard running at {url}")
     print(f"Metrics: {url}/metrics")
