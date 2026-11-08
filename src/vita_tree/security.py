@@ -6,6 +6,8 @@ from urllib.parse import quote, quote_plus
 
 
 def snapshot_excluded(name):
+    if name in {'cv-final.pdf', 'cover-letter.pdf'}:
+        return True  # Generated final outputs must never become their own inputs.
     parts = [part.casefold() for part in PurePosixPath(name).parts]
     return any(part in {'.git','.vita','.ssh','.aws','.codex','.env','.netrc','_netrc',
                         '.pypirc','.npmrc','.git-credentials','id_rsa','id_ed25519'}

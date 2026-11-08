@@ -25,7 +25,7 @@ function i({ api: i, branches: a, openBranch: o, ready: s }) {
 	})[e] || e || "", d = l("button", "Import jobs");
 	d.id = "open-jobenu", d.className = "quiet", c(".board-nav").append(d);
 	let f = document.createElement("section");
-	f.id = "jobenu-import", f.hidden = !0, f.innerHTML = "<button id=\"jobenu-back\" class=\"back\">← All applications</button><div class=\"page-heading\"><div><h1>Import jobs</h1><p class=\"subtitle\">Bring opportunities from Jobenu into this CV collection.</p></div></div>\n <div role=\"tablist\" aria-label=\"Import source\" class=\"jobenu-tabs\"><button role=\"tab\" aria-selected=\"true\">Jobenu</button></div>\n <p class=\"helper\">Your export stays unchanged. Each selected application gets its own CV workspace. Importing never submits an application or pushes to Git.</p>\n <p id=\"jobenu-error\" role=\"alert\" class=\"form-error\"></p><p id=\"jobenu-feedback\" role=\"status\"></p>\n <details id=\"jobenu-install\"><summary>Vita installation</summary><label>Compatible Vita CV source folder<input id=\"jobenu-source\" placeholder=\"Folder containing vita/__main__.py\"></label><button id=\"jobenu-check\">Check installation</button><p id=\"jobenu-capability\" role=\"status\"></p></details>\n <label id=\"jobenu-drop\" class=\"jobenu-drop\">Choose or drop a Jobenu JSON export<input id=\"jobenu-file\" type=\"file\" accept=\".json,application/json\"></label><p id=\"jobenu-file-info\" role=\"status\"></p>\n <div id=\"jobenu-date-filters\" hidden><div class=\"jobenu-date-toolbar\"><label>Date<select id=\"jobenu-date-field\"><option value=\"createdAt\">Added</option><option value=\"updatedAt\">Updated</option><option value=\"appliedAt\">Applied</option><option value=\"deadlineAt\">Deadline</option><option value=\"nextActionAt\">Next action</option></select></label><label>From<input id=\"jobenu-date-from\" type=\"date\" aria-describedby=\"jobenu-date-help jobenu-date-error\"></label><label>To<input id=\"jobenu-date-to\" type=\"date\" aria-describedby=\"jobenu-date-help jobenu-date-error\"></label><div class=\"actions\"><button id=\"jobenu-today\">Today</button><button id=\"jobenu-all-dates\">All dates</button></div></div><p id=\"jobenu-date-help\" class=\"helper\">Dates follow the calendar day in your export. Today uses your device's date.</p><p id=\"jobenu-date-error\" role=\"alert\" class=\"form-error\"></p><p id=\"jobenu-selection-summary\" role=\"status\"></p></div>\n <div class=\"jobenu-scroll\" tabindex=\"0\" role=\"region\" aria-label=\"Applications to import\"><table id=\"jobenu-selection\"><caption>Select applications</caption><thead><tr><th><input id=\"jobenu-select-all\" type=\"checkbox\" aria-label=\"Select all matching jobs\"></th><th>Company</th><th>Position</th><th>Status</th><th id=\"jobenu-date-heading\">Added</th></tr></thead><tbody></tbody></table></div>\n <div class=\"jobenu-settings\"><label>Starting CV<input id=\"jobenu-base\" type=\"search\" list=\"jobenu-bases\" autocomplete=\"off\" placeholder=\"Search local branches\"><datalist id=\"jobenu-bases\"></datalist></label><label>Approval mode<select id=\"jobenu-approval\" aria-describedby=\"jobenu-approval-help\"><option value=\"human\">Review changes before applying</option><option value=\"auto\">Apply verified changes automatically</option><option value=\"unattended\" disabled>Run without manual reviews</option></select></label></div>\n <p id=\"jobenu-approval-help\" class=\"helper\" role=\"status\"></p><div id=\"jobenu-approval-change\" hidden></div>\n <label><input id=\"jobenu-run\" type=\"checkbox\" checked> Run the AI workflow</label><p class=\"helper\">Complete means the configured AI stages finished; PDFs and submission are separate.</p>\n <details id=\"jobenu-advanced\"><summary>Advanced</summary><div class=\"jobenu-settings\"><label>Language override<input id=\"jobenu-language\" placeholder=\"Use saved language\"></label><label>Provider override<input id=\"jobenu-provider\" placeholder=\"Use saved AI settings\"></label><label>Status filters<input id=\"jobenu-statuses\" value=\"SAVED\" aria-describedby=\"jobenu-status-help\"></label></div><p id=\"jobenu-status-help\" class=\"helper\">Comma-separated statuses, or ALL. Uses saved stage providers/models and native Vita reasoning preferences. Tree-only reasoning overrides are not forwarded by this batch CLI.</p><label><input id=\"jobenu-demo\" type=\"checkbox\"> Include demo applications</label><label><input id=\"jobenu-revision\" type=\"checkbox\"> Create a new source revision when records changed</label><label id=\"jobenu-rerun-choice\"><input id=\"jobenu-rerun\" type=\"checkbox\"> Rerun completed steps (uses AI credits)</label></details>\n <div class=\"actions\"><button id=\"jobenu-preview\" disabled>Preview branches</button><button id=\"jobenu-start\" class=\"primary\" disabled>Create branches</button></div>\n <div class=\"jobenu-scroll\" tabindex=\"0\" role=\"region\" aria-label=\"Application preview\"><table id=\"jobenu-plan\"><caption>Branch preview</caption><thead><tr><th>Company</th><th>Position</th><th>Branch</th><th>Action</th></tr></thead><tbody></tbody></table></div><section id=\"jobenu-aliases\" hidden aria-labelledby=\"jobenu-alias-title\"></section>\n <h2>Batch activity</h2><p class=\"helper\">You can leave this view while work continues. Retained sources stay private until you forget the batch; imported workspaces are preserved.</p><div id=\"jobenu-history\" tabindex=\"-1\" role=\"region\" aria-label=\"Batch activity\"></div>\n <dialog id=\"jobenu-retry\" aria-labelledby=\"jobenu-retry-title\"><div class=\"dialog-heading\"><h2 id=\"jobenu-retry-title\">Retry failed jobs</h2></div><div class=\"review-scroll\"><p>Use the original AI settings. Keep valid completed steps and continue from the failure. Retrying makes AI requests and may use provider credits.</p><p id=\"jobenu-retry-progress\" role=\"status\"></p><div class=\"jobenu-scroll\" tabindex=\"0\" role=\"region\" aria-label=\"Jobs to retry\"><table><thead><tr><th>Company</th><th>Position</th><th>Continue from</th></tr></thead><tbody id=\"jobenu-retry-jobs\"></tbody></table></div><p id=\"jobenu-retry-error\" role=\"alert\" class=\"form-error\"></p></div><footer class=\"dialog-footer\"><button id=\"jobenu-retry-cancel\">Cancel</button><button id=\"jobenu-retry-confirm\" class=\"primary\" disabled>Retry jobs</button></footer></dialog>\n <dialog id=\"jobenu-review\" aria-labelledby=\"jobenu-review-title\"><div class=\"dialog-heading\"><h2 id=\"jobenu-review-title\">Review imported application</h2><button id=\"jobenu-review-close\" aria-label=\"Close import review\">×</button></div><div id=\"jobenu-review-content\" class=\"review-scroll\"></div><p id=\"jobenu-review-error\" role=\"alert\" class=\"form-error\"></p><footer class=\"dialog-footer\"><button id=\"jobenu-reject\">Reject changes</button><button id=\"jobenu-approve\" class=\"primary\">Approve exact revision</button></footer></dialog>", c("#main-content").append(f);
+	f.id = "jobenu-import", f.hidden = !0, f.innerHTML = "<button id=\"jobenu-back\" class=\"back\">← All applications</button><div class=\"page-heading\"><div><h1>Import jobs</h1><p class=\"subtitle\">Bring opportunities from Jobenu into this CV collection.</p></div></div>\n <div role=\"tablist\" aria-label=\"Import source\" class=\"jobenu-tabs\"><button role=\"tab\" aria-selected=\"true\">Jobenu</button></div>\n <p class=\"helper\">Your export stays unchanged. Each selected application gets its own CV workspace. Importing never submits an application or pushes to Git.</p>\n <p id=\"jobenu-error\" role=\"alert\" class=\"form-error\"></p><p id=\"jobenu-feedback\" role=\"status\"></p><p id=\"jobenu-limitations\" class=\"helper\"></p><p id=\"jobenu-settings-limitations\" role=\"status\"></p>\n <details id=\"jobenu-install\"><summary>Vita installation</summary><label>Compatible Vita CV source folder<input id=\"jobenu-source\" placeholder=\"Folder containing vita/__main__.py\"></label><button id=\"jobenu-check\">Check installation</button><p id=\"jobenu-capability\" role=\"status\"></p></details>\n <label id=\"jobenu-drop\" class=\"jobenu-drop\">Choose or drop a Jobenu JSON export<input id=\"jobenu-file\" type=\"file\" accept=\".json,application/json\"></label><p id=\"jobenu-file-info\" role=\"status\"></p>\n <div id=\"jobenu-date-filters\" hidden><div class=\"jobenu-date-toolbar\"><label>Date<select id=\"jobenu-date-field\"><option value=\"createdAt\">Added</option><option value=\"updatedAt\">Updated</option><option value=\"appliedAt\">Applied</option><option value=\"deadlineAt\">Deadline</option><option value=\"nextActionAt\">Next action</option></select></label><label>From<input id=\"jobenu-date-from\" type=\"date\" aria-describedby=\"jobenu-date-help jobenu-date-error\"></label><label>To<input id=\"jobenu-date-to\" type=\"date\" aria-describedby=\"jobenu-date-help jobenu-date-error\"></label><div class=\"actions\"><button id=\"jobenu-today\">Today</button><button id=\"jobenu-all-dates\">All dates</button></div></div><p id=\"jobenu-date-help\" class=\"helper\">Dates follow the calendar day in your export. Today uses your device's date.</p><p id=\"jobenu-date-error\" role=\"alert\" class=\"form-error\"></p><p id=\"jobenu-selection-summary\" role=\"status\"></p></div>\n <div class=\"jobenu-scroll\" tabindex=\"0\" role=\"region\" aria-label=\"Applications to import\"><table id=\"jobenu-selection\"><caption>Select applications</caption><thead><tr><th><input id=\"jobenu-select-all\" type=\"checkbox\" aria-label=\"Select all matching jobs\"></th><th>Company</th><th>Position</th><th>Status</th><th id=\"jobenu-date-heading\">Added</th></tr></thead><tbody></tbody></table></div>\n <div class=\"jobenu-settings\"><label>Starting CV<input id=\"jobenu-base\" type=\"search\" list=\"jobenu-bases\" autocomplete=\"off\" placeholder=\"Search local branches\"><datalist id=\"jobenu-bases\"></datalist></label><label>Approval mode<select id=\"jobenu-approval\" aria-describedby=\"jobenu-approval-help\"><option value=\"human\">Review changes before applying</option><option value=\"auto\">Apply verified changes automatically</option><option value=\"unattended\" disabled>Run without manual reviews</option></select></label></div>\n <p id=\"jobenu-approval-help\" class=\"helper\" role=\"status\"></p><div id=\"jobenu-approval-change\" hidden></div>\n <label><input id=\"jobenu-run\" type=\"checkbox\" checked> Run the AI workflow</label><p class=\"helper\">Complete means the configured AI stages finished; PDFs and submission are separate.</p>\n <details id=\"jobenu-advanced\"><summary>Advanced</summary><div class=\"jobenu-settings\"><label>Language override<input id=\"jobenu-language\" placeholder=\"Use saved language\"></label><label>Provider override<input id=\"jobenu-provider\" placeholder=\"Use saved AI settings\"></label><label>Status filters<input id=\"jobenu-statuses\" value=\"SAVED\" aria-describedby=\"jobenu-status-help\"></label></div><p id=\"jobenu-status-help\" class=\"helper\">Comma-separated statuses, or ALL. Uses saved stage providers/models and native Vita reasoning preferences. Tree-only reasoning overrides are not forwarded by this batch CLI.</p><label><input id=\"jobenu-demo\" type=\"checkbox\"> Include demo applications</label><label><input id=\"jobenu-revision\" type=\"checkbox\"> Create a new source revision when records changed</label><label id=\"jobenu-rerun-choice\"><input id=\"jobenu-rerun\" type=\"checkbox\"> Rerun completed steps (uses AI credits)</label></details>\n <div class=\"actions\"><button id=\"jobenu-preview\" disabled>Preview branches</button><button id=\"jobenu-start\" class=\"primary\" disabled>Create branches</button></div>\n <div class=\"jobenu-scroll\" tabindex=\"0\" role=\"region\" aria-label=\"Application preview\"><table id=\"jobenu-plan\"><caption>Branch preview</caption><thead><tr><th>Company</th><th>Position</th><th>Branch</th><th>Action</th></tr></thead><tbody></tbody></table></div><section id=\"jobenu-aliases\" hidden aria-labelledby=\"jobenu-alias-title\"></section>\n <h2>Batch activity</h2><p class=\"helper\">You can leave this view while work continues. Retained sources stay private until you forget the batch; imported workspaces are preserved.</p><div id=\"jobenu-history\" tabindex=\"-1\" role=\"region\" aria-label=\"Batch activity\"></div>\n <dialog id=\"jobenu-retry\" aria-labelledby=\"jobenu-retry-title\"><div class=\"dialog-heading\"><h2 id=\"jobenu-retry-title\">Retry failed jobs</h2></div><div class=\"review-scroll\"><p>Use the original AI settings. Keep valid completed steps and continue from the failure. Retrying makes AI requests and may use provider credits.</p><p id=\"jobenu-retry-progress\" role=\"status\"></p><div class=\"jobenu-scroll\" tabindex=\"0\" role=\"region\" aria-label=\"Jobs to retry\"><table><thead><tr><th>Company</th><th>Position</th><th>Continue from</th></tr></thead><tbody id=\"jobenu-retry-jobs\"></tbody></table></div><p id=\"jobenu-retry-error\" role=\"alert\" class=\"form-error\"></p></div><footer class=\"dialog-footer\"><button id=\"jobenu-retry-cancel\">Cancel</button><button id=\"jobenu-retry-confirm\" class=\"primary\" disabled>Retry jobs</button></footer></dialog>\n <dialog id=\"jobenu-review\" aria-labelledby=\"jobenu-review-title\"><div class=\"dialog-heading\"><h2 id=\"jobenu-review-title\">Review imported application</h2><button id=\"jobenu-review-close\" aria-label=\"Close import review\">×</button></div><div id=\"jobenu-review-content\" class=\"review-scroll\"></div><p id=\"jobenu-review-error\" role=\"alert\" class=\"form-error\"></p><footer class=\"dialog-footer\"><button id=\"jobenu-reject\">Reject changes</button><button id=\"jobenu-approve\" class=\"primary\">Approve exact revision</button></footer></dialog>", c("#main-content").append(f), document.body.append(c("#jobenu-review"));
 	let p = null, m = null, h = !1, g = !1, _ = null, v = !1, y = null, b = !1, x = 0, S = 0, C = "", w = /* @__PURE__ */ new Set(), T = !1, E = /* @__PURE__ */ new Map(), D = !1, O = !1, k = null, A = 0, j = null, M = (e) => ({
 		extract: "Identify job requirements",
 		analyze: "Check CV match",
@@ -184,7 +184,7 @@ function i({ api: i, branches: a, openBranch: o, ready: s }) {
 	async function G() {
 		await s(), h = !1, c("#jobenu-preview").disabled = !0, R();
 		let e = await i("/api/jobenu/capability", { source: c("#jobenu-source").value });
-		h = e.available, g = e.unattended === !0, c("#jobenu-approval option[value=unattended]").disabled = !g, c("#jobenu-capability").textContent = e.message || "Jobenu batch import is available.", c("#jobenu-install").open = !h, c("#jobenu-base").value || (c("#jobenu-base").value = e.base), H();
+		h = e.available, c("#jobenu-limitations").textContent = (e.limitations || []).join(" "), g = e.unattended === !0, c("#jobenu-approval option[value=unattended]").disabled = !g, c("#jobenu-capability").textContent = e.message || "Jobenu batch import is available.", c("#jobenu-install").open = !h, c("#jobenu-base").value || (c("#jobenu-base").value = e.base), H();
 	}
 	async function K() {
 		f.hidden = !1, c("#board").hidden = !0, c("#workspace").hidden = !0, c("#jobenu-bases").replaceChildren(...a().filter((e) => e.local).map((e) => {
@@ -240,7 +240,7 @@ function i({ api: i, branches: a, openBranch: o, ready: s }) {
 		try {
 			let t = await i("/api/jobenu/preview", W());
 			if (x !== e) return;
-			m = t.plan, m.error && L(m.error);
+			m = t.plan, c("#jobenu-settings-limitations").textContent = (t.settingsLimitations || []).join(" "), m.error && L(m.error);
 			let n = c("#jobenu-plan tbody");
 			n.replaceChildren();
 			for (let e of m.entries) {
@@ -392,28 +392,27 @@ function i({ api: i, branches: a, openBranch: o, ready: s }) {
 				C = s;
 				let d = c("#jobenu-history");
 				d.replaceChildren();
-				let m = r.some((e) => e.status === "running");
 				for (let n of a) {
 					let r = n.batch, a = document.createElement("section");
 					a.className = "jobenu-batch";
 					let s = document.createElement("div");
 					s.append(l("h3", r.filename), l("p", e(n, u)));
-					let h = document.createElement("div");
-					if (h.className = "jobenu-batch-heading", h.append(s), n.entries.some(t) || n.attempts.some((e) => e.parentBatchId && e.status === "running")) {
+					let m = document.createElement("div");
+					if (m.className = "jobenu-batch-heading", m.append(s), n.entries.some(t) || n.attempts.some((e) => e.parentBatchId && e.status === "running")) {
 						let e = l("button", "Retry failed jobs");
-						e.className = "jobenu-retry-action", e.dataset.batch = r.id, e.dataset.key = "", e.dataset.blocked = String(m), e.onclick = () => I(r), h.append(e);
+						e.className = "jobenu-retry-action", e.dataset.batch = r.id, e.dataset.key = "", e.dataset.blocked = String(r.status === "running"), e.onclick = () => I(r), m.append(e);
 					}
-					a.append(h);
-					let g = n.attempts.at(-1);
-					g.error && a.append(l("p", g.error));
-					let v = document.createElement("table"), y = document.createElement("thead"), b = document.createElement("tr");
+					a.append(m);
+					let h = n.attempts.at(-1);
+					h.error && a.append(l("p", h.error));
+					let g = document.createElement("table"), v = document.createElement("thead"), y = document.createElement("tr");
 					for (let e of [
 						"Company",
 						"Position",
 						"Progress",
 						"Actions"
-					]) b.append(l("th", e));
-					y.append(b), v.append(y);
+					]) y.append(l("th", e));
+					v.append(y), g.append(v);
 					for (let e of n.entries) {
 						let n = document.createElement("tr");
 						n.className = "jobenu-application-row", n.append(l("td", e.company), l("td", e.position), l("td", [
@@ -424,7 +423,7 @@ function i({ api: i, branches: a, openBranch: o, ready: s }) {
 						let s = document.createElement("td");
 						if (t(e)) {
 							let t = l("button", "Retry");
-							t.className = "jobenu-retry-action", t.dataset.batch = r.id, t.dataset.key = e.key, t.setAttribute("aria-label", `Retry ${e.company}`), t.dataset.blocked = String(m), t.onclick = () => I(r, [e.key]), s.append(t);
+							t.className = "jobenu-retry-action", t.dataset.batch = r.id, t.dataset.key = e.key, t.setAttribute("aria-label", `Retry ${e.company}`), t.dataset.blocked = String(r.status === "running"), t.onclick = () => I(r, [e.key]), s.append(t);
 						}
 						if (e.workspace) {
 							let t = l("button", "Open workspace");
@@ -450,24 +449,24 @@ function i({ api: i, branches: a, openBranch: o, ready: s }) {
 							let t = l("button", e.pending ? "Review changes" : "Review requirements");
 							t.onclick = () => X(r, e).catch(L), s.append(t);
 						}
-						n.append(s), v.append(n);
+						n.append(s), g.append(n);
 					}
-					let x = document.createElement("div");
-					if (x.className = "jobenu-scroll", x.tabIndex = 0, x.setAttribute("role", "region"), x.setAttribute("aria-label", `Applications from ${r.filename}`), x.append(v), a.append(x), n.attempts.length > 1) {
+					let b = document.createElement("div");
+					if (b.className = "jobenu-scroll", b.tabIndex = 0, b.setAttribute("role", "region"), b.setAttribute("aria-label", `Applications from ${r.filename}`), b.append(g), a.append(b), n.attempts.length > 1) {
 						let e = document.createElement("details");
 						e.className = "jobenu-attempts", e.append(l("summary", `Attempts (${n.attempts.length})`));
 						for (let [t, r] of n.attempts.entries()) e.append(l("p", `${t ? "Retry" : "Original run"} · ${(/* @__PURE__ */ new Date((r.startedAt || r.createdAt) * 1e3)).toLocaleString()} · ${u(r.status)}`));
 						a.append(e);
 					}
-					let S = l("button", "View logs");
-					if (S.onclick = async () => {
+					let x = l("button", "View logs");
+					if (x.onclick = async () => {
 						try {
 							let e = await i("/api/jobenu/log", { id: r.id }), t = l("pre", e.text);
 							a.append(t);
 						} catch (e) {
 							L(e);
 						}
-					}, a.append(S), !m) {
+					}, a.append(x), r.status !== "running") {
 						let e = l("button", "Preview resume");
 						e.onclick = async () => {
 							R(), p = { id: r.id };
@@ -493,8 +492,17 @@ function i({ api: i, branches: a, openBranch: o, ready: s }) {
 			}
 		}
 	}
-	return setInterval(() => {
+	setInterval(() => {
 		f.hidden || Q();
-	}, 1800), { open: K };
+	}, 1800);
+	async function $(e) {
+		let { batches: t } = await i("/api/jobenu"), n = t.find((t) => t.id === e.nativeBatchId), r = n?.entries?.find((t) => t.key === e.nativeKey && t.branch === e.branch);
+		if (!r || e.pendingRevision && r.pending?.revision !== e.pendingRevision) throw Error("This pending review changed. Refresh the application before reviewing.");
+		c("#jobenu-review-error").textContent = "", await X(n, r);
+	}
+	return {
+		open: K,
+		reviewRun: $
+	};
 }
 export { i as t };

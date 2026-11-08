@@ -109,4 +109,33 @@ function r(e, r, { open: i = !1, label: a = null } = {}) {
 	}
 	return o;
 }
-export { t as n, r, n as t };
+function i(e) {
+	let t = document.createElement("section"), n = document.createElement("h3");
+	if (n.textContent = "Cover letter for application forms", t.append(n), e.text) {
+		let n = document.createElement("label");
+		n.textContent = "Plain text";
+		let r = document.createElement("textarea");
+		r.readOnly = !0, r.value = e.text, r.rows = 8, n.append(r), t.append(n);
+		let i = document.createElement("p");
+		i.textContent = `${e.characters} characters`, t.append(i);
+		let a = document.createElement("button");
+		a.textContent = "Copy plain text";
+		let o = document.createElement("p");
+		o.setAttribute("role", "status"), a.onclick = async () => {
+			a.disabled = !0, a.textContent = "Copying…";
+			try {
+				await navigator.clipboard.writeText(e.text), o.textContent = "Copied.";
+			} catch {
+				r.focus(), r.select(), o.textContent = "Text selected. Use your keyboard’s Copy command.";
+			} finally {
+				a.disabled = !1, a.textContent = "Copy plain text";
+			}
+		}, t.append(a, o);
+	} else {
+		let n = document.createElement("p");
+		n.textContent = e.textLimitation, t.append(n);
+	}
+	let r = document.createElement("p");
+	return r.textContent = e.shortLimitation, t.append(r), t;
+}
+export { r as i, n, t as r, i as t };

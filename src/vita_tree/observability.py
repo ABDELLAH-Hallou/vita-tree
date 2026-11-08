@@ -86,7 +86,7 @@ class Diagnostics:
                 row[key] = route if route in ROUTES else 'other'
             elif key in {'operation', 'error_type', 'location', 'method'} and isinstance(value, str) and re.fullmatch(r'[a-zA-Z0-9_./:-]{1,100}', value):
                 row[key] = value
-            elif key == 'status' and (type(value) is int or isinstance(value, str) and value in {'running', 'succeeded', 'failed', 'interrupted', 'skipped', 'blocked', 'ok', 'error', 'reused', 'not_retained'}):
+            elif key == 'status' and (type(value) is int or isinstance(value, str) and value in {'running', 'succeeded', 'failed', 'interrupted', 'skipped', 'blocked', 'review', 'awaiting_review', 'ok', 'error', 'reused', 'not_retained'}):
                 row[key] = value
             elif key in {'errno', 'winerror', 'duration_ms', 'exit_code'} and type(value) in (int, float):
                 row[key] = round(value, 3)
@@ -152,7 +152,7 @@ class Diagnostics:
                     self.steps[(stage['id'], stage['status'])] += 1
                     self.step_seconds[stage['id']] += seconds
                 self.record('step_finished', run_id=ident, trace_id=record.get('traceId'), step=stage['id'], status=stage['status'], duration_ms=seconds*1000)
-        if record['status'] != previous.get('status') and record['status'] in {'succeeded', 'failed', 'interrupted'}:
+        if record['status'] != previous.get('status') and record['status'] in {'succeeded', 'failed', 'interrupted', 'awaiting_review'}:
             with self.lock:
                 self.runs[record['status']] += 1
             self.record('run_finished', 'ERROR' if record['status']=='failed' else 'INFO', run_id=ident, trace_id=record.get('traceId'), status=record['status'])

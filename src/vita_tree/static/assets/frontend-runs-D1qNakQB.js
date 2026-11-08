@@ -1,4 +1,4 @@
-import { i as e } from "./frontend-workflow-CuJDKIt5.js";
+import { i as e } from "./frontend-workflow-BHrPuT76.js";
 // frontend/src/compat/runs.js
 var t = (e) => e && ["queued", "running"].includes(e.status), n = (e) => e.source === "jobenu" ? "Jobenu · " + ({
 	succeeded: "Completed",
@@ -21,6 +21,7 @@ var t = (e) => e && ["queued", "running"].includes(e.status), n = (e) => e.sourc
 	analyze: "Checking CV match",
 	adapt: "Tailoring CV",
 	preflight: "Checking setup",
+	awaiting_review: "Needs review",
 	validating: "Checking results",
 	completed: "Completed",
 	failed: "Couldn’t finish",

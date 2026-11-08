@@ -237,7 +237,7 @@ class ExecutionInspector:
                                 'spanId':contract.ident(route.get('spanId'),16)}
             events = []
             for item in raw.get('events',[])[:512]:
-                if not isinstance(item,dict) or item.get('phase') not in TREE_PHASES or item.get('status') not in {'running','ok','error','interrupted','reused','not_retained'}:
+                if not isinstance(item,dict) or item.get('phase') not in TREE_PHASES or item.get('status') not in {'running','ok','error','review','interrupted','reused','not_retained'}:
                     continue
                 events.append({'phase':item['phase'],'status':item['status'],'timestamp':contract.timestamp(item.get('timestamp')),
                                'duration_ms':contract.number(item.get('duration_ms')), 'spanId':contract.ident(item.get('spanId'),16),
@@ -290,7 +290,11 @@ class ExecutionInspector:
         try:
             yield span_id
         except BaseException as error:
-            self.mark(record,phase,'error',step,span_id,started,error)
+            from .workspace import ReviewRequired
+            if isinstance(error, ReviewRequired):
+                self.mark(record,phase,'review',step,span_id,started)
+            else:
+                self.mark(record,phase,'error',step,span_id,started,error)
             raise
         else:
             self.mark(record,phase,'ok',step,span_id,started)
@@ -433,14 +437,17 @@ class ExecutionInspector:
         tree_error = next((e for e in tree.get('events',[]) if e['status']=='error'),None)
         category = (failure or {}).get('details',{}).get('category') or (tree_error or {}).get('category')
         phase = (failure or {}).get('phase') or (tree_error or {}).get('phase')
+        waiting = r.get('status') == 'awaiting_review'
+        if waiting:
+            category, phase = None, 'review'
         lineage = []
         with self.workspace.lock:
             for other in self.workspace.jobs.values():
                 if (other.get('rootRunId') or other['id']) == (r.get('rootRunId') or run_id):
                     lineage.append({'id':other['id'],'parentRunId':other.get('parentRunId'),'attempt':other.get('attempt'),'status':other['status']})
         return {'run':{k:r.get(k) for k in ('id','traceId','status','parentRunId','rootRunId','attempt','resumeAvailable')},
-                'resumeAvailable':r.get('status') in {'failed','interrupted'} and bool(r.get('attempt')),
-                'overview':{'phase':phase,'category':category,'nextAction':ACTIONS.get(category,'Review the timeline and captured configuration. Retry uses the verified-checkpoint plan; unavailable evidence cannot be recovered.')},
+                'resumeAvailable':self.workspace.get_job(run_id)['resumeAvailable'] if waiting else r.get('status') in {'failed','interrupted'} and bool(r.get('attempt')),
+                'overview':{'phase':phase,'category':category,'nextAction':'Open the application to review the proposal or continue after saving decisions.' if waiting else ACTIONS.get(category,'Review the timeline and captured configuration. Retry uses the verified-checkpoint plan; unavailable evidence cannot be recovered.')},
                 'tree':tree,'backend':backend,'lineage':sorted(lineage,key=lambda a:a.get('attempt') or 0),
                 'storage':self.storage()}
 

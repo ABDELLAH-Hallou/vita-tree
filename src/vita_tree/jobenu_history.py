@@ -30,6 +30,8 @@ HISTORY_FIELDS = (
     "language",
     "message",
     "outcomes",
+    "pendingStep",
+    "pendingRevision",
 )
 
 
@@ -160,6 +162,8 @@ def project(record, row, active, decision):
         attempt=attempt,
         nativeBatchId=record["id"],
         nativeKey=row.get("key"),
+        pendingStep=(pending_step or ('extract' if native_status == 'awaiting_requirements_approval' else None)),
+        pendingRevision=(row.get('pending') or {}).get('revision'),
         language=(record.get("plan") or {}).get("language"),
         message="Jobenu import · "
         + {

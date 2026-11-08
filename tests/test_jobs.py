@@ -433,7 +433,8 @@ class JobTests(unittest.TestCase):
         self.pipeline_source()
         branch = self.pipeline_branch('separate', extraction=True, require_analysis=True)
         self.release('separate')
-        for step in ('extract', 'analyze', 'adapt', 'review', 'cover', 'adapt'):
+        # Tailoring changes the evidence: refresh analysis before comparing scores.
+        for step in ('extract', 'analyze', 'adapt', 'analyze', 'review', 'cover', 'adapt'):
             # The second adaptation is a legitimate no-op, not a failed run.
             record = self.start(branch, workflow={'steps': [step]})
             self.assertEqual(self.finished(record['id'])['status'], 'succeeded', self.workspace.get_job(record['id']))

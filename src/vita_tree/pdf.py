@@ -101,7 +101,8 @@ def compile_document(folder: Path, document_path: str, engine='auto', output=Non
     def included_source(name):
         path = safe_path(folder, name)
         return read_text(path) if path.is_file() else None
-    for name in discover(document_path, included_source)['files']:
+    compiled_sources = discover(document_path, included_source)['files']
+    for name in compiled_sources:
         safe_path(output, name).parent.mkdir(parents=True, exist_ok=True)
     env = compiler_environment(folder, output)
     try:
@@ -133,6 +134,8 @@ def compile_document(folder: Path, document_path: str, engine='auto', output=Non
                 raise ValueError("Couldn’t create the PDF.\n" + log[-6000:])
     except subprocess.TimeoutExpired as error:
         raise CompilationError('compile_timeout', "Creating the PDF took longer than 90 seconds. Check the source formatting and installed PDF tools.") from error
+    if any(included_source(name) != text for name, text in compiled_sources.items()):
+        raise CompilationError('source_changed', 'The source or its includes changed during compilation. Create a fresh PDF from the saved source.')
     pdf = safe_path(output, entry.stem + '.pdf')
     if not pdf.is_file() or pdf.stat().st_size > 32_000_000:
         raise ValueError('The PDF tool did not produce a document within the 32 MB limit')
@@ -201,33 +204,40 @@ class PDFCompiler:
                 source = read_text(safe_path(self.workspace.root / 'runs' / run_id, 'cover-letter.tex'))
                 filename = 'cover-letter' + cv_filename(read_text(safe_path(self.workspace.root / 'runs' / run_id, 'main.tex')))[2:]
             else:
-                if not source.strip():
-                    raise ValueError('No cover letter has been saved for this application. Start the Cover letter step first.')
-                ident = uuid.uuid4().hex
-                folder = self.workspace.root / 'pdf' / ident
-                working = self.workspace.location(name) if side == 'current' else None
-                export_snapshot(self.workspace.repository, snapshot['commit' if side == 'current' else 'baseCommit'], folder, working)
-                if side == 'original' and document == 'cv':
-                    for file in snapshot['files']:
-                        target = safe_path(folder, file['path'])
-                        if file['originalExists']:
-                            atomic_write(target, file['original'])
-                        else:
-                            target.unlink(missing_ok=True)
-                entry = 'cover-letter.tex' if document == 'cover' else self.workspace.document_path
-                atomic_write(safe_path(folder, entry), source)
-                if document == 'cv':
-                    for file in snapshot['files']:
-                        exists = file['originalExists'] if side == 'original' else file['exists']
-                        expected = file['original' if side == 'original' else 'content'] if exists else None
-                        path = safe_path(folder, file['path'])
-                        # A current-only file can remain as an unused asset in the
-                        # exported baseline. Only captured reachable inputs matter.
-                        if exists and (not path.is_file() or read_text(path) != expected):
-                            raise ConflictError('Included files changed while capturing this PDF. Reload and create a new preview.')
-                built = compile_document(folder, entry, engine)
-                if self.workspace.snapshot(name)['projectRevision'] != snapshot['projectRevision']:
-                    raise ConflictError('The CV or included files changed during compilation. Create a new preview.')
+                built = self.workspace.final_pdf_result(name, document, engine) if side == 'current' else None
+                if built is not None:
+                    # Preview IDs retain immutable bytes across later publications.
+                    cached = self.workspace.root/'pdf'/uuid.uuid4().hex/filename
+                    atomic_write_bytes(cached, built.pop('content'))
+                    built['pdf'] = cached
+                if built is None:
+                    if not source.strip():
+                        raise ValueError('No cover letter has been saved for this application. Start the Cover letter step first.')
+                    ident = uuid.uuid4().hex
+                    folder = self.workspace.root / 'pdf' / ident
+                    working = self.workspace.location(name) if side == 'current' else None
+                    export_snapshot(self.workspace.repository, snapshot['commit' if side == 'current' else 'baseCommit'], folder, working)
+                    if side == 'original' and document == 'cv':
+                        for file in snapshot['files']:
+                            target = safe_path(folder, file['path'])
+                            if file['originalExists']:
+                                atomic_write(target, file['original'])
+                            else:
+                                target.unlink(missing_ok=True)
+                    entry = 'cover-letter.tex' if document == 'cover' else self.workspace.document_path
+                    atomic_write(safe_path(folder, entry), source)
+                    if document == 'cv':
+                        for file in snapshot['files']:
+                            exists = file['originalExists'] if side == 'original' else file['exists']
+                            expected = file['original' if side == 'original' else 'content'] if exists else None
+                            path = safe_path(folder, file['path'])
+                            # A current-only file can remain as an unused asset in the
+                            # exported baseline. Only captured reachable inputs matter.
+                            if exists and (not path.is_file() or read_text(path) != expected):
+                                raise ConflictError('Included files changed while capturing this PDF. Reload and create a new preview.')
+                    built = compile_document(folder, entry, engine)
+                    if self.workspace.snapshot(name)['projectRevision'] != snapshot['projectRevision']:
+                        raise ConflictError('The CV or included files changed during compilation. Create a new preview.')
             ident = uuid.uuid4().hex
             self.results[ident] = built['pdf']
             self.previews[ident] = {'branch': name, 'side': side, 'document': document,

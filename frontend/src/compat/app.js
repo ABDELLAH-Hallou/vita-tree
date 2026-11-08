@@ -10,7 +10,7 @@ async function ensureSession() {
 import {createLatexEditor} from './vendor/editor.mjs';
 import {createRunMonitor, isActiveRun, runLabel, runSteps} from './runs.js';
 import {renderGraph, graphStages, statusNames} from './workflow.js';
-import {reportDetails,fileLabel} from './reports.js';
+import {reportDetails,fileLabel,coverOutputs} from './reports.js';
 import {initDiagnostics} from './diagnostics.js';
 import {createAIConfiguration} from './ai-settings.js';
 import {failureText,runFailureText} from './provider-failures.js';
@@ -117,7 +117,7 @@ function renderBranches() {
   const matchesFilter = (b, filter) => {
     const runs=state.runs.filter(run=>run.branch===b.name), latest=runs[0];
     return filter==='all' || (filter==='running' && runs.some(isActiveRun)) ||
-      (filter==='review' && runs.some(run=>run.status==='succeeded'&&!run.reviewed)) ||
+      (filter==='review' && runs.some(run=>needsDecision(run)||run.status==='succeeded'&&!run.reviewed)) ||
       (filter==='failed' && latest && !needsDecision(latest) && ['failed','interrupted'].includes(latest.status));
   };
   for(const filter of ['all','running','review','failed']) $('#filter-'+filter).textContent=state.branches.filter(b=>matchesFilter(b,filter)).length;
@@ -128,8 +128,8 @@ function renderBranches() {
   const focusedBranch=focusedEntry?.dataset.branch, focusedSelection=focused.matches('.select-branch-review');
   const rows=branches.map(b=>{
     const branchRuns=state.runs.filter(run=>run.branch===b.name);
-    const run=branchRuns.find(isActiveRun)||branchRuns.find(item=>!item.reviewed)||branchRuns[0];
-    const show=run&&(isActiveRun(run)||!run.reviewed||['failed','interrupted'].includes(run.status));
+    const run=branchRuns.find(isActiveRun)||branchRuns.find(needsDecision)||branchRuns.find(item=>!item.reviewed)||branchRuns[0];
+    const show=run&&(isActiveRun(run)||needsDecision(run)||!run.reviewed||['failed','interrupted'].includes(run.status));
     return {branch:b,selected:state.reviewSelection.has(b.name),selectable:!state.reviewing&&!!reviewableRuns(b.name).length,
       status:show?(needsDecision(run)?'review':run.status):undefined,
       label:show?runLabel(run)+(!isActiveRun(run)&&!run.reviewed?' · To review':''):undefined,
@@ -137,7 +137,7 @@ function renderBranches() {
   });
   renderApplicationList($('#branch-list'),{rows,relative,
     empty:state.filter==='review'&&!query?'No completed preparations need review.':'No applications found. Try another filter or create a new application.',
-    onOpen:name=>{const pending=state.filter==='review'&&state.runs.find(run=>run.branch===name&&run.status==='succeeded'&&!run.reviewed);if(pending)openRun(pending).catch(error=>notice(error.message,true));else openBranch(name);},
+    onOpen:name=>{const pending=state.filter==='review'&&state.runs.find(run=>run.branch===name&&(needsDecision(run)||run.status==='succeeded'&&!run.reviewed));if(pending)(async()=>{await openRun(pending);if(needsDecision(pending))await reviewPending(pending);})().catch(error=>notice(error.message,true));else openBranch(name);},
     onSelect:(name,selected)=>{selected?state.reviewSelection.add(name):state.reviewSelection.delete(name);renderBranches();},
   });
   if(focusedBranch&&!$('#board').hidden&&!focused.isConnected){
@@ -158,7 +158,7 @@ function canLeave() {return !(state.dirty || state.jobDirty) || window.confirm('
 async function releaseBranch(name){
   try{
     const result=await api('/api/release-worktree',{branch:name});
-    if(result.released)toast('Application closed. You can reopen it at any time.');else if(result.reason==='locked')toast('Some files are still in use. Your application files are safe.');
+    if(result.released)toast('Application closed. You can reopen it at any time.');else if(['locked','dirty','external'].includes(result.reason)){notice(result.message);toast(result.message);}
   }catch(error){toast(`Couldn’t close the application folder for ${applicationName(name)}: ${error.message}`);}
 }
 async function openBranch(name, force=false) {
@@ -224,6 +224,7 @@ function updateSnapshot() {
   $('#artifacts').replaceChildren();
   if(!Object.keys(s.artifacts).length) $('#artifacts').innerHTML='<p class="helper">No results yet. Choose the steps you want to prepare your application.</p>';
   for(const [key,artifact] of Object.entries(s.artifacts)) $('#artifacts').append(reportDetails(artifact.path,artifact.content,{open:key==='analyze'}));
+  if(s.coverOutputs)$('#artifacts').append(coverOutputs(s.coverOutputs));
   configureWorkflow();renderWorkflow();
   if(s.cover){
     const button=document.createElement('button');button.id='open-cover-pdf';button.textContent='Open cover-letter PDF';
@@ -395,7 +396,17 @@ $('#edit-form').onsubmit=async event=>{
   try{await api('/api/save',{branch:s.branch,...state.editOrigin,leaf:state.leaf,text:$('#edit-text').value});$('#edit-dialog').close();await openBranch(s.branch,true);toast('CV draft updated on this computer');}
   catch(error){$('#edit-error').textContent=error.message;}finally{event.submitter.disabled=false;}
 };
-const needsDecision=run=>!!(run?.requirementsApprovalNeeded||run?.factualReview?.state==='pending');
+const needsDecision=run=>!!(run?.requirementsApprovalNeeded||run?.factualReview?.state==='pending'||run?.status==='awaiting_review');
+const taskNeedsReview=(run,step)=>needsDecision(run)&&(run.source==='jobenu'?run.pendingStep===step:run.factualReview?.step===step||step==='extract'&&run.requirementsApprovalNeeded);
+async function reviewPending(run){
+  if(!run||state.openingRunId)return;
+  state.openingRunId=run.id;renderWorkflow();
+  try{
+    if(run.source==='jobenu')await jobenuImport.reviewRun(run);
+    else if(run.requirementsApprovalNeeded)await requirements.open();
+    else if(run.factualReview?.state==='pending')await factualReview.open(run);
+  }finally{state.openingRunId=null;renderWorkflow();}
+}
 async function followContinuation(job, snapshot){
   if(state.snapshot!==snapshot)return job;
   // Remember even an already-finished response. Polling may have observed it
@@ -430,8 +441,11 @@ async function runAdapt(steps=workflowOptions().steps){
   finally{state.launching=false;if(state.snapshot){renderProviders();configureWorkflow();renderWorkflow();}}
 }
 async function runsChanged(runs){
+  const completed=runs.filter(run=>!isActiveRun(run)&&state.runs.some(previous=>previous.id===run.id&&isActiveRun(previous)));
+  if(completed.length)toast(`${applicationName(completed[0].branch)}: ${runLabel(completed[0])}${completed.length>1?` · ${completed.length-1} more updates`:''}`);
   state.runs=runs;renderBranches();
   const s=state.snapshot;if(!s)return;
+  s.nativeRuns=runs.filter(run=>run.source==='jobenu'&&run.branch===s.branch);
   renderWorkflow();
   const active=runs.find(run=>run.branch===s.branch&&isActiveRun(run));
   if(active){
@@ -478,6 +492,7 @@ async function openRun(run){
     }
     if(!Object.keys(detail.files).length)$('#selected-run-files').textContent='This preparation did not produce any results.';
     if(detail.coverPdf){const button=document.createElement('button');button.id='open-run-cover-pdf';button.textContent='Open generated cover-letter PDF';button.onclick=()=>openCoverPDF(detail.coverPdf.runId);$('#selected-run-files').prepend(button);}
+    if(detail.coverOutputs)$('#selected-run-files').append(coverOutputs(detail.coverOutputs));
 
   }
   $('#ai-panel').scrollIntoView({block:'start'});
@@ -501,7 +516,7 @@ function configureWorkflow(){
 }
 function renderWorkflow(){
   if(!state.snapshot)return;
-  const runs=[...state.runs.filter(run=>run.branch===state.snapshot.branch),...(state.snapshot.nativeRuns||[])].sort((a,b)=>b.createdAt-a.createdAt);
+  const runs=[...new Map([...(state.snapshot.nativeRuns||[]),...state.runs.filter(run=>run.branch===state.snapshot.branch)].map(run=>[run.id,run])).values()].sort((a,b)=>b.createdAt-a.createdAt);
   const selected=state.graphRunId || state.snapshot.running?.id || runs[0]?.id || 'draft';
   const select=$('#workflow-run');
   select.replaceChildren(new Option('New preparation','draft'),...runs.map(run=>new Option(`${run.attempt?'Attempt '+run.attempt+' · ':''}${new Date(run.createdAt*1000).toLocaleString()} — ${runSteps(run)} · ${runLabel(run)}${run.source==='jobenu'||isActiveRun(run)?'':run.reviewed?' · Reviewed':' · Needs review'}`,run.id)));
@@ -528,15 +543,17 @@ function renderWorkflow(){
   reviewButton.textContent=run?.reviewed?'Reviewed':state.reviewingRunId===run?.id?'Saving review…':'Mark as reviewed';
    $('#workflow-summary').textContent=run ? (run.factualReview?run.message:runFailureText(run)||run.message) : 'Choose the steps for your next preparation. Only selected AI steps will use your AI service.';
   if(run?.reviewPolicy==='automatic')$('#workflow-summary').textContent+=' Automatic approvals selected for this preparation.';
+  if(run?.contextInvalidated)$('#workflow-summary').textContent+=' Earlier analysis did not match the captured inputs and was excluded. Select Check CV match to refresh it.';
   renderGraph($('#workflow-graph'),{run,history:runs,options:workflowOptions(),available:state.session.workflow,selected:state.selectedTask,select:selectTask,config:run?.stepConfig||Object.fromEntries(aiSteps.map(step=>[step,aiSetup.route(step)]))});
-  const next=$('#workflow-next');next.disabled=!!state.snapshot.running||!!state.launching;
+  const next=$('#workflow-next');next.disabled=!!state.snapshot.running||!!state.launching||!!state.openingRunId;
   next.textContent=run?.requirementsApprovalNeeded?'Review job requirements':run?.factualReview?.state==='pending'?'Review CV changes':run?.resumeAvailable?'Continue preparation':finished&&run.status==='succeeded'?'Preview your PDF':'Prepare application';
   $('#workflow-action').dataset.state=needsDecision(run)?'review':run?.status==='failed'?'failed':'ready';
   $('#workflow-next-help').textContent=needsDecision(run)?'One review, then the remaining steps continue automatically.':run?.status==='failed'?(runFailureText(run)||run.message):finished&&run.status==='succeeded'?'Your application is updated. Check the final layout before saving.':'Prepare everything, or choose individual steps in Job details & AI.';
   if(run?.source==='jobenu'){
-    next.textContent=run.status==='failed'?'Start selected steps':'Open import activity';
+    next.textContent=needsDecision(run)?(run.pendingStep==='extract'?'Review requirements':'Review changes'):run.status==='failed'?'Start selected steps':'Open import activity';
     $('#workflow-next-help').textContent=run.status==='failed'?'Start a new preparation with your current AI setup. The imported attempt keeps its captured settings.':run.message;
   }
+  if(state.openingRunId)next.textContent='Opening review…';
   $('#review-policy').disabled=!!state.snapshot.running||!!state.launching;
   if(state.selectedTask)updateInspector();
 }
@@ -548,12 +565,13 @@ function updateInspector(){
   $('#task-description').textContent=task.detail+(route?' AI setup: '+aiSetup.summary(route)+'. Connection: '+aiSetup.connectionName(route)+'.':task.id==='validating'?' This step runs locally without an AI model.':'');
   $('#task-status').textContent=`${statusNames[task.status] || task.status} · ${task.output}`;
   $('#task-output').textContent=task.id==='validating'?'Compare current CVs':task.id==='adapt'?'View CV source':'View results';
-  $('#task-run').textContent=task.id==='validating'?'Check current changes':'Start this step';
+  const reviewing=taskNeedsReview(state.displayedRun,task.id);
+  $('#task-run').textContent=reviewing?(task.id==='extract'?'Review requirements':'Review changes'):task.id==='validating'?'Check current changes':'Start this step';
   $('#task-requirements').hidden=task.id!=='extract';
   $('#task-configure').hidden=task.id==='validating';
   $('#task-configure').textContent=state.displayedRun?'Configure next run':'Configure AI';
   $('#task-configure').disabled=!!state.snapshot.running||!!state.launching||!state.snapshot.editable;
-  $('#task-run').disabled=!state.snapshot.editable||!!state.snapshot.running||!!state.launching||!stepAvailable(task.id)||(task.id!=='validating'&&(!state.session.vita||!!aiSetup.problem([task.id])));
+  $('#task-run').disabled=reviewing?(!!state.snapshot.running||!!state.launching||!!state.openingRunId):!state.snapshot.editable||!!state.snapshot.running||!!state.launching||!stepAvailable(task.id)||(task.id!=='validating'&&(!state.session.vita||!!aiSetup.problem([task.id])));
   $('#task-output').disabled=isActiveRun(state.displayedRun)||!['succeeded','unknown'].includes(task.status);
   if(failureText(state.displayedRun,task.id))$('#task-status').textContent=failureText(state.displayedRun,task.id);
   if(isActiveRun(state.displayedRun))$('#task-status').textContent+=' · Results open after the preparation finishes.';
@@ -561,6 +579,7 @@ function updateInspector(){
 function selectTask(task){
   if(!state.snapshot)return;
   state.selectedTask=task.id;renderWorkflow();
+  if(taskNeedsReview(state.displayedRun,task.id))return reviewPending(state.displayedRun).catch(error=>notice(error.message,true));
   if(aiSteps.includes(task.id))aiSetup.openStep(task.id,{
     history:!!state.displayedRun,recorded:state.displayedRun?.stepConfig?.[task.id],
     readOnly:!!state.snapshot.running||!!state.launching||!state.snapshot.editable,
@@ -569,6 +588,7 @@ function selectTask(task){
 }
 $('#workflow-next').onclick=()=>{
   const run=state.displayedRun;
+  if(needsDecision(run))return reviewPending(run).catch(error=>notice(error.message,true));
   if(run?.source==='jobenu')return run.status==='failed'?runAdapt(workflowOptions().steps):jobenuImport.open();
   if(run?.requirementsApprovalNeeded)return requirements.open().catch(e=>notice(e.message,true));
   if(run?.factualReview?.state==='pending')return factualReview.open(run).catch(e=>notice(e.message,true));
@@ -670,7 +690,7 @@ $('#workflow-run').onchange=()=>{state.graphRunId=$('#workflow-run').value;rende
 for(const id of aiSteps)$('#step-'+id).onchange=()=>{
   state.workflowChoices.set(state.snapshot.branch,workflowOptions());state.graphRunId='draft';configureWorkflow();renderWorkflow();
 };
-$('#task-run').onclick=()=>runAdapt([state.selectedTask]);
+$('#task-run').onclick=()=>taskNeedsReview(state.displayedRun,state.selectedTask)?reviewPending(state.displayedRun).catch(error=>notice(error.message,true)):runAdapt([state.selectedTask]);
 $('#task-configure').onclick=()=>aiSetup.openStep(state.selectedTask);
 $('#run-all').onclick=()=>runAdapt(aiSteps.filter(stepAvailable));
 $('#toggle-workflow').onclick=()=>{
@@ -788,17 +808,3 @@ $('#inspect-step-dialog').onclick=()=>{
 try{await ensureSession();await loadBranches();const params=new URLSearchParams(location.search), branch=params.get('branch');if(['structure','source','pdf','changes','ai'].includes(params.get('view')))state.view=params.get('view');if(branch)await openBranch(branch);runMonitor=createRunMonitor({api,changed:runsChanged});runMonitor.start();}catch(error){$('#branch-list').innerHTML=`<p class="empty">${esc(error.message)}</p>`;}
 
 setInterval(()=>{document.querySelectorAll(".dag-time[data-started-at]").forEach(el=>{el.textContent=`${Math.max(0,Math.floor(Date.now()/1000-Number(el.dataset.startedAt)))}s`;});},1000);
-let refreshingNativeHistory=false;
-setInterval(async()=>{
-  const snapshot=state.snapshot;
-  if(!snapshot||$('#workspace').hidden||refreshingNativeHistory)return;
-  refreshingNativeHistory=true;
-  try{
-    const {runs}=await api('/api/jobenu/history?branch='+encodeURIComponent(snapshot.branch));
-    if(state.snapshot!==snapshot)return;
-    if(JSON.stringify(runs)!==JSON.stringify(snapshot.nativeRuns||[])){
-      snapshot.nativeRuns=runs;renderWorkflow();
-    }
-  }catch(error){$('#ai-status').textContent='Import history could not refresh. Reload to reconnect.';}
-  finally{refreshingNativeHistory=false;}
-},2500);

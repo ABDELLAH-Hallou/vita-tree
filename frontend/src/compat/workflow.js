@@ -1,11 +1,11 @@
 import {renderWorkflowGraph} from '../components/renderers';
 export const tasks = [
-  {id:'extract', title:'Identify job requirements', detail:'Identify the skills and experience the employer wants.', output:'Job requirements'},
+  {id:'extract', title:'Identify job requirements', detail:'Identify the skills and experience the employer wants. On canonical backends, fresh extraction also drafts a reviewable definition in a separate generation operation; both may use provider credits.', output:'Job context and reviewable requirements'},
   {id:'analyze', title:'Check CV match', detail:'Compare your CV with the job requirements.', output:'CV match analysis'},
   {id:'adapt', title:'Tailor CV', detail:'Tailor the CV to the role and selected language.', output:'Tailored CV and summary'},
   {id:'review', title:'Review CV with AI', detail:'Get feedback on your current CV. When an earlier matching analysis is available, compare the scores.', output:'Feedback and score comparison'},
   {id:'cover', title:'Cover letter', detail:'Write a letter using the current CV and job context. Compiles a PDF before finishing. Adaptation is not required.', output:'Cover letter and PDF'},
-  {id:'validating', title:'Final checks', detail:'Check the document files and protect your existing edits. CV PDF previews are created separately.', output:'Application files'},
+  {id:'validating', title:'Final checks', detail:'Check the final files and protect your existing edits. Final tailoring and local checks compile and save a fresh CV PDF in the application folder.', output:'Application files and final PDFs'},
 ];
 export const statusNames = {pending:'Not started', running:'In progress', succeeded:'Done', failed:'Couldn’t finish', blocked:'Waiting for an earlier step', interrupted:'Stopped before finishing', skipped:'Skipped', unavailable:'Not available', unknown:'No earlier details',review:'Needs your review',previous:'Earlier run only'};
 export function graphStages(run, options={}, available={}) {

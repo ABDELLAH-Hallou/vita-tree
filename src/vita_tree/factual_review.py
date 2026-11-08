@@ -206,7 +206,7 @@ def apply(workspace, ident, revision, token, decisions, confirmed=False, *, auto
     from .pdf import compile_document
     if confirmed is not True:
         raise ValueError('Confirm that you reviewed the factual meaning of every decision.')
-    with workspace.lock:
+    with workspace.review_guard(workspace.get_job(ident)['branch']):
         manifest, report = _load(workspace, ident)
         if manifest['state'] != 'pending' or revision != manifest['revision'] or token != checkpoints.fingerprint(manifest):
             raise ConflictError('This factual review changed or was already applied. Reload the review.')
@@ -230,8 +230,11 @@ def apply(workspace, ident, revision, token, decisions, confirmed=False, *, auto
             if (actual != expected or result.get('omitted') is not omitted or resolved['step'] != report['step']
                     or resolved['status'] not in {'approved', 'applied', 'rejected'}):
                 raise ValueError('The backend did not apply the reviewed document. Your application is unchanged.')
-            if expected is not None and (parse_document(expected)['error'] or r'\begin{document}' not in expected):
-                raise ValueError('The reviewed text is not a valid LaTeX document. Adjust the edited wording before applying.')
+            built = None
+            if expected is not None and not omitted and (report['step'] == 'cover' or
+                    parse_document(expected)['error'] or r'\begin{document}' not in expected):
+                # Structure is approximate. Restricted compilation decides validity.
+                built = compile_document(scratch, report['target'], engine=record.get('compileEngine') or 'auto')
             provenance = {'schemaVersion': 1, 'method': 'automatic_run_policy' if automatic else 'explicit_ui_review', 'actor': 'automatic_policy' if automatic else 'local_user',
                           'runId': ident, 'step': report['step'], 'revision': revision,
                           'resolvedRevision': resolved['revision'], 'decidedAt': time.time(),
@@ -239,21 +242,23 @@ def apply(workspace, ident, revision, token, decisions, confirmed=False, *, auto
             _write(scratch/('.vita/results/' + report['step'] + '.decisions.json'), provenance)
             pdf = None
             if report['step'] == 'cover' and not omitted:
-                built = compile_document(scratch, report['target'])
                 pdf = {'path': built['pdf'], 'engine': built['engine'], 'warnings': built['warnings']}
-            _matching(workspace, record, manifest)
-            if not _stage_matches(stage, manifest):
-                raise ConflictError('The captured draft changed while saving the review. Your edits were preserved.')
             files = checkpoints.artifacts(scratch)
             outcome = {'status': 'success', 'verified': True, 'backend': None,
                        'factualApproval': {'runId': ident, 'revision': revision}}
             if not checkpoints.write_checkpoint(workspace.root/'checkpoints', ident, report['step'], manifest['key'],
                                                 files, outcome, pdf, omitted):
                 raise ValueError('The reviewed draft exceeds the checkpoint limit. Your application is unchanged.')
-            _write(_folder(workspace, ident)/'decisions.json', provenance)
-            # A pending manifest always blocks Retry, even if checkpoint writing
-            # succeeded before a crash. This one atomic write commits the review.
-            _write(_folder(workspace, ident)/'manifest.json', {**manifest, 'state': 'resolved',
-                   'resolvedRevision': resolved['revision'], 'decidedAt': provenance['decidedAt'],
-                   'artifactHash': checkpoints.fingerprint(files)})
+            with workspace.lock:
+                if workspace._closed:
+                    raise ConflictError('Vita Tree stopped before the decision was saved. Reopen the review.')
+                _matching(workspace, record, manifest)
+                if not _stage_matches(stage, manifest):
+                    raise ConflictError('The captured draft changed while saving the review. Your edits were preserved.')
+                _write(_folder(workspace, ident)/'decisions.json', provenance)
+                # A pending manifest always blocks Retry, even if checkpoint writing
+                # succeeded before a crash. This one atomic write commits the review.
+                _write(_folder(workspace, ident)/'manifest.json', {**manifest, 'state': 'resolved',
+                       'resolvedRevision': resolved['revision'], 'decidedAt': provenance['decidedAt'],
+                       'artifactHash': checkpoints.fingerprint(files)})
         return view(workspace, ident)

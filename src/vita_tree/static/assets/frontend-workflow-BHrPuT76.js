@@ -192,8 +192,8 @@ var h = [
 	{
 		id: "extract",
 		title: "Identify job requirements",
-		detail: "Identify the skills and experience the employer wants.",
-		output: "Job requirements"
+		detail: "Identify the skills and experience the employer wants. On canonical backends, fresh extraction also drafts a reviewable definition in a separate generation operation; both may use provider credits.",
+		output: "Job context and reviewable requirements"
 	},
 	{
 		id: "analyze",
@@ -222,8 +222,8 @@ var h = [
 	{
 		id: "validating",
 		title: "Final checks",
-		detail: "Check the document files and protect your existing edits. CV PDF previews are created separately.",
-		output: "Application files"
+		detail: "Check the final files and protect your existing edits. Final tailoring and local checks compile and save a fresh CV PDF in the application folder.",
+		output: "Application files and final PDFs"
 	}
 ], g = {
 	pending: "Not started",

@@ -66,3 +66,20 @@ export function reportDetails(path,content,{open=false,label=null}={}) {
   else {const pre=document.createElement('pre');pre.textContent=content;item.append(pre);}
   return item;
 }
+
+export function coverOutputs(outputs){
+  const section=document.createElement('section');
+  const title=document.createElement('h3');title.textContent='Cover letter for application forms';section.append(title);
+  if(outputs.text){
+    const label=document.createElement('label');label.textContent='Plain text';
+    const text=document.createElement('textarea');text.readOnly=true;text.value=outputs.text;text.rows=8;
+    label.append(text);section.append(label);
+    const count=document.createElement('p');count.textContent=`${outputs.characters} characters`;section.append(count);
+    const button=document.createElement('button');button.textContent='Copy plain text';
+    const status=document.createElement('p');status.setAttribute('role','status');
+    button.onclick=async()=>{button.disabled=true;button.textContent='Copying…';try{await navigator.clipboard.writeText(outputs.text);status.textContent='Copied.';}catch{ text.focus();text.select();status.textContent='Text selected. Use your keyboard’s Copy command.';}finally{button.disabled=false;button.textContent='Copy plain text';}};
+    section.append(button,status);
+  }else{const message=document.createElement('p');message.textContent=outputs.textLimitation;section.append(message);}
+  const short=document.createElement('p');short.textContent=outputs.shortLimitation;section.append(short);
+  return section;
+}

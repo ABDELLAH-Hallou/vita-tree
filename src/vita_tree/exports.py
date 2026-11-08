@@ -7,6 +7,36 @@ from pylatexenc.latex2text import LatexNodes2Text
 from .latex import context, parse_document
 
 
+class DocumentText(HTMLParser):
+    """Copy the supported Structure rendering without inventing new wording."""
+    def __init__(self):
+        super().__init__()
+        self.parts = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag in {'br', 'p', 'div', 'section', 'li', 'h1', 'h2', 'h3'}:
+            self.parts.append('\n')
+
+    def handle_endtag(self, tag):
+        self.handle_starttag(tag, [])
+
+    def handle_data(self, data):
+        self.parts.append(data)
+
+
+def cover_outputs(source):
+    if not source:
+        return None
+    document = parse_document(source)
+    reader = DocumentText()
+    if not document['error'] and not document['warnings']:
+        reader.feed(document['html'])
+    text = '\n'.join(' '.join(line.split()) for line in ''.join(reader.parts).splitlines() if line.strip())
+    return dict(text=text or None, characters=len(text), short=None,
+                textLimitation=None if text else 'This template needs PDF rendering. Select and copy its text from the PDF.',
+                shortLimitation='A short version needs a separate wording and review step. This connection does not provide it; no extra AI request was made.')
+
+
 class HeaderName(HTMLParser):
     def __init__(self):
         super().__init__()

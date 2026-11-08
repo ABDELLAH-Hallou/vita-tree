@@ -47,9 +47,9 @@ def main():
             page.get_by_role('button',name='Open facts',exact=True).click()
             expect(page.locator('.dag-node[data-step=adapt] .dag-status')).to_have_text('Needs factual review')
             expect(page.locator('#resume-run')).to_be_hidden()
-            # Graph clicks continue opening ordinary captured AI settings.
+            # A pending graph step opens its exact review directly.
             page.locator('.dag-node[data-step=adapt]').click()
-            expect(page.locator('#step-ai-dialog')).to_be_visible();page.locator('#step-ai-cancel').click()
+            expect(page.locator('#factual-review-panel')).to_be_visible();page.locator('#cancel-factual-review').click()
             expect(page.locator('.dag-node[data-step=adapt]')).to_have_attribute('data-status','review')
             page.locator('#workflow-next').click()
             cards=page.locator('.factual-change');expect(cards).to_have_count(3)
