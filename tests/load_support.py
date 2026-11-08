@@ -106,6 +106,17 @@ def wait_for(predicate, seconds=30):
     raise TimeoutError('Synthetic load deadline exceeded')
 
 
+def commit_load_result(location):
+    """Explicitly version synthetic outputs before testing clean-folder release."""
+    git(location, 'add', 'main.tex', 'job.md')
+    if (location/'cover-letter.tex').is_file():
+        git(location, 'add', 'cover-letter.tex')
+    for name in ('.vita/results', 'cv-final.pdf', 'cover-letter.pdf'):
+        if (location/name).exists():
+            git(location, 'add', '-f', '--', name)
+    git(location, 'commit', '-m', 'Synthetic load result')
+
+
 def clean_worktree_release(server, branch, location):
     """Allow deferred cleanup to win, but verify the actual Git/filesystem state."""
     response=server.api('/api/release-worktree',dict(branch=branch))

@@ -190,7 +190,8 @@ def run(step,*,auto=False,provider=None,language=None):
             page.screenshot(path=str(artifacts/'ai-dark.png'),full_page=True)
             page.get_by_role('button',name='Start selected steps',exact=True).click()
             expect(page.locator('#job-description')).to_have_attribute('readonly','')
-            expect(page.locator('#ai-status')).to_contain_text('Selected steps finished',timeout=60000)
+            expect(page.locator('#ai-status')).to_contain_text('Final PDFs saved',timeout=60000)
+            assert (worktree/'cv-final.pdf').read_bytes().startswith(b'%PDF-')
             completed=next(job for job in server.workspace.jobs.values() if job['branch']=='etp-acme-swe')
             assert completed['checkpointSteps']==['analyze','adapt'], completed
             assert all(completed['outcomes'][step]['verified'] for step in ('analyze','adapt')), completed

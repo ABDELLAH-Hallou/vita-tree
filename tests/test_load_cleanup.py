@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import test_jobs as job_support
 from support import git
-from load_support import clean_worktree_release
+from load_support import clean_worktree_release, commit_load_result
 
 
 class LoadCleanupTests(unittest.TestCase):
@@ -39,10 +39,9 @@ class LoadCleanupTests(unittest.TestCase):
                 self.release('deferred-release')
                 self.assertTrue(terminal.wait(15))
                 self.assertEqual(self.workspace.get_job(run['id'])['status'], 'succeeded')
-                git(location, 'add', 'main.tex', 'job.md')
-                if (location/'.vita/results').exists():
-                    git(location, 'add', '-f', '.vita/results')
-                git(location, 'commit', '-m', 'Synthetic load result')
+                self.assertTrue((location/'cv-final.pdf').is_file())
+                commit_load_result(location)
+                self.assertEqual(git(location, 'ls-files', '--', 'cv-final.pdf'), 'cv-final.pdf')
                 self.assertEqual(git(location, 'status', '--porcelain', '--ignored'), '')
                 finish.set()
                 self.wait(lambda: not location.exists())

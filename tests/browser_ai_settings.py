@@ -160,6 +160,8 @@ def main():
                 (control/f'custom-ai.{step}.expected-ai.json').write_text(json.dumps(dict(provider=provider, model=model, key=key)))
             page.locator('#run-adapt').click()
             expect(page.locator('.dag-node[data-step=adapt]')).to_have_attribute('data-status','succeeded')
+            expect(page.locator('.dag-node[data-step=validating]')).to_have_attribute('data-status','succeeded')
+            expect(page.locator('#run-adapt')).to_be_enabled()
             expect(page.locator('.dag-node[data-step=extract] .dag-model')).to_have_text('my-custom-fast-model')
             page.locator('.dag-node[data-step=extract]').click()
             expect(page.locator('#step-ai-context')).to_have_text('Recorded run · view only')

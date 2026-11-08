@@ -42,8 +42,11 @@ class FactualWorkflowTests(unittest.TestCase):
         run = self.workspace.start_ai('facts', branch['revision'], branch['jobRevision'], provider='codex',
                                       workflow={'steps': steps or ['extract', 'analyze', 'adapt', 'cover']})
         result = self.finished(run['id'])
-        self.assertEqual(result['status'], 'failed', result)
+        self.assertEqual(result['status'], 'awaiting_review', result)
         self.assertEqual(result['factualReview']['state'], 'pending', result)
+        self.assertEqual(result['failures'], {})
+        self.assertEqual(next(stage['status'] for stage in result['stages']
+                              if stage['id'] == result['factualReview']['step']), 'review')
         self.assertEqual(self.workspace.read('facts', 'main.tex'), SOURCE)
         return branch, result
 
