@@ -22,9 +22,12 @@ function e(e) {
 function t(e) {
 	return e.status === "failed" && !e.pending;
 }
-function n(e, n) {
-	if (e.attempts.some((e) => e.status === "running")) return "In progress";
-	let r = e.entries.filter(t).length, i = e.entries.filter((e) => e.pending || e.status === "awaiting_requirements_approval").length;
-	return r ? `${r} failed job${r === 1 ? "" : "s"}${i ? ` · ${i} waiting for review` : ""}` : i ? "Waiting for review" : n(e.attempts.at(-1)?.status);
+function n(e) {
+	return e.attempts.some((e) => e.status === "running");
 }
-export { n, t as r, e as t };
+function r(e, r) {
+	if (n(e)) return "In progress";
+	let i = e.entries.filter(t).length, a = e.entries.filter((e) => e.pending || e.status === "awaiting_requirements_approval").length;
+	return i ? `${i} failed job${i === 1 ? "" : "s"}${a ? ` · ${a} waiting for review` : ""}` : a ? "Waiting for review" : r(e.attempts.at(-1)?.status);
+}
+export { t as i, r as n, n as r, e as t };

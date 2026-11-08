@@ -30,8 +30,12 @@ export function retryable(entry) {
   return entry.status === "failed" && !entry.pending;
 }
 
+export function isRunningGroup(group) {
+  return group.attempts.some((attempt) => attempt.status === "running");
+}
+
 export function batchSummary(group, statusLabel) {
-  if (group.attempts.some((attempt) => attempt.status === "running"))
+  if (isRunningGroup(group))
     return "In progress";
   const failed = group.entries.filter(retryable).length;
   const waiting = group.entries.filter(

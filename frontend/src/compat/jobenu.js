@@ -1,5 +1,5 @@
 import { renderLatexSnippet } from "./vendor/editor.mjs";
-import { batchGroups, batchSummary, retryable } from "./jobenu-history.js";
+import { batchGroups, batchSummary, isRunningGroup, retryable } from "./jobenu-history.js";
 export function initJobenu({ api, branches, openBranch, ready }) {
   const $ = (s) => document.querySelector(s),
     make = (tag, value) => {
@@ -776,6 +776,7 @@ export function initJobenu({ api, branches, openBranch, ready }) {
       host.replaceChildren();
       for (const groupData of groups) {
         const batch = groupData.batch;
+        const groupRunning = isRunningGroup(groupData);
         const group = document.createElement("section");
         group.className = "jobenu-batch";
         const title = document.createElement("div");
@@ -796,7 +797,7 @@ export function initJobenu({ api, branches, openBranch, ready }) {
           retry.className = "jobenu-retry-action";
           retry.dataset.batch = batch.id;
           retry.dataset.key = "";
-          retry.dataset.blocked = String(batch.status === 'running');
+          retry.dataset.blocked = String(groupRunning);
           retry.onclick = () => prepareRetry(batch);
           headingRow.append(retry);
         }
@@ -835,7 +836,7 @@ export function initJobenu({ api, branches, openBranch, ready }) {
             retry.dataset.batch = batch.id;
             retry.dataset.key = e.key;
             retry.setAttribute("aria-label", `Retry ${e.company}`);
-            retry.dataset.blocked = String(batch.status === 'running');
+            retry.dataset.blocked = String(groupRunning);
             retry.onclick = () => prepareRetry(batch, [e.key]);
             actions.append(retry);
           }
@@ -909,7 +910,7 @@ export function initJobenu({ api, branches, openBranch, ready }) {
           }
         };
         group.append(logs);
-        if (batch.status !== 'running') {
+        if (!groupRunning) {
           const resume = make("button", "Preview resume");
           resume.onclick = async () => {
             invalidate();
