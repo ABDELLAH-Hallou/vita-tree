@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.19.1](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.19.0...v1.19.1) (2026-11-08)
+
+
+### Bug Fixes
+
+* align workflow approvals and final output recovery ([e042e6e](https://github.com/ABDELLAH-Hallou/vita-tree/commit/e042e6ee2ed8aeeb47137192c9beb9c022a4e34a))
+* align workflow approvals and final output recovery ([704b944](https://github.com/ABDELLAH-Hallou/vita-tree/commit/704b944825ba69db2eebd477e9a198dbc82c2d4d))
+* block retries while related attempts are running ([40dbdd1](https://github.com/ABDELLAH-Hallou/vita-tree/commit/40dbdd12cc49f2c8d48dc5274e2d70c207ce7f10))
+* preserve selected review history during refresh ([f30cf00](https://github.com/ABDELLAH-Hallou/vita-tree/commit/f30cf00b5bb37eac9240f29614d36c72cc53dd85))
+
 ## [1.19.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.18.0...v1.19.0) (2026-11-02)
 
 
