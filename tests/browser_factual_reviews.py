@@ -82,6 +82,19 @@ def main():
             expect(page.locator('.dag-node[data-step=cover] .dag-status')).to_have_text('Needs factual review')
             cover_run=server.workspace.list_jobs()['runs'][0]
             page.locator('#workflow-run').select_option(run['id'])
+            # Refreshing this application must preserve the explicitly chosen
+            # historical review, even while a newer proposal is pending.
+            snapshots=[]
+            page.route('**/api/workspace?branch=facts',lambda route:snapshots.append(route),times=1)
+            with page.expect_request('**/api/workspace?branch=facts'):
+                page.locator('#reload').click()
+            expect(page.locator('#workspace')).to_have_attribute('aria-busy','true')
+            expect(page.locator('#workflow-run')).to_be_disabled()
+            assert len(snapshots)==1
+            snapshots[0].continue_()
+            expect(page.locator('#workspace')).not_to_have_attribute('aria-busy','true')
+            expect(page.locator('#workflow-run')).to_have_value(run['id'])
+            expect(page.locator('#review-facts')).to_have_text('View factual decisions')
             page.locator('#review-facts').click()
             expect(page.locator('#factual-source-preview')).to_contain_text('TypeScript')
             expect(page.locator('#factual-source-preview')).not_to_contain_text('Built OOP services')

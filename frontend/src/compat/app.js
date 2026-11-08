@@ -87,7 +87,7 @@ const editors = Object.fromEntries(['original', 'current'].map(side => [side, cr
   },
 })]));
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
-const aiSetup=createAIConfiguration($('#ai-configuration'),{api,onChange:()=>{if(state.snapshot){if(!state.displayedRun?.resumeAvailable)state.graphRunId='draft';configureWorkflow();renderWorkflow();}}});
+const aiSetup=createAIConfiguration($('#ai-configuration'),{api,onChange:()=>{if(state.snapshot){if(!state.displayedRun?.resumeAvailable){state.graphRunId='draft';state.historyRunId=null;}configureWorkflow();renderWorkflow();}}});
 function renderProviders() {
   renderLanguages();
   aiSetup.setDisabled(!!state.snapshot?.running||!!state.launching||!state.snapshot?.editable);
@@ -165,16 +165,17 @@ async function openBranch(name, force=false) {
   if(!force && !canLeave()) return;
   factualReview.reset();requirements.reset();
   const previous=state.snapshot?.branch;
+  const selectedRun=previous===name?state.historyRunId:null;
   if(previous&&previous!==name)state.filePath=null;
   const generation=++state.generation;
   $('#workspace').setAttribute('aria-busy','true');
   for(const tab of document.querySelectorAll('[data-view]'))tab.disabled=true;
-  state.pdfGeneration++;state.snapshot=null;state.displayedRun=null;state.graphRunId=null;state.selectedTask=null;$('#task-inspector').hidden=true;$('#cv-file').disabled=true;
+  state.pdfGeneration++;state.snapshot=null;state.displayedRun=null;state.graphRunId=selectedRun;state.historyRunId=selectedRun;state.selectedTask=null;$('#task-inspector').hidden=true;$('#cv-file').disabled=true;$('#workflow-run').disabled=true;
   disableWorkflowGraph($('#workflow-graph'));
   $('#selected-run').hidden=true;$('#attempt-history').replaceChildren();
   aiSetup.setDisabled(true);
   for(const id of aiSteps.map(id=>'step-'+id))$('#'+id).checked=false;
-  for(const id of ['save-source','save-job','run-adapt','run-all','task-run','branch-from','compile','commit-push','view-run','mark-run-reviewed','requirements-current-open','requirements-captured','task-requirements','step-requirements']) $('#'+id).disabled=true;
+  for(const id of ['save-source','save-job','run-adapt','run-all','task-run','branch-from','compile','commit-push','view-run','review-facts','mark-run-reviewed','requirements-current-open','requirements-captured','task-requirements','step-requirements']) $('#'+id).disabled=true;
   editors.current.setReadOnly(true);$('#job-description').readOnly=true;
   $('#board').hidden=true;$('#workspace').hidden=false;document.body.classList.add('in-workspace');
   $('#branch-title').textContent=applicationName(name); notice('Loading the application…');
@@ -195,6 +196,7 @@ async function openBranch(name, force=false) {
   finally {
     if(generation===state.generation){
       $('#workspace').removeAttribute('aria-busy');
+      $('#workflow-run').disabled=!state.snapshot;
       for(const tab of document.querySelectorAll('[data-view]'))tab.disabled=!state.snapshot;
     }
   }
@@ -411,7 +413,7 @@ async function followContinuation(job, snapshot){
   if(state.snapshot!==snapshot)return job;
   // Remember even an already-finished response. Polling may have observed it
   // before this request returned, so another monitor change is not guaranteed.
-  snapshot.running=job;state.graphRunId=job.id;
+  snapshot.running=job;state.graphRunId=job.id;state.historyRunId=null;
   await runMonitor.refresh();
   if(state.snapshot===snapshot){
     const latest=state.runs.find(run=>run.id===job.id)||job;
@@ -436,7 +438,7 @@ async function runAdapt(steps=workflowOptions().steps){
   state.launching=true;$('#run-adapt').disabled=true;$('#run-all').disabled=true;$('#task-run').disabled=true;editors.current.setReadOnly(true);$('#job-description').readOnly=true;$('#save-job').disabled=true;$('#branch-from').disabled=true;const s=state.snapshot;
   renderProviders();
   for(const id of aiSteps.map(id=>'step-'+id))$('#'+id).disabled=true;
-  try{const issue=aiSetup.problem(steps);if(issue)throw new Error(issue);const job=await api('/api/adapt',{branch:s.branch,revision:s.revision,jobRevision:s.jobRevision,aiConfig:aiSetup.value(),language:$('#language').value,workflow:{steps},engine:setupChecks.engine(),reviewPolicy:$('#review-policy').value});s.running=job;if(state.snapshot===s){state.graphRunId=job.id;renderProviders();configureWorkflow();renderWorkflow();updateSaveState();$('#ai-status').textContent=job.message;}await runMonitor.refresh();}
+  try{const issue=aiSetup.problem(steps);if(issue)throw new Error(issue);const job=await api('/api/adapt',{branch:s.branch,revision:s.revision,jobRevision:s.jobRevision,aiConfig:aiSetup.value(),language:$('#language').value,workflow:{steps},engine:setupChecks.engine(),reviewPolicy:$('#review-policy').value});s.running=job;if(state.snapshot===s){state.graphRunId=job.id;state.historyRunId=null;renderProviders();configureWorkflow();renderWorkflow();updateSaveState();$('#ai-status').textContent=job.message;}await runMonitor.refresh();}
   catch(error){if(state.snapshot===s){notice(error.message,true);configureWorkflow();editors.current.setReadOnly(!s.editable||currentFile()?.exists===false);$('#job-description').readOnly=!s.editable;$('#save-job').disabled=!s.editable;$('#branch-from').disabled=false;}}
   finally{state.launching=false;if(state.snapshot){renderProviders();configureWorkflow();renderWorkflow();}}
 }
@@ -473,7 +475,7 @@ async function openRun(run){
   const current=state.snapshot;
   const loaded=current?.branch===run.branch&&!current.running&&!state.dirty&&!state.jobDirty
     ? current : await openBranch(run.branch,true);if(!loaded)return;
-  state.graphRunId=run.id;renderWorkflow();
+  state.graphRunId=run.id;state.historyRunId=run.id;renderWorkflow();
   setView('ai');$('#ai-status').textContent=run.message;
   if(run.source==='jobenu'){
     $('#selected-run').hidden=true;
@@ -686,9 +688,9 @@ $('#mark-run-reviewed').onclick=async()=>{
   }catch(error){notice(error.message,true);}
   finally{state.reviewingRunId=null;renderWorkflow();}
 };
-$('#workflow-run').onchange=()=>{state.graphRunId=$('#workflow-run').value;renderWorkflow();};
+$('#workflow-run').onchange=()=>{state.graphRunId=$('#workflow-run').value;state.historyRunId=state.graphRunId;renderWorkflow();};
 for(const id of aiSteps)$('#step-'+id).onchange=()=>{
-  state.workflowChoices.set(state.snapshot.branch,workflowOptions());state.graphRunId='draft';configureWorkflow();renderWorkflow();
+  state.workflowChoices.set(state.snapshot.branch,workflowOptions());state.graphRunId='draft';state.historyRunId=null;configureWorkflow();renderWorkflow();
 };
 $('#task-run').onclick=()=>taskNeedsReview(state.displayedRun,state.selectedTask)?reviewPending(state.displayedRun).catch(error=>notice(error.message,true)):runAdapt([state.selectedTask]);
 $('#task-configure').onclick=()=>aiSetup.openStep(state.selectedTask);

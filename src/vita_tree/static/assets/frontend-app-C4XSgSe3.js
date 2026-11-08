@@ -132,7 +132,7 @@ var O = Object.fromEntries(["original", "current"].map((e) => [e, ie(_(`#${e}-so
 })[e]), A = m(_("#ai-configuration"), {
 	api: M,
 	onChange: () => {
-		v.snapshot && (v.displayedRun?.resumeAvailable || (v.graphRunId = "draft"), J(), Y());
+		v.snapshot && (v.displayedRun?.resumeAvailable || (v.graphRunId = "draft", v.historyRunId = null), J(), Y());
 	}
 });
 function j() {
@@ -232,12 +232,12 @@ async function fe(e) {
 async function R(t, n = !1) {
 	if (!n && !L()) return;
 	x.reset(), b.reset();
-	let r = v.snapshot?.branch;
+	let r = v.snapshot?.branch, i = r === t ? v.historyRunId : null;
 	r && r !== t && (v.filePath = null);
-	let i = ++v.generation;
+	let a = ++v.generation;
 	_("#workspace").setAttribute("aria-busy", "true");
 	for (let e of document.querySelectorAll("[data-view]")) e.disabled = !0;
-	v.pdfGeneration++, v.snapshot = null, v.displayedRun = null, v.graphRunId = null, v.selectedTask = null, _("#task-inspector").hidden = !0, _("#cv-file").disabled = !0, e(_("#workflow-graph")), _("#selected-run").hidden = !0, _("#attempt-history").replaceChildren(), A.setDisabled(!0);
+	v.pdfGeneration++, v.snapshot = null, v.displayedRun = null, v.graphRunId = i, v.historyRunId = i, v.selectedTask = null, _("#task-inspector").hidden = !0, _("#cv-file").disabled = !0, _("#workflow-run").disabled = !0, e(_("#workflow-graph")), _("#selected-run").hidden = !0, _("#attempt-history").replaceChildren(), A.setDisabled(!0);
 	for (let e of C.map((e) => "step-" + e)) _("#" + e).checked = !1;
 	for (let e of [
 		"save-source",
@@ -249,6 +249,7 @@ async function R(t, n = !1) {
 		"compile",
 		"commit-push",
 		"view-run",
+		"review-facts",
 		"mark-run-reviewed",
 		"requirements-current-open",
 		"requirements-captured",
@@ -257,19 +258,19 @@ async function R(t, n = !1) {
 	]) _("#" + e).disabled = !0;
 	O.current.setReadOnly(!0), _("#job-description").readOnly = !0, _("#board").hidden = !0, _("#workspace").hidden = !1, document.body.classList.add("in-workspace"), _("#branch-title").textContent = S(t), N("Loading the application…");
 	try {
-		if (r && r !== t && await fe(r), i !== v.generation) return;
-		let [e, n, a, o] = await Promise.all([
+		if (r && r !== t && await fe(r), a !== v.generation) return;
+		let [e, n, i, o] = await Promise.all([
 			M("/api/workspace?branch=" + encodeURIComponent(t)),
 			M("/api/providers?branch=" + encodeURIComponent(t)),
 			M("/api/ai-settings?branch=" + encodeURIComponent(t)),
 			M("/api/connections")
 		]);
-		return i === v.generation ? (v.snapshot = e, v.catalog = n, v.dirty = !1, v.jobDirty = !1, v.pdfs = {}, v.pdfDocument = "cv", _("#pdf-document").value = "cv", v.pdfGeneration++, _("#review-policy").value = e.running?.reviewPolicy || "manual", A.load(t, n, a, o), j(), history.replaceState(null, "", "?branch=" + encodeURIComponent(t)), pe(), V(v.view), v.view !== "structure" && N(), e) : void 0;
+		return a === v.generation ? (v.snapshot = e, v.catalog = n, v.dirty = !1, v.jobDirty = !1, v.pdfs = {}, v.pdfDocument = "cv", _("#pdf-document").value = "cv", v.pdfGeneration++, _("#review-policy").value = e.running?.reviewPolicy || "manual", A.load(t, n, i, o), j(), history.replaceState(null, "", "?branch=" + encodeURIComponent(t)), pe(), V(v.view), v.view !== "structure" && N(), e) : void 0;
 	} catch (e) {
-		i === v.generation && N(e.message, !0);
+		a === v.generation && N(e.message, !0);
 	} finally {
-		if (i === v.generation) {
-			_("#workspace").removeAttribute("aria-busy");
+		if (a === v.generation) {
+			_("#workspace").removeAttribute("aria-busy"), _("#workflow-run").disabled = !v.snapshot;
 			for (let e of document.querySelectorAll("[data-view]")) e.disabled = !v.snapshot;
 		}
 	}
@@ -527,7 +528,7 @@ async function W(e) {
 }
 async function we(e, t) {
 	if (v.snapshot !== t) return e;
-	if (t.running = e, v.graphRunId = e.id, await D.refresh(), v.snapshot === t) {
+	if (t.running = e, v.graphRunId = e.id, v.historyRunId = null, await D.refresh(), v.snapshot === t) {
 		let t = v.runs.find((t) => t.id === e.id) || e;
 		s(t) || await Ee(v.runs.some((t) => t.id === e.id) ? v.runs : [e, ...v.runs]);
 	}
@@ -575,7 +576,7 @@ async function G(e = q().steps) {
 			engine: y.engine(),
 			reviewPolicy: _("#review-policy").value
 		});
-		t.running = r, v.snapshot === t && (v.graphRunId = r.id, j(), J(), Y(), B(), _("#ai-status").textContent = r.message), await D.refresh();
+		t.running = r, v.snapshot === t && (v.graphRunId = r.id, v.historyRunId = null, j(), J(), Y(), B(), _("#ai-status").textContent = r.message), await D.refresh();
 	} catch (e) {
 		v.snapshot === t && (N(e.message, !0), J(), O.current.setReadOnly(!t.editable || z()?.exists === !1), _("#job-description").readOnly = !t.editable, _("#save-job").disabled = !t.editable, _("#branch-from").disabled = !1);
 	} finally {
@@ -608,7 +609,7 @@ async function K(e) {
 	if (!L()) return;
 	let t = v.snapshot, n = t?.branch === e.branch && !t.running && !v.dirty && !v.jobDirty ? t : await R(e.branch, !0);
 	if (n) {
-		if (v.graphRunId = e.id, Y(), V("ai"), _("#ai-status").textContent = e.message, e.source === "jobenu") _("#selected-run").hidden = !0, N("Showing the application’s current reports. Jobenu component history is recorded separately; use Import details for logs and continuation."), _("#ai-panel").scrollIntoView({ block: "start" });
+		if (v.graphRunId = e.id, v.historyRunId = e.id, Y(), V("ai"), _("#ai-status").textContent = e.message, e.source === "jobenu") _("#selected-run").hidden = !0, N("Showing the application’s current reports. Jobenu component history is recorded separately; use Import details for logs and continuation."), _("#ai-panel").scrollIntoView({ block: "start" });
 		else {
 			if (!s(e)) {
 				let t = await M("/api/job-result?id=" + encodeURIComponent(e.id));
@@ -841,10 +842,10 @@ _("#resume-run").onclick = () => {
 		}
 	}
 }, _("#workflow-run").onchange = () => {
-	v.graphRunId = _("#workflow-run").value, Y();
+	v.graphRunId = _("#workflow-run").value, v.historyRunId = v.graphRunId, Y();
 };
 for (let e of C) _("#step-" + e).onchange = () => {
-	v.workflowChoices.set(v.snapshot.branch, q()), v.graphRunId = "draft", J(), Y();
+	v.workflowChoices.set(v.snapshot.branch, q()), v.graphRunId = "draft", v.historyRunId = null, J(), Y();
 };
 _("#task-run").onclick = () => U(v.displayedRun, v.selectedTask) ? W(v.displayedRun).catch((e) => N(e.message, !0)) : G([v.selectedTask]), _("#task-configure").onclick = () => A.openStep(v.selectedTask), _("#run-all").onclick = () => G(C.filter(w)), _("#toggle-workflow").onclick = () => {
 	let e = _("#workflow-body");
