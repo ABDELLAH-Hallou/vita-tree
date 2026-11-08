@@ -160,6 +160,8 @@ class JobenuImports:
             )
             return {
                 "available": supported,
+                "concurrentBatches": False,
+                "limitations": ["This native importer holds a repository-wide import lock during execution. A second native batch cannot run until it releases that lock; ordinary applications can still run independently."],
                 "unattended": bool(supported and b'unattended' in out and self.supports_unattended(command, env)),
                 "base": base,
                 "message": ""
@@ -296,7 +298,7 @@ class JobenuImports:
 
     def preview(self, ident, data, *, captured_routes=None, runtime=None):
         with self.lock:
-            if self.running:
+            if ident in self.running:
                 raise ValueError(
                     "A Jobenu batch is running. Wait before changing import settings."
                 )
@@ -399,6 +401,10 @@ class JobenuImports:
                     )
                 )
             captured_settings = captured_routes if captured_routes is not None else routes
+            limitations = []
+            if any(route.get('reasoning') or route.get('requestedReasoning') or
+                   (route.get('backup') or {}).get('reasoning') for route in captured_settings.values()):
+                limitations.append('This native importer cannot forward Tree reasoning overrides. It will use native Vita reasoning preferences. Clear the override or review those preferences before starting.')
             record.update(
                 status="planned" if code == 0 else "conflict",
                 plan=plan,
@@ -406,8 +412,10 @@ class JobenuImports:
                 source=data.get("source", ""),
                 fileHash=hashlib.sha256(path.read_bytes()).hexdigest(),
                 options=data,
+                settingsLimitations=limitations,
                 capturedRoutes={
                     step: {
+                        **({'requestedReasoning': captured_settings[step].get('reasoning') or captured_settings[step].get('requestedReasoning')} if step in captured_settings else {}),
                         **({'backup': captured_settings[step].get('backup')} if step in captured_settings else {}),
                         **{field: env[prefix + "_" + suffix]
                         for field, suffix in (
@@ -460,7 +468,7 @@ class JobenuImports:
                 )
             r = self.record(ident)
             if self.running:
-                raise ValueError("A Jobenu batch is already running.")
+                raise ValueError("The native importer holds a repository-wide import lock. Wait for that native batch to finish, or prepare another application from its workspace. This backend cannot execute overlapping native batches.")
             if (
                 r.get("status") != "planned"
                 or r.get("plan", {}).get("plan_id") != plan_id
@@ -543,7 +551,29 @@ class JobenuImports:
                     self.save(r)
                 finally:
                     self.running.discard(ident)
+            try:
+                if not self.ws._closed:
+                    self.finalize_outputs(r)
+            finally:
+                with self.lock:
                     self.workers.discard(threading.current_thread())
+
+    def finalize_outputs(self, record):
+        """Approved native applications get local PDF checks without another AI call."""
+        from .workspace import digest
+        for row in self.entries(record):
+            if row.get('status') != 'complete' or not row.get('branch') or not row.get('workspace') or row.get('pending'):
+                continue
+            try:
+                with self.ws.lock:
+                    branch = row['branch']
+                    self.ws.start_ai(branch, digest(self.ws.read(branch, 'main.tex')),
+                                     digest(self.ws.read(branch, 'job.md')),
+                                     workflow={'steps': ['validating']})
+            except (OSError, ValueError, RuntimeError) as error:
+                self.ws.diagnostics.error('import_pdf_start_failed', error, operation='compile_pdf')
+                record['error'] = 'Some final PDFs could not start. Open the affected workspace and run Final checks; completed AI work is preserved.'
+                self.save(record)
 
     def entries(self, r, *, historical=False):
         plan = r.get("plan") or {}
@@ -587,6 +617,7 @@ class JobenuImports:
                 "retryRootId",
                 "retryKeys",
                 "capturedRoutes",
+                "settingsLimitations",
             )
         }
         result["plan"] = r.get("plan")
@@ -672,21 +703,22 @@ class JobenuImports:
 
     @contextmanager
     def review_guard(self, ident, key):
-        if self.running:
-            raise ValueError("Wait for the batch to pause before reviewing.")
-        target = self.target(ident, key)
-        branch = target[1].get("branch")
-        with self.ws.lock:
+        with self.lock, self.ws.lock:
+            if ident in self.running:
+                raise ValueError("Wait for this batch to pause before reviewing.")
+            target = self.target(ident, key)
+            branch = target[1].get("branch")
             if branch:
                 self.ws.busy(branch)
                 self.reviewing.add(branch)
         try:
             yield target
         finally:
-            self.reviewing.discard(branch)
+            with self.ws.lock:
+                self.reviewing.discard(branch)
 
     def decide(self, ident, key, action, revision):
-        with self.lock, self.review_guard(ident, key) as (r, row, path):
+        with self.review_guard(ident, key) as (r, row, path):
             command, env = self.environments.get(ident) or self.command(
                 r.get("source", "")
             )

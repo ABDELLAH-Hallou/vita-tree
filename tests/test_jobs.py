@@ -330,7 +330,8 @@ class JobTests(unittest.TestCase):
         self.pipeline_source();branch=self.pipeline_branch('cover-pdf')
         record=self.start(branch,workflow={'steps':['cover']});self.release('cover-pdf')
         result=self.finished(record['id']);self.assertEqual(result['status'],'succeeded',result)
-        self.assertIn('PDF ready',result['message'])
+        self.assertIn('Final PDFs saved',result['message'])
+        self.assertTrue((Path(branch['worktree'])/'cover-letter.pdf').read_bytes().startswith(b'%PDF-'))
         self.assertEqual(self.workspace.read('cover-pdf','main.tex'),SOURCE)
         self.assertEqual(self.workspace.job_result(record['id'])['coverPdf'],{'runId':record['id']})
         compiler=PDFCompiler(self.workspace)
@@ -433,7 +434,8 @@ class JobTests(unittest.TestCase):
         self.pipeline_source()
         branch = self.pipeline_branch('separate', extraction=True, require_analysis=True)
         self.release('separate')
-        for step in ('extract', 'analyze', 'adapt', 'review', 'cover', 'adapt'):
+        # Tailoring changes the evidence: refresh analysis before comparing scores.
+        for step in ('extract', 'analyze', 'adapt', 'analyze', 'review', 'cover', 'adapt'):
             # The second adaptation is a legitimate no-op, not a failed run.
             record = self.start(branch, workflow={'steps': [step]})
             self.assertEqual(self.finished(record['id'])['status'], 'succeeded', self.workspace.get_job(record['id']))

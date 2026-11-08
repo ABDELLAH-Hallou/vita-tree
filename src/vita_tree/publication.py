@@ -1,31 +1,58 @@
 """Recoverable multi-file publication, with rollback that preserves external edits."""
 from contextlib import contextmanager
+import base64
 import json
 import re
 
 from .fileio import atomic_write_bytes
 from .checkpoints import artifact_name
 
+PDF_OUTPUTS = {'cv-final.pdf', 'cover-letter.pdf', '.vita/results/final-pdfs.json'}
+
+
+def valid_content(value):
+    if value is None or isinstance(value, str):
+        return True
+    if not isinstance(value, dict) or set(value) != {'base64'} or not isinstance(value['base64'], str):
+        return False
+    try:
+        data = base64.b64decode(value['base64'], validate=True)
+        return len(data) <= 32_000_000 and data.startswith(b'%PDF-')
+    except ValueError:
+        return False
+
+
+def pdf_content(path):
+    data = path.read_bytes()
+    value = {'base64': base64.b64encode(data).decode('ascii')}
+    if not valid_content(value):
+        raise ValueError('Invalid PDF publication')
+    return value
+
 
 def targets(workspace, branch, entries):
     location = workspace.location(branch)
-    if location is None or any(name != '@metadata' and not artifact_name(name) for name in entries):
+    if location is None or any(name != '@metadata' and name not in PDF_OUTPUTS and not artifact_name(name) for name in entries):
         raise ValueError('Publication targets are no longer available')
     from .workspace import safe_path
     for values in entries.values():
-        if not isinstance(values, dict) or set(values) != {'old','new'} or any(value is not None and not isinstance(value,str) for value in values.values()):
+        if not isinstance(values, dict) or set(values) != {'old','new'} or any(not valid_content(value) for value in values.values()):
             raise ValueError('Invalid publication journal')
     return {name: safe_path(workspace.root, workspace.metadata_path(branch).relative_to(workspace.root).as_posix()) if name == '@metadata' else safe_path(location, name)
             for name in entries}
 
 
 def content(path):
+    if path.is_file() and path.suffix == '.pdf':
+        return pdf_content(path)
     return path.read_text(encoding='utf-8') if path.is_file() else None
 
 
 def put(path, value):
     if value is None:
         path.unlink(missing_ok=True)
+    elif isinstance(value, dict):
+        atomic_write_bytes(path, base64.b64decode(value['base64'], validate=True))
     else:
         atomic_write_bytes(path, value.encode('utf-8'))
 
@@ -76,7 +103,7 @@ def recover(workspace):
     for journal in (workspace.root / 'publications').glob('*.json'):
         record = {}
         try:
-            if journal.is_symlink() or not re.fullmatch(r'[a-f0-9]{32}', journal.stem) or journal.stat().st_size > 64_000_000:
+            if journal.is_symlink() or not re.fullmatch(r'[a-f0-9]{32}', journal.stem) or journal.stat().st_size > 128_000_000:
                 continue
             record = json.loads(journal.read_text(encoding='utf-8'))
             if not isinstance(record,dict):

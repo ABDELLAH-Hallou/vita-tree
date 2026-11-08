@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   batchGroups,
   batchSummary,
+  isRunningGroup,
   retryable,
 } from "../src/compat/jobenu-history.js";
 
@@ -91,4 +92,15 @@ test("only actual failures offer retry; active attempts win over old failure sum
     batchSummary(group, (value) => value),
     "1 failed job",
   );
+});
+
+test("a running retry blocks its group without blocking unrelated batches", () => {
+  const original = { id: "root", createdAt: 1, startedAt: 2, status: "failed", entries: [] };
+  const retry = { id: "retry", parentBatchId: "root", retryRootId: "root",
+    createdAt: 3, startedAt: 4, status: "running", entries: [] };
+  const unrelated = { id: "other", createdAt: 5, startedAt: 6, status: "failed", entries: [] };
+  const groups = batchGroups([original, retry, unrelated]);
+  assert.equal(isRunningGroup(groups.find(group => group.batch.id === "root")), true);
+  assert.equal(isRunningGroup(groups.find(group => group.batch.id === "other")), false);
+  assert.equal(original.status, "failed");
 });

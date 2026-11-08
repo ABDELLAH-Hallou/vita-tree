@@ -13,7 +13,7 @@ import threading
 import time
 
 from load_support import (ROOT,PROFILES,LOAD_SOURCE,LoadServer,ResourceSampler,distribution,
-                          git,prepare,profile,sha,wait_for,processor_label,budget_gate,advisory_budget,clean_worktree_release)
+                          git,prepare,profile,sha,wait_for,processor_label,budget_gate,advisory_budget,clean_worktree_release,commit_load_result)
 
 
 def benchmark(output, name, pdf, enforce=False, replica=1, advisory_orchestration=False):
@@ -155,8 +155,7 @@ def benchmark(output, name, pdf, enforce=False, replica=1, advisory_orchestratio
                 # versioned by the test before requesting clean worktree cleanup.
                 location=Path(snap['worktree'])
                 if location.exists():
-                    git(location,'add','main.tex','job.md','cover-letter.tex');git(location,'add','-f','.vita/results')
-                    git(location,'commit','-m','Synthetic load result')
+                    commit_load_result(location)
                     release=clean_worktree_release(server,run['branch'],location)
                     check('clean owned worktree released '+run['branch'],release.pop('passed'),**release)
             check('independent draft survives',server.snapshot('editing')['content']==changed)

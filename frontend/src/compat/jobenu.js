@@ -1,5 +1,5 @@
 import { renderLatexSnippet } from "./vendor/editor.mjs";
-import { batchGroups, batchSummary, retryable } from "./jobenu-history.js";
+import { batchGroups, batchSummary, isRunningGroup, retryable } from "./jobenu-history.js";
 export function initJobenu({ api, branches, openBranch, ready }) {
   const $ = (s) => document.querySelector(s),
     make = (tag, value) => {
@@ -38,7 +38,7 @@ export function initJobenu({ api, branches, openBranch, ready }) {
   section.innerHTML = `<button id="jobenu-back" class="back">← All applications</button><div class="page-heading"><div><h1>Import jobs</h1><p class="subtitle">Bring opportunities from Jobenu into this CV collection.</p></div></div>
  <div role="tablist" aria-label="Import source" class="jobenu-tabs"><button role="tab" aria-selected="true">Jobenu</button></div>
  <p class="helper">Your export stays unchanged. Each selected application gets its own CV workspace. Importing never submits an application or pushes to Git.</p>
- <p id="jobenu-error" role="alert" class="form-error"></p><p id="jobenu-feedback" role="status"></p>
+ <p id="jobenu-error" role="alert" class="form-error"></p><p id="jobenu-feedback" role="status"></p><p id="jobenu-limitations" class="helper"></p><p id="jobenu-settings-limitations" role="status"></p>
  <details id="jobenu-install"><summary>Vita installation</summary><label>Compatible Vita CV source folder<input id="jobenu-source" placeholder="Folder containing vita/__main__.py"></label><button id="jobenu-check">Check installation</button><p id="jobenu-capability" role="status"></p></details>
  <label id="jobenu-drop" class="jobenu-drop">Choose or drop a Jobenu JSON export<input id="jobenu-file" type="file" accept=".json,application/json"></label><p id="jobenu-file-info" role="status"></p>
  <div id="jobenu-date-filters" hidden><div class="jobenu-date-toolbar"><label>Date<select id="jobenu-date-field"><option value="createdAt">Added</option><option value="updatedAt">Updated</option><option value="appliedAt">Applied</option><option value="deadlineAt">Deadline</option><option value="nextActionAt">Next action</option></select></label><label>From<input id="jobenu-date-from" type="date" aria-describedby="jobenu-date-help jobenu-date-error"></label><label>To<input id="jobenu-date-to" type="date" aria-describedby="jobenu-date-help jobenu-date-error"></label><div class="actions"><button id="jobenu-today">Today</button><button id="jobenu-all-dates">All dates</button></div></div><p id="jobenu-date-help" class="helper">Dates follow the calendar day in your export. Today uses your device's date.</p><p id="jobenu-date-error" role="alert" class="form-error"></p><p id="jobenu-selection-summary" role="status"></p></div>
@@ -53,6 +53,8 @@ export function initJobenu({ api, branches, openBranch, ready }) {
  <dialog id="jobenu-retry" aria-labelledby="jobenu-retry-title"><div class="dialog-heading"><h2 id="jobenu-retry-title">Retry failed jobs</h2></div><div class="review-scroll"><p>Use the original AI settings. Keep valid completed steps and continue from the failure. Retrying makes AI requests and may use provider credits.</p><p id="jobenu-retry-progress" role="status"></p><div class="jobenu-scroll" tabindex="0" role="region" aria-label="Jobs to retry"><table><thead><tr><th>Company</th><th>Position</th><th>Continue from</th></tr></thead><tbody id="jobenu-retry-jobs"></tbody></table></div><p id="jobenu-retry-error" role="alert" class="form-error"></p></div><footer class="dialog-footer"><button id="jobenu-retry-cancel">Cancel</button><button id="jobenu-retry-confirm" class="primary" disabled>Retry jobs</button></footer></dialog>
  <dialog id="jobenu-review" aria-labelledby="jobenu-review-title"><div class="dialog-heading"><h2 id="jobenu-review-title">Review imported application</h2><button id="jobenu-review-close" aria-label="Close import review">×</button></div><div id="jobenu-review-content" class="review-scroll"></div><p id="jobenu-review-error" role="alert" class="form-error"></p><footer class="dialog-footer"><button id="jobenu-reject">Reject changes</button><button id="jobenu-approve" class="primary">Approve exact revision</button></footer></dialog>`;
   $("#main-content").append(section);
+  // The same review dialog opens from either the workspace or import activity.
+  document.body.append($("#jobenu-review"));
   let session = null,
     plan = null,
     available = false,
@@ -366,6 +368,7 @@ export function initJobenu({ api, branches, openBranch, ready }) {
       source: $("#jobenu-source").value,
     });
     available = capability.available;
+    $("#jobenu-limitations").textContent = (capability.limitations || []).join(' ');
     unattendedAvailable = capability.unattended === true;
     $("#jobenu-approval option[value=unattended]").disabled =
       !unattendedAvailable;
@@ -472,6 +475,7 @@ export function initJobenu({ api, branches, openBranch, ready }) {
       const result = await api("/api/jobenu/preview", data());
       if (version !== capturedVersion) return;
       plan = result.plan;
+      $("#jobenu-settings-limitations").textContent = (result.settingsLimitations || []).join(' ');
       if (plan.error) error(plan.error);
       const body = $("#jobenu-plan tbody");
       body.replaceChildren();
@@ -770,9 +774,9 @@ export function initJobenu({ api, branches, openBranch, ready }) {
       historySignature = signature;
       const host = $("#jobenu-history");
       host.replaceChildren();
-      const anyRunning = batches.some((batch) => batch.status === "running");
       for (const groupData of groups) {
         const batch = groupData.batch;
+        const groupRunning = isRunningGroup(groupData);
         const group = document.createElement("section");
         group.className = "jobenu-batch";
         const title = document.createElement("div");
@@ -793,7 +797,7 @@ export function initJobenu({ api, branches, openBranch, ready }) {
           retry.className = "jobenu-retry-action";
           retry.dataset.batch = batch.id;
           retry.dataset.key = "";
-          retry.dataset.blocked = String(anyRunning);
+          retry.dataset.blocked = String(groupRunning);
           retry.onclick = () => prepareRetry(batch);
           headingRow.append(retry);
         }
@@ -832,7 +836,7 @@ export function initJobenu({ api, branches, openBranch, ready }) {
             retry.dataset.batch = batch.id;
             retry.dataset.key = e.key;
             retry.setAttribute("aria-label", `Retry ${e.company}`);
-            retry.dataset.blocked = String(anyRunning);
+            retry.dataset.blocked = String(groupRunning);
             retry.onclick = () => prepareRetry(batch, [e.key]);
             actions.append(retry);
           }
@@ -906,7 +910,7 @@ export function initJobenu({ api, branches, openBranch, ready }) {
           }
         };
         group.append(logs);
-        if (!anyRunning) {
+        if (!groupRunning) {
           const resume = make("button", "Preview resume");
           resume.onclick = async () => {
             invalidate();
@@ -967,5 +971,14 @@ export function initJobenu({ api, branches, openBranch, ready }) {
   setInterval(() => {
     if (!section.hidden) refresh();
   }, 1800);
-  return { open: show };
+  async function reviewRun(run) {
+    const {batches} = await api('/api/jobenu');
+    const batch = batches.find(item=>item.id===run.nativeBatchId);
+    const row = batch?.entries?.find(item=>item.key===run.nativeKey&&item.branch===run.branch);
+    if(!row || run.pendingRevision && row.pending?.revision!==run.pendingRevision)
+      throw new Error('This pending review changed. Refresh the application before reviewing.');
+    $("#jobenu-review-error").textContent='';
+    await reviewEntry(batch,row);
+  }
+  return { open: show, reviewRun };
 }

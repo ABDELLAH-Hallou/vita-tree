@@ -13,6 +13,16 @@ from .fileio import atomic_write_bytes
 from .security import snapshot_excluded
 
 
+def credential_fingerprint(salt, base, route, key=None, backup_key=None):
+    env = stage_environment(base, route, key, backup_key)
+    relevant = {name: value for name, value in env.items() if
+                re.search(r'(?:KEY|TOKEN|BASE_URL|ENDPOINT)$', name) or
+                name.startswith(('OPENAI_', 'ANTHROPIC_', 'GEMINI_', 'CODEX_', 'GOOGLE_')) or
+                name in {'VITA_CODEX', 'HTTP_PROXY', 'HTTPS_PROXY', 'NO_PROXY'} or
+                (route['provider'] == 'codex' and name == 'PATH')}
+    return hmac.new(salt, json.dumps(relevant, sort_keys=True).encode(), hashlib.sha256).hexdigest()
+
+
 def capture(workspace, context, record):
     from .workspace import safe_path, read_text, digest
     from .server import run_git
@@ -78,13 +88,9 @@ def capture(workspace, context, record):
     context['stepSkills'] = {step: fingerprint({name: content for name, content in context['skills'].items() if name.startswith('.vita/skills/' + step + '/')}) for step in context['stepConfig']}
     context['credentialHashes'] = {}
     for step, route in context['stepConfig'].items():
-        env = stage_environment(context['env'], route, context['keys'].get(step), context['keys'].get(step + ':backup'))
-        relevant = {key: value for key, value in env.items() if
-                    re.search(r'(?:KEY|TOKEN|BASE_URL|ENDPOINT)$', key) or
-                    key.startswith(('OPENAI_', 'ANTHROPIC_', 'GEMINI_', 'CODEX_', 'GOOGLE_')) or
-                    key in {'VITA_CODEX','HTTP_PROXY','HTTPS_PROXY','NO_PROXY'} or (route['provider']=='codex' and key=='PATH')}
         # Only a keyed digest is retained, never keys, endpoints, or raw env.
-        context['credentialHashes'][step] = hmac.new(salt.read_bytes(), json.dumps(relevant, sort_keys=True).encode(), hashlib.sha256).hexdigest()
+        context['credentialHashes'][step] = credential_fingerprint(salt.read_bytes(), context['env'], route,
+            context['keys'].get(step), context['keys'].get(step + ':backup'))
     context['criteria'] = criteria
     context['language'] = record['language']
     initial = {name: None for name in ARTIFACTS}

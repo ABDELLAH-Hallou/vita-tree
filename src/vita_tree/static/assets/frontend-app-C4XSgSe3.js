@@ -1,15 +1,15 @@
-import { a as e, n as t, o as n, r, t as i } from "./frontend-workflow-CuJDKIt5.js";
+import { a as e, n as t, o as n, r, t as i } from "./frontend-workflow-BHrPuT76.js";
 import { t as a } from "./frontend-client-Cqgf6Pc4.js";
-import { i as o, n as s, r as c, t as l } from "./frontend-runs-P9iN8Afn.js";
-import { r as u, t as d } from "./frontend-reports-CzIybQiE.js";
-import { t as f } from "./frontend-diagnostics-DPKkcqsI.js";
-import { t as p } from "./frontend-ai-settings-Dr2u_7AL.js";
-import { n as m, t as h } from "./frontend-provider-failures-uMyQIdg2.js";
-import { t as g } from "./frontend-factual-review-C1JvgUhX.js";
-import { t as ee } from "./frontend-jobenu-DGHggsQj.js";
-import { t as te } from "./frontend-requirements-CEEL9r4B.js";
-import { t as ne } from "./frontend-preflight-CXA8w4x8.js";
-import { createLatexEditor as re } from "/vendor/editor.mjs";
+import { i as o, n as s, r as c, t as l } from "./frontend-runs-D1qNakQB.js";
+import { i as u, n as d, t as f } from "./frontend-reports-DfIid_Jq.js";
+import { t as p } from "./frontend-diagnostics-DPKkcqsI.js";
+import { t as m } from "./frontend-ai-settings-Dr2u_7AL.js";
+import { n as h, t as g } from "./frontend-provider-failures-uMyQIdg2.js";
+import { t as ee } from "./frontend-factual-review-C1JvgUhX.js";
+import { t as te } from "./frontend-jobenu-S9Z8cF7V.js";
+import { t as ne } from "./frontend-requirements-CEEL9r4B.js";
+import { t as re } from "./frontend-preflight-CXA8w4x8.js";
+import { createLatexEditor as ie } from "/vendor/editor.mjs";
 // frontend/src/compat/app.js
 var _ = (e) => document.querySelector(e), v = {
 	branches: [],
@@ -24,28 +24,28 @@ var _ = (e) => document.querySelector(e), v = {
 	leaf: null,
 	publishing: !1,
 	commitReview: null
-}, ie;
-async function ae() {
-	ie ||= M("/api/session").then((e) => {
+}, ae;
+async function oe() {
+	ae ||= M("/api/session").then((e) => {
 		v.session = e;
-	}), await ie;
+	}), await ae;
 }
-var y = ne({
+var y = re({
 	api: M,
 	getState: () => v,
 	getBranches: () => v.branches,
-	getSteps: () => K().steps
-}), b = te({
+	getSteps: () => q().steps
+}), b = ne({
 	api: M,
 	getState: () => v,
 	changed: () => D.refresh(),
-	continued: Ce,
+	continued: Te,
 	notice: N
-}), x = g({
+}), x = ee({
 	api: M,
 	getState: () => v,
 	changed: () => D.refresh(),
-	continued: Ce,
+	continued: Te,
 	notice: N
 });
 v.filter = "all", v.syncedCommits = /* @__PURE__ */ new Map();
@@ -57,11 +57,11 @@ var C = [
 	"adapt",
 	"review",
 	"cover"
-], oe = ee({
+], se = te({
 	api: M,
 	branches: () => v.branches,
 	openBranch: R,
-	ready: ae
+	ready: oe
 }), w = (e) => ![
 	"extract",
 	"review",
@@ -69,7 +69,7 @@ var C = [
 ].includes(e) || !!v.session?.workflow?.[e];
 v.pdfDocument = "cv", v.runs = [], v.reviewSelection = /* @__PURE__ */ new Set(), v.reviewing = !1;
 var T = [], E = (e) => v.runs.filter((t) => t.branch === e && !s(t) && !t.reviewed);
-function se() {
+function ce() {
 	let e = v.runs.filter((e) => v.reviewSelection.has(e.branch) && !s(e) && !e.reviewed).length;
 	_("#bulk-review").disabled = v.reviewing || !e, _("#bulk-review").textContent = v.reviewing ? "Saving review…" : "Mark selected as reviewed", _("#bulk-review-count").textContent = e ? `${e} ${e === 1 ? "result" : "results"} selected` : "";
 	let t = T.filter((e) => v.reviewSelection.has(e)).length, n = _("#select-review-visible");
@@ -98,11 +98,11 @@ _("#select-review-visible").onchange = (e) => {
 		v.reviewing = !1, F();
 	}
 };
-var D, ce = /* @__PURE__ */ new Map();
-function le() {
+var D, le = /* @__PURE__ */ new Map();
+function ue() {
 	let e = v.snapshot?.branch;
 	if (!e || !v.catalog) return;
-	let t = _("#language"), n = v.snapshot.running?.language || ce.get(e) || "en", r = [...v.catalog.languages || [{
+	let t = _("#language"), n = v.snapshot.running?.language || le.get(e) || "en", r = [...v.catalog.languages || [{
 		code: "en",
 		name: "English"
 	}]];
@@ -114,9 +114,9 @@ function le() {
 	t.dataset.languages !== i && (t.replaceChildren(...r.map((e) => new Option(e.name, e.code))), t.dataset.languages = i), t.value = n;
 }
 _("#language").onchange = () => {
-	v.snapshot && ce.set(v.snapshot.branch, _("#language").value);
+	v.snapshot && le.set(v.snapshot.branch, _("#language").value);
 };
-var O = Object.fromEntries(["original", "current"].map((e) => [e, re(_(`#${e}-source`), {
+var O = Object.fromEntries(["original", "current"].map((e) => [e, ie(_(`#${e}-source`), {
 	label: e === "original" ? "Before · CV source" : "Current CV source",
 	readOnly: !0,
 	onChange: (t) => {
@@ -129,14 +129,14 @@ var O = Object.fromEntries(["original", "current"].map((e) => [e, re(_(`#${e}-so
 	">": "&gt;",
 	"\"": "&quot;",
 	"'": "&#39;"
-})[e]), A = p(_("#ai-configuration"), {
+})[e]), A = m(_("#ai-configuration"), {
 	api: M,
 	onChange: () => {
-		v.snapshot && (v.displayedRun?.resumeAvailable || (v.graphRunId = "draft"), q(), J());
+		v.snapshot && (v.displayedRun?.resumeAvailable || (v.graphRunId = "draft", v.historyRunId = null), J(), Y());
 	}
 });
 function j() {
-	le(), A.setDisabled(!!v.snapshot?.running || !!v.launching || !v.snapshot?.editable), _("#language").disabled = !!v.snapshot?.running || !!v.launching || !v.snapshot?.editable, _("#model-details").textContent = "Model suggestions come from repository settings and your local Codex catalog. You can enter any model ID your provider accepts.\n\nSetup: install vita-tree[ai] or start with --vita-source pointing to vita-cv. Custom reasoning currently uses the Codex connection.";
+	ue(), A.setDisabled(!!v.snapshot?.running || !!v.launching || !v.snapshot?.editable), _("#language").disabled = !!v.snapshot?.running || !!v.launching || !v.snapshot?.editable, _("#model-details").textContent = "Model suggestions come from repository settings and your local Codex catalog. You can enter any model ID your provider accepts.\n\nSetup: install vita-tree[ai] or start with --vita-source pointing to vita-cv. Custom reasoning currently uses the Codex connection.";
 }
 async function M(e, t) {
 	return a(e, t, v.session?.token || "", { fresh: e.startsWith("/api/workspace?") });
@@ -148,7 +148,7 @@ function N(e = "", t = !1) {
 function P(e) {
 	_("#toast").textContent = e, _("#toast").hidden = !1, clearTimeout(v.toast), v.toast = setTimeout(() => _("#toast").hidden = !0, 4e3);
 }
-function ue(e) {
+function de(e) {
 	let t = Math.max(0, Date.now() / 1e3 - e);
 	for (let [e, n] of [
 		[31536e3, "y"],
@@ -162,7 +162,7 @@ function ue(e) {
 function F() {
 	let e = _("#search").value.toLowerCase(), t = (e, t) => {
 		let n = v.runs.filter((t) => t.branch === e.name), r = n[0];
-		return t === "all" || t === "running" && n.some(s) || t === "review" && n.some((e) => e.status === "succeeded" && !e.reviewed) || t === "failed" && r && !U(r) && ["failed", "interrupted"].includes(r.status);
+		return t === "all" || t === "running" && n.some(s) || t === "review" && n.some((e) => H(e) || e.status === "succeeded" && !e.reviewed) || t === "failed" && r && !H(r) && ["failed", "interrupted"].includes(r.status);
 	};
 	for (let e of [
 		"all",
@@ -174,23 +174,25 @@ function F() {
 	for (let e of v.reviewSelection) E(e).length || v.reviewSelection.delete(e);
 	T = r.filter((e) => E(e.name).length).map((e) => e.name);
 	let i = document.activeElement, a = i.closest(".branch-entry")?.dataset.branch, o = i.matches(".select-branch-review"), l = r.map((e) => {
-		let t = v.runs.filter((t) => t.branch === e.name), n = t.find(s) || t.find((e) => !e.reviewed) || t[0], r = n && (s(n) || !n.reviewed || ["failed", "interrupted"].includes(n.status));
+		let t = v.runs.filter((t) => t.branch === e.name), n = t.find(s) || t.find(H) || t.find((e) => !e.reviewed) || t[0], r = n && (s(n) || H(n) || !n.reviewed || ["failed", "interrupted"].includes(n.status));
 		return {
 			branch: e,
 			selected: v.reviewSelection.has(e.name),
 			selectable: !v.reviewing && !!E(e.name).length,
-			status: r ? U(n) ? "review" : n.status : void 0,
+			status: r ? H(n) ? "review" : n.status : void 0,
 			label: r ? c(n) + (!s(n) && !n.reviewed ? " · To review" : "") : void 0,
-			failure: r && !U(n) ? m(n) : void 0
+			failure: r && !H(n) ? h(n) : void 0
 		};
 	});
 	if (n(_("#branch-list"), {
 		rows: l,
-		relative: ue,
+		relative: de,
 		empty: v.filter === "review" && !e ? "No completed preparations need review." : "No applications found. Try another filter or create a new application.",
 		onOpen: (e) => {
-			let t = v.filter === "review" && v.runs.find((t) => t.branch === e && t.status === "succeeded" && !t.reviewed);
-			t ? G(t).catch((e) => N(e.message, !0)) : R(e);
+			let t = v.filter === "review" && v.runs.find((t) => t.branch === e && (H(t) || t.status === "succeeded" && !t.reviewed));
+			t ? (async () => {
+				await K(t), H(t) && await W(t);
+			})().catch((e) => N(e.message, !0)) : R(e);
 		},
 		onSelect: (e, t) => {
 			t ? v.reviewSelection.add(e) : v.reviewSelection.delete(e), F();
@@ -199,7 +201,7 @@ function F() {
 		let e = [..._("#branch-list").children].find((e) => e.dataset.branch === a)?.querySelector(o ? ".select-branch-review" : ".branch-row");
 		(e && !e.disabled ? e : _("#search")).focus({ preventScroll: !0 });
 	}
-	_("#result-count").textContent = `${r.length} ${r.length === 1 ? "application" : "applications"}`, _("#total-count").textContent = v.branches.length, se();
+	_("#result-count").textContent = `${r.length} ${r.length === 1 ? "application" : "applications"}`, _("#total-count").textContent = v.branches.length, ce();
 }
 async function I() {
 	_("#refresh").disabled = !0, _("#new-branch").disabled = !0;
@@ -215,10 +217,14 @@ async function I() {
 function L() {
 	return !(v.dirty || v.jobDirty) || window.confirm("Discard your unsaved editor changes?");
 }
-async function de(e) {
+async function fe(e) {
 	try {
 		let t = await M("/api/release-worktree", { branch: e });
-		t.released ? P("Application closed. You can reopen it at any time.") : t.reason === "locked" && P("Some files are still in use. Your application files are safe.");
+		t.released ? P("Application closed. You can reopen it at any time.") : [
+			"locked",
+			"dirty",
+			"external"
+		].includes(t.reason) && (N(t.message), P(t.message));
 	} catch (t) {
 		P(`Couldn’t close the application folder for ${S(e)}: ${t.message}`);
 	}
@@ -226,12 +232,12 @@ async function de(e) {
 async function R(t, n = !1) {
 	if (!n && !L()) return;
 	x.reset(), b.reset();
-	let r = v.snapshot?.branch;
+	let r = v.snapshot?.branch, i = r === t ? v.historyRunId : null;
 	r && r !== t && (v.filePath = null);
-	let i = ++v.generation;
+	let a = ++v.generation;
 	_("#workspace").setAttribute("aria-busy", "true");
 	for (let e of document.querySelectorAll("[data-view]")) e.disabled = !0;
-	v.pdfGeneration++, v.snapshot = null, v.displayedRun = null, v.graphRunId = null, v.selectedTask = null, _("#task-inspector").hidden = !0, _("#cv-file").disabled = !0, e(_("#workflow-graph")), _("#selected-run").hidden = !0, _("#attempt-history").replaceChildren(), A.setDisabled(!0);
+	v.pdfGeneration++, v.snapshot = null, v.displayedRun = null, v.graphRunId = i, v.historyRunId = i, v.selectedTask = null, _("#task-inspector").hidden = !0, _("#cv-file").disabled = !0, _("#workflow-run").disabled = !0, e(_("#workflow-graph")), _("#selected-run").hidden = !0, _("#attempt-history").replaceChildren(), A.setDisabled(!0);
 	for (let e of C.map((e) => "step-" + e)) _("#" + e).checked = !1;
 	for (let e of [
 		"save-source",
@@ -243,6 +249,7 @@ async function R(t, n = !1) {
 		"compile",
 		"commit-push",
 		"view-run",
+		"review-facts",
 		"mark-run-reviewed",
 		"requirements-current-open",
 		"requirements-captured",
@@ -251,26 +258,26 @@ async function R(t, n = !1) {
 	]) _("#" + e).disabled = !0;
 	O.current.setReadOnly(!0), _("#job-description").readOnly = !0, _("#board").hidden = !0, _("#workspace").hidden = !1, document.body.classList.add("in-workspace"), _("#branch-title").textContent = S(t), N("Loading the application…");
 	try {
-		if (r && r !== t && await de(r), i !== v.generation) return;
-		let [e, n, a, o] = await Promise.all([
+		if (r && r !== t && await fe(r), a !== v.generation) return;
+		let [e, n, i, o] = await Promise.all([
 			M("/api/workspace?branch=" + encodeURIComponent(t)),
 			M("/api/providers?branch=" + encodeURIComponent(t)),
 			M("/api/ai-settings?branch=" + encodeURIComponent(t)),
 			M("/api/connections")
 		]);
-		return i === v.generation ? (v.snapshot = e, v.catalog = n, v.dirty = !1, v.jobDirty = !1, v.pdfs = {}, v.pdfDocument = "cv", _("#pdf-document").value = "cv", v.pdfGeneration++, _("#review-policy").value = e.running?.reviewPolicy || "manual", A.load(t, n, a, o), j(), history.replaceState(null, "", "?branch=" + encodeURIComponent(t)), fe(), V(v.view), v.view !== "structure" && N(), e) : void 0;
+		return a === v.generation ? (v.snapshot = e, v.catalog = n, v.dirty = !1, v.jobDirty = !1, v.pdfs = {}, v.pdfDocument = "cv", _("#pdf-document").value = "cv", v.pdfGeneration++, _("#review-policy").value = e.running?.reviewPolicy || "manual", A.load(t, n, i, o), j(), history.replaceState(null, "", "?branch=" + encodeURIComponent(t)), pe(), V(v.view), v.view !== "structure" && N(), e) : void 0;
 	} catch (e) {
-		i === v.generation && N(e.message, !0);
+		a === v.generation && N(e.message, !0);
 	} finally {
-		if (i === v.generation) {
-			_("#workspace").removeAttribute("aria-busy");
+		if (a === v.generation) {
+			_("#workspace").removeAttribute("aria-busy"), _("#workflow-run").disabled = !v.snapshot;
 			for (let e of document.querySelectorAll("[data-view]")) e.disabled = !v.snapshot;
 		}
 	}
 }
-function fe() {
+function pe() {
 	let e = v.snapshot, t = z();
-	if (pe(), _("#branch-title").textContent = e.displayName || e.branch, _("#workspace-caption").textContent = e.editable ? "Review your CV and results, then save your application." : "This CV is view only. Use it to create a new application before editing.", _("#original-label").textContent = t.originalExists === !1 ? "File absent before" : t.path === e.path ? "" : t.path, _("#current-label").textContent = t.exists === !1 ? "Not in current CV" : t.path === e.path ? e.displayName || e.branch : t.path, _("#version-label").textContent = e.editable && t.exists !== !1 ? "Editable" : "View only", O.original.setDocument(t.original, e.branch + ":" + t.path), O.current.setDocument(t.content, e.branch + ":" + t.path), O.current.setReadOnly(!e.editable || !!e.running || t.exists === !1), he("original", t.originalDocument), he("current", t.document), _("#job-description").value = e.job, _("#job-description").readOnly = !e.editable || !!e.running, _("#job-state").textContent = e.job ? "Saved on this computer" : "No job description yet", _("#save-job").disabled = !e.editable || !!e.running, _("#branch-from").disabled = !!e.running, _("#compile").disabled = !1, _("#ai-dot").textContent = Object.keys(e.artifacts).length ? "•" : "", _("#ai-capability").textContent = v.session.vita ? "Prepare everything or start only the steps you choose. Your existing edits are checked before results are applied. Save any draft edits first." : "The Vita CV connection is not available. Open AI connection details for setup instructions.", _("#run-adapt").disabled = !v.session.vita || !e.editable || !!e.running || !!A.problem(K().steps), _("#ai-status").textContent = e.running?.message || (e.job ? "Ready to prepare this application." : "Add and save a job description first."), _("#application-id").textContent = e.branch, _("#worktree-path").textContent = e.worktree || "An application folder will be created when you save your first draft.", _("#diff").replaceChildren(), !t.diff) _("#diff").textContent = "No changes from the original in this file.";
+	if (me(), _("#branch-title").textContent = e.displayName || e.branch, _("#workspace-caption").textContent = e.editable ? "Review your CV and results, then save your application." : "This CV is view only. Use it to create a new application before editing.", _("#original-label").textContent = t.originalExists === !1 ? "File absent before" : t.path === e.path ? "" : t.path, _("#current-label").textContent = t.exists === !1 ? "Not in current CV" : t.path === e.path ? e.displayName || e.branch : t.path, _("#version-label").textContent = e.editable && t.exists !== !1 ? "Editable" : "View only", O.original.setDocument(t.original, e.branch + ":" + t.path), O.current.setDocument(t.content, e.branch + ":" + t.path), O.current.setReadOnly(!e.editable || !!e.running || t.exists === !1), ge("original", t.originalDocument), ge("current", t.document), _("#job-description").value = e.job, _("#job-description").readOnly = !e.editable || !!e.running, _("#job-state").textContent = e.job ? "Saved on this computer" : "No job description yet", _("#save-job").disabled = !e.editable || !!e.running, _("#branch-from").disabled = !!e.running, _("#compile").disabled = !1, _("#ai-dot").textContent = Object.keys(e.artifacts).length ? "•" : "", _("#ai-capability").textContent = v.session.vita ? "Prepare everything or start only the steps you choose. Your existing edits are checked before results are applied. Save any draft edits first." : "The Vita CV connection is not available. Open AI connection details for setup instructions.", _("#run-adapt").disabled = !v.session.vita || !e.editable || !!e.running || !!A.problem(q().steps), _("#ai-status").textContent = e.running?.message || (e.job ? "Ready to prepare this application." : "Add and save a job description first."), _("#application-id").textContent = e.branch, _("#worktree-path").textContent = e.worktree || "An application folder will be created when you save your first draft.", _("#diff").replaceChildren(), !t.diff) _("#diff").textContent = "No changes from the original in this file.";
 	else for (let e of t.diff.split("\n")) {
 		let t = document.createElement("span");
 		t.textContent = e + "\n", e.startsWith("+") && !e.startsWith("+++") ? t.className = "added" : e.startsWith("-") && !e.startsWith("---") && (t.className = "removed"), _("#diff").append(t);
@@ -278,9 +285,9 @@ function fe() {
 	let n = (e.files || [e]).map((e) => e.diff).join("\n"), r = n.split("\n").filter((e) => e.startsWith("+") && !e.startsWith("+++")).length, i = n.split("\n").filter((e) => e.startsWith("-") && !e.startsWith("---")).length;
 	_("#change-count").textContent = r || i ? `+${r} −${i}` : "", _("#artifacts").replaceChildren(), Object.keys(e.artifacts).length || (_("#artifacts").innerHTML = "<p class=\"helper\">No results yet. Choose the steps you want to prepare your application.</p>");
 	for (let [t, n] of Object.entries(e.artifacts)) _("#artifacts").append(u(n.path, n.content, { open: t === "analyze" }));
-	if (q(), J(), e.cover) {
+	if (e.coverOutputs && _("#artifacts").append(f(e.coverOutputs)), J(), Y(), e.cover) {
 		let e = document.createElement("button");
-		e.id = "open-cover-pdf", e.textContent = "Open cover-letter PDF", e.onclick = () => Ae(), _("#artifacts").prepend(e);
+		e.id = "open-cover-pdf", e.textContent = "Open cover-letter PDF", e.onclick = () => Ne(), _("#artifacts").prepend(e);
 	}
 	B();
 }
@@ -288,7 +295,7 @@ function z() {
 	let e = v.snapshot;
 	return e ? e.files?.find((e) => e.path === v.filePath) || e.files?.find((t) => t.path === e.path) || e : null;
 }
-function pe() {
+function me() {
 	let e = v.snapshot, t = z();
 	v.filePath = t.path, _("#cv-file").disabled = !1, _("#cv-file").replaceChildren(...(e.files || [e]).map((e) => {
 		let t = document.createElement("option");
@@ -299,16 +306,16 @@ function pe() {
 		let r = t.sourcePath || t.path;
 		if (e.files.some((e) => e.path === r)) {
 			let e = document.createElement("button");
-			e.className = "quiet", e.textContent = "Open " + r, e.onclick = () => me(r, "source"), n.append(" ", e);
+			e.className = "quiet", e.textContent = "Open " + r, e.onclick = () => he(r, "source"), n.append(" ", e);
 		}
 		return n;
 	}));
 }
-function me(e, t = v.view) {
-	v.snapshot && (L() ? (v.filePath = e, v.dirty = !1, v.jobDirty = !1, fe(), V(t)) : _("#cv-file").value = v.filePath);
+function he(e, t = v.view) {
+	v.snapshot && (L() ? (v.filePath = e, v.dirty = !1, v.jobDirty = !1, pe(), V(t)) : _("#cv-file").value = v.filePath);
 }
-_("#cv-file").onchange = (e) => me(e.target.value);
-function he(e, t) {
+_("#cv-file").onchange = (e) => he(e.target.value);
+function ge(e, t) {
 	let n = _(`#${e}-document .cv-document`);
 	n.innerHTML = t.error ? `<p class="empty">Structure cannot preview this template. Use Source or PDF preview to view it.</p><details class="technical-details"><summary>Structure details</summary><pre>${k(t.error)}</pre></details>` : t.html;
 }
@@ -344,7 +351,7 @@ function V(e) {
 		for (let e of v.pdfDocument === "cover" ? ["cover"] : ["original", "current"]) v.pdfs[e] || (_(`#${e}-pdf`).innerHTML = "<p class=\"pdf-message\">Create a PDF preview to see the final layout.<br>Text will remain selectable.</p>");
 	} else N();
 }
-async function H() {
+async function _e() {
 	if (!v.dirty || !v.snapshot) return;
 	if (v.jobDirty) {
 		N("Save the job description draft first.", !0);
@@ -364,7 +371,7 @@ async function H() {
 		N(t.message, !0), O.current.setReadOnly(!e.editable || z()?.exists === !1), _("#job-description").readOnly = !1, _("#save-job").disabled = !1, B();
 	}
 }
-async function ge() {
+async function ve() {
 	if (!v.snapshot) return;
 	let e = v.snapshot;
 	_("#save-job").disabled = !0;
@@ -385,7 +392,7 @@ async function ge() {
 		_("#save-job").disabled = !e.editable;
 	}
 }
-function _e() {
+function ye() {
 	let e = v.snapshot, t = {
 		branch: e.branch,
 		sourceRevision: e.revision,
@@ -393,7 +400,7 @@ function _e() {
 	};
 	return v.dirty && (t.sourceContent = O.current.value), v.jobDirty && (t.jobContent = _("#job-description").value), t;
 }
-function ve(e, { retry: t = !1 } = {}) {
+function be(e, { retry: t = !1 } = {}) {
 	v.commitReview = e, _("#commit-branch").textContent = S(e.branch), _("#commit-destination").textContent = e.destinationLabel || (e.remote ? "Connected destination" : "No sync destination connected"), _("#sync-details").textContent = e.destination || "Not connected", _("#commit-files").replaceChildren(...e.files.map((e) => {
 		let t = document.createElement("li");
 		return t.innerHTML = `<div>${k(d(e.path))}<details class="technical-details"><summary>File details</summary><code>${k(e.path)}</code></details></div><span class="commit-file-status">${{
@@ -404,22 +411,22 @@ function ve(e, { retry: t = !1 } = {}) {
 		}[e.status] || e.status}</span>`, t;
 	})), _("#commit-files").hidden = !e.files.length, _("#commit-empty").hidden = !!e.files.length, _("#commit-empty").textContent = e.ahead > 0 ? `${e.ahead} saved ${e.ahead === 1 ? "version" : "versions"} will be synced.` : e.ahead === 0 ? "No new edits or versions are waiting to sync. Save will check the connection." : "No new edits. This application will be synced to the connected destination.", _("#commit-excluded").hidden = !e.excludedChanges, _("#commit-excluded").textContent = e.excludedChanges ? `${e.excludedChanges} other ${e.excludedChanges === 1 ? "file will" : "files will"} remain unchanged.` : "", _("#commit-message").disabled = !e.files.length, _("#commit-message").required = !!e.files.length, e.files.length && !_("#commit-message").value && (_("#commit-message").value = `Update CV for ${S(e.branch)}`), _("#confirm-commit").textContent = t ? "Retry sync" : "Save", _("#confirm-commit").disabled = !e.remote, e.remote || (_("#commit-error").textContent = "No sync destination is connected. Check your connection setup before saving.");
 }
-async function ye(e = {}) {
-	let t = await M("/api/commit-preview", _e());
-	return ve(t, e), t;
+async function xe(e = {}) {
+	let t = await M("/api/commit-preview", ye());
+	return be(t, e), t;
 }
-async function be() {
+async function Se() {
 	if (v.snapshot && !v.snapshot.running) {
 		if (v.dirty && z().path !== v.snapshot.path) {
 			if (v.jobDirty) {
 				N("Save your CV and job description drafts first.", !0);
 				return;
 			}
-			if (await H(), v.dirty) return;
+			if (await _e(), v.dirty) return;
 		}
 		_("#commit-push").disabled = !0, _("#commit-error").textContent = "", _("#commit-progress").textContent = "Checking your changes…", _("#commit-message").value = "";
 		try {
-			await ye(), _("#commit-progress").textContent = "Review these changes before saving and syncing.", _("#commit-dialog").showModal(), v.commitReview.files.length && _("#commit-message").focus();
+			await xe(), _("#commit-progress").textContent = "Review these changes before saving and syncing.", _("#commit-dialog").showModal(), v.commitReview.files.length && _("#commit-message").focus();
 		} catch (e) {
 			N(e.message, !0);
 		} finally {
@@ -434,14 +441,14 @@ _("#commit-form").onsubmit = async (e) => {
 	t.disabled = !0, _("#commit-error").textContent = "", _("#commit-progress").textContent = v.commitReview.files.length ? "Saving and syncing…" : "Syncing saved versions…", document.querySelectorAll("#commit-dialog .close-dialog").forEach((e) => e.disabled = !0), B();
 	try {
 		let e = await M("/api/commit-push", {
-			..._e(),
+			...ye(),
 			message: _("#commit-message").value,
 			review: v.commitReview.review
 		});
 		v.syncedCommits.set(e.branch, e.commit), _("#commit-dialog").close(), v.dirty = !1, v.jobDirty = !1, await R(e.branch, !0), await I(), P("Application saved and synced.");
 	} catch (e) {
 		if (_("#commit-error").textContent = (e.commitCreated && e.commit ? "Your changes were saved on this computer. " : "") + e.message, e.canRetry) try {
-			await R(v.snapshot.branch, !0), await ye({ retry: !0 }), _("#commit-progress").textContent = "Your saved version is safe. Check the connection and retry syncing.";
+			await R(v.snapshot.branch, !0), await xe({ retry: !0 }), _("#commit-progress").textContent = "Your saved version is safe. Check the connection and retry syncing.";
 		} catch (e) {
 			_("#commit-error").textContent += "\n" + e.message;
 		}
@@ -452,7 +459,7 @@ _("#commit-form").onsubmit = async (e) => {
 }, _("#commit-dialog").addEventListener("cancel", (e) => {
 	v.publishing && e.preventDefault();
 });
-async function xe() {
+async function Ce() {
 	L() && (v.branches.length ? (_("#base-branch").innerHTML = v.branches.map((e) => `<option value="${k(e.name)}">${k(e.displayName || e.name)}</option>`).join(""), _("#base-branch").value = v.snapshot?.branch || v.branches.find((e) => e.current)?.name || v.branches[0]?.name || "", _("#create-error").textContent = "", _("#create-dialog").showModal(), _("#branch-name").focus()) : P("Wait for your saved CVs to load, then try again."));
 }
 _("#create-form").onsubmit = async (e) => {
@@ -508,16 +515,26 @@ _("#create-form").onsubmit = async (e) => {
 		e.submitter.disabled = !1;
 	}
 };
-var U = (e) => !!(e?.requirementsApprovalNeeded || e?.factualReview?.state === "pending");
-async function Se(e, t) {
-	if (v.snapshot !== t) return e;
-	if (t.running = e, v.graphRunId = e.id, await D.refresh(), v.snapshot === t) {
-		let t = v.runs.find((t) => t.id === e.id) || e;
-		s(t) || await we(v.runs.some((t) => t.id === e.id) ? v.runs : [e, ...v.runs]);
+var H = (e) => !!(e?.requirementsApprovalNeeded || e?.factualReview?.state === "pending" || e?.status === "awaiting_review"), U = (e, t) => H(e) && (e.source === "jobenu" ? e.pendingStep === t : e.factualReview?.step === t || t === "extract" && e.requirementsApprovalNeeded);
+async function W(e) {
+	if (e && !v.openingRunId) {
+		v.openingRunId = e.id, Y();
+		try {
+			e.source === "jobenu" ? await se.reviewRun(e) : e.requirementsApprovalNeeded ? await b.open() : e.factualReview?.state === "pending" && await x.open(e);
+		} finally {
+			v.openingRunId = null, Y();
+		}
 	}
-	return v.snapshot && (J(), q(), B()), v.runs.find((t) => t.id === e.id) || e;
 }
-async function Ce(e, t = v.snapshot?.branch) {
+async function we(e, t) {
+	if (v.snapshot !== t) return e;
+	if (t.running = e, v.graphRunId = e.id, v.historyRunId = null, await D.refresh(), v.snapshot === t) {
+		let t = v.runs.find((t) => t.id === e.id) || e;
+		s(t) || await Ee(v.runs.some((t) => t.id === e.id) ? v.runs : [e, ...v.runs]);
+	}
+	return v.snapshot && (Y(), J(), B()), v.runs.find((t) => t.id === e.id) || e;
+}
+async function Te(e, t = v.snapshot?.branch) {
 	let n = v.snapshot;
 	if (!n || n.branch !== t || v.dirty || v.jobDirty) throw Error("Approval saved. Reopen this application with saved drafts to continue.");
 	let r = e ? v.runs.find((t) => t.id === e) : v.runs.find((e) => e.branch === t && e.requirementsDraft && !s(e));
@@ -525,14 +542,14 @@ async function Ce(e, t = v.snapshot?.branch) {
 		await D.refresh();
 		return;
 	}
-	let i = await Se(await M("/api/review-continue", {
+	let i = await we(await M("/api/review-continue", {
 		id: e || r.id,
 		revision: n.revision,
 		jobRevision: n.jobRevision
 	}), n);
 	v.snapshot?.branch === t && N(s(i) ? "Approved. Continuing preparation…" : i.message);
 }
-async function W(e = K().steps) {
+async function G(e = q().steps) {
 	if (!v.snapshot || v.snapshot.running || v.launching) return;
 	if (!e.length) {
 		N("Select at least one step.", !0);
@@ -559,21 +576,22 @@ async function W(e = K().steps) {
 			engine: y.engine(),
 			reviewPolicy: _("#review-policy").value
 		});
-		t.running = r, v.snapshot === t && (v.graphRunId = r.id, j(), q(), J(), B(), _("#ai-status").textContent = r.message), await D.refresh();
+		t.running = r, v.snapshot === t && (v.graphRunId = r.id, v.historyRunId = null, j(), J(), Y(), B(), _("#ai-status").textContent = r.message), await D.refresh();
 	} catch (e) {
-		v.snapshot === t && (N(e.message, !0), q(), O.current.setReadOnly(!t.editable || z()?.exists === !1), _("#job-description").readOnly = !t.editable, _("#save-job").disabled = !t.editable, _("#branch-from").disabled = !1);
+		v.snapshot === t && (N(e.message, !0), J(), O.current.setReadOnly(!t.editable || z()?.exists === !1), _("#job-description").readOnly = !t.editable, _("#save-job").disabled = !t.editable, _("#branch-from").disabled = !1);
 	} finally {
-		v.launching = !1, v.snapshot && (j(), q(), J());
+		v.launching = !1, v.snapshot && (j(), J(), Y());
 	}
 }
-async function we(e) {
-	v.runs = e, F();
-	let t = v.snapshot;
-	if (!t) return;
-	J();
-	let n = e.find((e) => e.branch === t.branch && s(e));
-	if (n) {
-		t.running = n, _("#ai-status").textContent = n.message, O.current.setReadOnly(!0), _("#job-description").readOnly = !0;
+async function Ee(e) {
+	let t = e.filter((e) => !s(e) && v.runs.some((t) => t.id === e.id && s(t)));
+	t.length && P(`${S(t[0].branch)}: ${c(t[0])}${t.length > 1 ? ` · ${t.length - 1} more updates` : ""}`), v.runs = e, F();
+	let n = v.snapshot;
+	if (!n) return;
+	n.nativeRuns = e.filter((e) => e.source === "jobenu" && e.branch === n.branch), Y();
+	let r = e.find((e) => e.branch === n.branch && s(e));
+	if (r) {
+		n.running = r, _("#ai-status").textContent = r.message, O.current.setReadOnly(!0), _("#job-description").readOnly = !0;
 		for (let e of [
 			"save-job",
 			"run-adapt",
@@ -581,40 +599,41 @@ async function we(e) {
 			"task-run",
 			"branch-from"
 		]) _("#" + e).disabled = !0;
-		j(), q(), J(), B();
-	} else if (t.running) {
-		let n = e.find((e) => e.id === t.running.id);
-		t.running = null, !v.dirty && !v.jobDirty && !v.publishing ? await R(t.branch, !0) && n && (_("#ai-status").textContent = n.message, N(n.message, n.status !== "succeeded" && !U(n))) : (O.current.setReadOnly(!t.editable || z()?.exists === !1), _("#job-description").readOnly = !t.editable, _("#save-job").disabled = !t.editable, _("#branch-from").disabled = !1, j(), B(), q(), N("The preparation finished. Your unsaved edits are safe; refresh to review the results.", !0));
+		j(), J(), Y(), B();
+	} else if (n.running) {
+		let t = e.find((e) => e.id === n.running.id);
+		n.running = null, !v.dirty && !v.jobDirty && !v.publishing ? await R(n.branch, !0) && t && (_("#ai-status").textContent = t.message, N(t.message, t.status !== "succeeded" && !H(t))) : (O.current.setReadOnly(!n.editable || z()?.exists === !1), _("#job-description").readOnly = !n.editable, _("#save-job").disabled = !n.editable, _("#branch-from").disabled = !1, j(), B(), J(), N("The preparation finished. Your unsaved edits are safe; refresh to review the results.", !0));
 	}
 }
-async function G(e) {
+async function K(e) {
 	if (!L()) return;
 	let t = v.snapshot, n = t?.branch === e.branch && !t.running && !v.dirty && !v.jobDirty ? t : await R(e.branch, !0);
 	if (n) {
-		if (v.graphRunId = e.id, J(), V("ai"), _("#ai-status").textContent = e.message, e.source === "jobenu") _("#selected-run").hidden = !0, N("Showing the application’s current reports. Jobenu component history is recorded separately; use Import details for logs and continuation."), _("#ai-panel").scrollIntoView({ block: "start" });
+		if (v.graphRunId = e.id, v.historyRunId = e.id, Y(), V("ai"), _("#ai-status").textContent = e.message, e.source === "jobenu") _("#selected-run").hidden = !0, N("Showing the application’s current reports. Jobenu component history is recorded separately; use Import details for logs and continuation."), _("#ai-panel").scrollIntoView({ block: "start" });
 		else {
 			if (!s(e)) {
 				let t = await M("/api/job-result?id=" + encodeURIComponent(e.id));
 				if (v.snapshot !== n) return;
 				let r = [e.provider ? A.summary(e) : "", [..._("#language").options].find((t) => t.value === e.language)?.textContent || e.language].filter(Boolean).join(" · ");
-				_("#selected-run").hidden = !1, _("#selected-run-info").textContent = `${o(e)} · ${c(e)} · ${(/* @__PURE__ */ new Date(e.createdAt * 1e3)).toLocaleString()} · ${e.provider ? r : "Local checks; no AI used"} · ${Math.round(e.elapsedSeconds || 0)}s. Results from this preparation. Your application may contain newer edits.`, De(t), _("#selected-run-files").replaceChildren();
+				_("#selected-run").hidden = !1, _("#selected-run-info").textContent = `${o(e)} · ${c(e)} · ${(/* @__PURE__ */ new Date(e.createdAt * 1e3)).toLocaleString()} · ${e.provider ? r : "Local checks; no AI used"} · ${Math.round(e.elapsedSeconds || 0)}s. Results from this preparation. Your application may contain newer edits.`, ke(t), _("#selected-run-files").replaceChildren();
 				for (let [e, n] of Object.entries(t.files)) _("#selected-run-files").append(u(e, n, {
 					open: /analy(sis|ze)\.md$/.test(e),
 					label: t.inputs?.includes(e) ? `Starting material · ${d(e)}` : d(e)
 				}));
 				if (Object.keys(t.files).length || (_("#selected-run-files").textContent = "This preparation did not produce any results."), t.coverPdf) {
 					let e = document.createElement("button");
-					e.id = "open-run-cover-pdf", e.textContent = "Open generated cover-letter PDF", e.onclick = () => Ae(t.coverPdf.runId), _("#selected-run-files").prepend(e);
+					e.id = "open-run-cover-pdf", e.textContent = "Open generated cover-letter PDF", e.onclick = () => Ne(t.coverPdf.runId), _("#selected-run-files").prepend(e);
 				}
+				t.coverOutputs && _("#selected-run-files").append(f(t.coverOutputs));
 			}
 			_("#ai-panel").scrollIntoView({ block: "start" });
 		}
 	}
 }
-function K() {
+function q() {
 	return { steps: C.filter((e) => _("#step-" + e).checked) };
 }
-function q() {
+function J() {
 	let e = v.snapshot, t = v.session.workflow || {}, n = e.running?.stages?.length ? e.running.stages.filter((e) => e.status !== "skipped").map((e) => e.id) : v.workflowChoices.get(e.branch)?.steps || [
 		"analyze",
 		"adapt",
@@ -624,12 +643,12 @@ function q() {
 		let r = _("#step-" + t);
 		r.checked = n.includes(t) && w(t), r.disabled = !w(t) || !!e.running || !!v.launching || !e.editable, w(t) || (_("#hint-" + t).textContent = "Update Vita CV to use this step.");
 	}
-	let r = A.problem(K().steps), i = !v.session.vita || !e.editable || !!e.running || !!v.launching || !!r;
-	_("#ai-config-validation").textContent = r, _("#ai-config-validation").hidden = !r, _("#run-adapt").textContent = "Start selected steps", _("#run-adapt").disabled = i || !K().steps.length, _("#run-all").disabled = i || !!A.problem(C.filter(w)), A.refresh();
+	let r = A.problem(q().steps), i = !v.session.vita || !e.editable || !!e.running || !!v.launching || !!r;
+	_("#ai-config-validation").textContent = r, _("#ai-config-validation").hidden = !r, _("#run-adapt").textContent = "Start selected steps", _("#run-adapt").disabled = i || !q().steps.length, _("#run-all").disabled = i || !!A.problem(C.filter(w)), A.refresh();
 }
-function J() {
+function Y() {
 	if (!v.snapshot) return;
-	let e = [...v.runs.filter((e) => e.branch === v.snapshot.branch), ...v.snapshot.nativeRuns || []].sort((e, t) => t.createdAt - e.createdAt), n = v.graphRunId || v.snapshot.running?.id || e[0]?.id || "draft", r = _("#workflow-run");
+	let e = [...new Map([...v.snapshot.nativeRuns || [], ...v.runs.filter((e) => e.branch === v.snapshot.branch)].map((e) => [e.id, e])).values()].sort((e, t) => t.createdAt - e.createdAt), n = v.graphRunId || v.snapshot.running?.id || e[0]?.id || "draft", r = _("#workflow-run");
 	r.replaceChildren(new Option("New preparation", "draft"), ...e.map((e) => new Option(`${e.attempt ? "Attempt " + e.attempt + " · " : ""}${(/* @__PURE__ */ new Date(e.createdAt * 1e3)).toLocaleString()} — ${o(e)} · ${c(e)}${e.source === "jobenu" || s(e) ? "" : e.reviewed ? " · Reviewed" : " · Needs review"}`, e.id)));
 	let i = e.find((e) => e.id === n) || (v.snapshot.running?.id === n ? v.snapshot.running : null);
 	i && !e.some((e) => e.id === i.id) && r.add(new Option("Current preparation", i.id)), r.value = i ? i.id : "draft", v.displayedRun = i, y.summary(i);
@@ -642,60 +661,66 @@ function J() {
 	]) _("#" + e).disabled = !1;
 	_("#requirements-captured").hidden = !i?.requirementsRevision && !i?.requirementsDraft, _("#requirements-captured").textContent = i?.requirementsRevision ? "Requirements used · " + i.requirementsRevision.slice(0, 12) + (i.requirementsStatus && i.requirementsStatus !== "current" ? " · needs update" : "") : "Review job requirements", _("#review-facts").hidden = !a || !i?.factualReview, _("#review-facts").disabled = !!v.snapshot.running || !!v.launching || !!v.openingRunId, _("#review-facts").textContent = i?.factualReview?.state === "resolved" ? "View factual decisions" : "Review factual changes", _("#inspect-run").hidden = !i, _("#inspect-step").hidden = !i, _("#inspect-step-dialog").hidden = !i, i?.source === "jobenu" ? (_("#inspect-run").textContent = "Import details", _("#inspect-step").hidden = !0, _("#inspect-step-dialog").hidden = !0) : _("#inspect-run").textContent = "Execution details", _("#resume-run").hidden = !i?.resumeAvailable, _("#resume-run").disabled = !!v.snapshot.running || !!v.launching || !!v.retryPlanning || !v.snapshot.editable, _("#view-run").hidden = !a, _("#view-run").disabled = !!v.openingRunId, _("#view-run").textContent = v.openingRunId ? "Opening results…" : "View results";
 	let l = _("#mark-run-reviewed");
-	l.hidden = !a || i?.source === "jobenu", l.disabled = !!i?.reviewed || !!v.reviewingRunId, l.textContent = i?.reviewed ? "Reviewed" : v.reviewingRunId === i?.id ? "Saving review…" : "Mark as reviewed", _("#workflow-summary").textContent = i ? i.factualReview ? i.message : m(i) || i.message : "Choose the steps for your next preparation. Only selected AI steps will use your AI service.", i?.reviewPolicy === "automatic" && (_("#workflow-summary").textContent += " Automatic approvals selected for this preparation."), t(_("#workflow-graph"), {
+	l.hidden = !a || i?.source === "jobenu", l.disabled = !!i?.reviewed || !!v.reviewingRunId, l.textContent = i?.reviewed ? "Reviewed" : v.reviewingRunId === i?.id ? "Saving review…" : "Mark as reviewed", _("#workflow-summary").textContent = i ? i.factualReview ? i.message : h(i) || i.message : "Choose the steps for your next preparation. Only selected AI steps will use your AI service.", i?.reviewPolicy === "automatic" && (_("#workflow-summary").textContent += " Automatic approvals selected for this preparation."), i?.contextInvalidated && (_("#workflow-summary").textContent += " Earlier analysis did not match the captured inputs and was excluded. Select Check CV match to refresh it."), t(_("#workflow-graph"), {
 		run: i,
 		history: e,
-		options: K(),
+		options: q(),
 		available: v.session.workflow,
 		selected: v.selectedTask,
-		select: Ee,
+		select: Oe,
 		config: i?.stepConfig || Object.fromEntries(C.map((e) => [e, A.route(e)]))
 	});
 	let u = _("#workflow-next");
-	u.disabled = !!v.snapshot.running || !!v.launching, u.textContent = i?.requirementsApprovalNeeded ? "Review job requirements" : i?.factualReview?.state === "pending" ? "Review CV changes" : i?.resumeAvailable ? "Continue preparation" : a && i.status === "succeeded" ? "Preview your PDF" : "Prepare application", _("#workflow-action").dataset.state = U(i) ? "review" : i?.status === "failed" ? "failed" : "ready", _("#workflow-next-help").textContent = U(i) ? "One review, then the remaining steps continue automatically." : i?.status === "failed" ? m(i) || i.message : a && i.status === "succeeded" ? "Your application is updated. Check the final layout before saving." : "Prepare everything, or choose individual steps in Job details & AI.", i?.source === "jobenu" && (u.textContent = i.status === "failed" ? "Start selected steps" : "Open import activity", _("#workflow-next-help").textContent = i.status === "failed" ? "Start a new preparation with your current AI setup. The imported attempt keeps its captured settings." : i.message), _("#review-policy").disabled = !!v.snapshot.running || !!v.launching, v.selectedTask && Te();
+	u.disabled = !!v.snapshot.running || !!v.launching || !!v.openingRunId, u.textContent = i?.requirementsApprovalNeeded ? "Review job requirements" : i?.factualReview?.state === "pending" ? "Review CV changes" : i?.resumeAvailable ? "Continue preparation" : a && i.status === "succeeded" ? "Preview your PDF" : "Prepare application", _("#workflow-action").dataset.state = H(i) ? "review" : i?.status === "failed" ? "failed" : "ready", _("#workflow-next-help").textContent = H(i) ? "One review, then the remaining steps continue automatically." : i?.status === "failed" ? h(i) || i.message : a && i.status === "succeeded" ? "Your application is updated. Check the final layout before saving." : "Prepare everything, or choose individual steps in Job details & AI.", i?.source === "jobenu" && (u.textContent = H(i) ? i.pendingStep === "extract" ? "Review requirements" : "Review changes" : i.status === "failed" ? "Start selected steps" : "Open import activity", _("#workflow-next-help").textContent = i.status === "failed" ? "Start a new preparation with your current AI setup. The imported attempt keeps its captured settings." : i.message), v.openingRunId && (u.textContent = "Opening review…"), _("#review-policy").disabled = !!v.snapshot.running || !!v.launching, v.selectedTask && De();
 }
-function Te() {
-	let e = i(v.displayedRun, K(), v.session.workflow).find((e) => e.id === v.selectedTask);
+function De() {
+	let e = i(v.displayedRun, q(), v.session.workflow).find((e) => e.id === v.selectedTask);
 	if (!e) return;
 	_("#task-inspector").hidden = !1, _("#task-title").textContent = e.title;
 	let t = v.displayedRun?.stepConfig?.[e.id] || (!v.displayedRun && e.id !== "validating" ? A.route(e.id) : null);
-	_("#task-description").textContent = e.detail + (t ? " AI setup: " + A.summary(t) + ". Connection: " + A.connectionName(t) + "." : e.id === "validating" ? " This step runs locally without an AI model." : ""), _("#task-status").textContent = `${r[e.status] || e.status} · ${e.output}`, _("#task-output").textContent = e.id === "validating" ? "Compare current CVs" : e.id === "adapt" ? "View CV source" : "View results", _("#task-run").textContent = e.id === "validating" ? "Check current changes" : "Start this step", _("#task-requirements").hidden = e.id !== "extract", _("#task-configure").hidden = e.id === "validating", _("#task-configure").textContent = v.displayedRun ? "Configure next run" : "Configure AI", _("#task-configure").disabled = !!v.snapshot.running || !!v.launching || !v.snapshot.editable, _("#task-run").disabled = !v.snapshot.editable || !!v.snapshot.running || !!v.launching || !w(e.id) || e.id !== "validating" && (!v.session.vita || !!A.problem([e.id])), _("#task-output").disabled = s(v.displayedRun) || !["succeeded", "unknown"].includes(e.status), h(v.displayedRun, e.id) && (_("#task-status").textContent = h(v.displayedRun, e.id)), s(v.displayedRun) && (_("#task-status").textContent += " · Results open after the preparation finishes.");
+	_("#task-description").textContent = e.detail + (t ? " AI setup: " + A.summary(t) + ". Connection: " + A.connectionName(t) + "." : e.id === "validating" ? " This step runs locally without an AI model." : ""), _("#task-status").textContent = `${r[e.status] || e.status} · ${e.output}`, _("#task-output").textContent = e.id === "validating" ? "Compare current CVs" : e.id === "adapt" ? "View CV source" : "View results";
+	let n = U(v.displayedRun, e.id);
+	_("#task-run").textContent = n ? e.id === "extract" ? "Review requirements" : "Review changes" : e.id === "validating" ? "Check current changes" : "Start this step", _("#task-requirements").hidden = e.id !== "extract", _("#task-configure").hidden = e.id === "validating", _("#task-configure").textContent = v.displayedRun ? "Configure next run" : "Configure AI", _("#task-configure").disabled = !!v.snapshot.running || !!v.launching || !v.snapshot.editable, _("#task-run").disabled = n ? !!v.snapshot.running || !!v.launching || !!v.openingRunId : !v.snapshot.editable || !!v.snapshot.running || !!v.launching || !w(e.id) || e.id !== "validating" && (!v.session.vita || !!A.problem([e.id])), _("#task-output").disabled = s(v.displayedRun) || !["succeeded", "unknown"].includes(e.status), g(v.displayedRun, e.id) && (_("#task-status").textContent = g(v.displayedRun, e.id)), s(v.displayedRun) && (_("#task-status").textContent += " · Results open after the preparation finishes.");
 }
-function Ee(e) {
-	v.snapshot && (v.selectedTask = e.id, J(), C.includes(e.id) && A.openStep(e.id, {
-		history: !!v.displayedRun,
-		recorded: v.displayedRun?.stepConfig?.[e.id],
-		readOnly: !!v.snapshot.running || !!v.launching || !v.snapshot.editable,
-		allowNext: !v.snapshot.running && !v.launching && v.snapshot.editable
-	}));
+function Oe(e) {
+	if (v.snapshot) {
+		if (v.selectedTask = e.id, Y(), U(v.displayedRun, e.id)) return W(v.displayedRun).catch((e) => N(e.message, !0));
+		C.includes(e.id) && A.openStep(e.id, {
+			history: !!v.displayedRun,
+			recorded: v.displayedRun?.stepConfig?.[e.id],
+			readOnly: !!v.snapshot.running || !!v.launching || !v.snapshot.editable,
+			allowNext: !v.snapshot.running && !v.launching && v.snapshot.editable
+		});
+	}
 }
 _("#workflow-next").onclick = () => {
 	let e = v.displayedRun;
-	if (e?.source === "jobenu") return e.status === "failed" ? W(K().steps) : oe.open();
+	if (H(e)) return W(e).catch((e) => N(e.message, !0));
+	if (e?.source === "jobenu") return e.status === "failed" ? G(q().steps) : se.open();
 	if (e?.requirementsApprovalNeeded) return b.open().catch((e) => N(e.message, !0));
 	if (e?.factualReview?.state === "pending") return x.open(e).catch((e) => N(e.message, !0));
-	if (e?.resumeAvailable) return v.resumeCaptured = !0, _("#resume-current-config").checked = !1, X();
+	if (e?.resumeAvailable) return v.resumeCaptured = !0, _("#resume-current-config").checked = !1, Z();
 	if (e?.status === "succeeded") {
 		V("pdf");
 		return;
 	}
 	let t = C.filter(w);
 	if (A.problem(t) || !v.snapshot.job.trim()) V("ai"), _("#ai-panel").scrollIntoView({ block: "start" }), N("Add the job description and choose your AI setup, then prepare the application.");
-	else return W(t);
+	else return G(t);
 }, _("#view-run").onclick = async () => {
 	let e = v.displayedRun;
 	if (!(!e || s(e) || v.openingRunId)) {
-		v.openingRunId = e.id, J();
+		v.openingRunId = e.id, Y();
 		try {
-			await G(e);
+			await K(e);
 		} catch (e) {
 			N(e.message, !0);
 		} finally {
-			v.openingRunId = null, J();
+			v.openingRunId = null, Y();
 		}
 	}
 };
-function Y(e) {
+function X(e) {
 	return i(null, {}, {}).find((t) => t.id === e)?.title || e;
 }
 for (let e of [
@@ -706,18 +731,18 @@ for (let e of [
 _("#requirements-captured").onclick = () => b.open(v.displayedRun?.requirementsRevision ? v.displayedRun : null).catch((e) => N(e.message, !0)), _("#review-facts").onclick = () => {
 	v.displayedRun && x.open(v.displayedRun).catch((e) => N(e.message, !0));
 };
-function De(e) {
+function ke(e) {
 	let t = _("#attempt-history");
 	t.replaceChildren();
 	let n = document.createElement("h3");
 	n.textContent = "Attempt history", t.append(n);
 	let r = document.createElement("p");
-	r.className = "helper", r.textContent = e.run.checkpointSteps?.length ? "Verified results retained: " + e.run.checkpointSteps.map(Y).join(", ") + "." : "No verified checkpoints retained. A retry will run every selected step again.", t.append(r);
+	r.className = "helper", r.textContent = e.run.checkpointSteps?.length ? "Verified results retained: " + e.run.checkpointSteps.map(X).join(", ") + "." : "No verified checkpoints retained. A retry will run every selected step again.", t.append(r);
 	for (let n of e.attemptHistory || [e.run]) {
 		let r = document.createElement("div");
 		r.className = "attempt-row";
 		let i = document.createElement("button");
-		if (i.type = "button", i.className = "quiet", i.textContent = `Attempt ${n.attempt || 1} · ${c(n)}${n.id === e.run.id ? " · Viewing" : ""}`, i.disabled = n.id === e.run.id, i.onclick = () => G(n).catch((e) => N(e.message, !0)), r.append(i), n.requirementsRevision || n.requirementsDraft) {
+		if (i.type = "button", i.className = "quiet", i.textContent = `Attempt ${n.attempt || 1} · ${c(n)}${n.id === e.run.id ? " · Viewing" : ""}`, i.disabled = n.id === e.run.id, i.onclick = () => K(n).catch((e) => N(e.message, !0)), r.append(i), n.requirementsRevision || n.requirementsDraft) {
 			let e = document.createElement("button");
 			e.textContent = "Requirements " + (n.requirementsRevision || n.requirementsDraft) + (n.requirementsStatus && n.requirementsStatus !== "current" ? " · needs update" : ""), e.onclick = () => b.open(n).catch((e) => N(e.message, !0)), r.append(e);
 		}
@@ -731,8 +756,8 @@ function De(e) {
 		}
 		for (let [e, t] of Object.entries(n.outcomes || {})) {
 			let i = document.createElement("p");
-			i.className = "helper", i.textContent = Y(e) + ": " + (t.status === "success" ? "Completed" : "Could not finish") + (t.backend?.attempts?.length ? " · AI attempts: " + t.backend.attempts.map((e) => `${e.number}: ${e.category.replaceAll("_", " ")}`).join("; ") : ""), r.append(i);
-			let a = h(n, e);
+			i.className = "helper", i.textContent = X(e) + ": " + (t.status === "success" ? "Completed" : "Could not finish") + (t.backend?.attempts?.length ? " · AI attempts: " + t.backend.attempts.map((e) => `${e.number}: ${e.category.replaceAll("_", " ")}`).join("; ") : ""), r.append(i);
+			let a = g(n, e);
 			if (a) {
 				let e = document.createElement("p");
 				e.className = "provider-failure", e.textContent = a, r.append(e);
@@ -741,12 +766,12 @@ function De(e) {
 		t.append(r);
 	}
 }
-async function X() {
+async function Z() {
 	let e = v.displayedRun, t = v.snapshot;
 	if (!(!e?.resumeAvailable || v.retryPlanning || v.launching)) {
 		if (v.dirty || v.jobDirty) N("Save your CV and job description drafts before retrying.", !0);
 		else {
-			v.retryPlanning = !0, _("#confirm-resume").disabled = !0, _("#resume-current-config").disabled = !0, J();
+			v.retryPlanning = !0, _("#confirm-resume").disabled = !0, _("#resume-current-config").disabled = !0, Y();
 			try {
 				let n = v.resumeCaptured && !_("#resume-current-config").checked, r = {
 					id: e.id,
@@ -762,32 +787,32 @@ async function X() {
 					request: r,
 					plan: i,
 					snapshot: t
-				}, _("#resume-summary").textContent = `Attempt ${i.attempt}, continuing attempt ${e.attempt || 1}. Output language: ${[..._("#language").options].find((t) => t.value === (n ? e.language : _("#language").value))?.textContent || e.language}. Captured TeX engine: ${e.compileEngine || "auto"}. ${n ? "Preserves the AI setup and language captured for this preparation." : "Uses the AI setup currently shown for this application."}`, _("#resume-config-choice").hidden = !v.resumeCaptured, _("#resume-reuse").textContent = i.reuse.length ? i.reuse.map(Y).join(", ") : "None. Start again with the current inputs and setup.", _("#resume-rerun").textContent = [...i.rerun.map(Y), "Final checks"].join(", "), _("#resume-adapted").hidden = !i.reuse.includes("adapt"), _("#resume-error").textContent = "", _("#confirm-resume").disabled = !1, _("#resume-dialog").open || _("#resume-dialog").showModal();
+				}, _("#resume-summary").textContent = `Attempt ${i.attempt}, continuing attempt ${e.attempt || 1}. Output language: ${[..._("#language").options].find((t) => t.value === (n ? e.language : _("#language").value))?.textContent || e.language}. Captured TeX engine: ${e.compileEngine || "auto"}. ${n ? "Preserves the AI setup and language captured for this preparation." : "Uses the AI setup currently shown for this application."}`, _("#resume-config-choice").hidden = !v.resumeCaptured, _("#resume-reuse").textContent = i.reuse.length ? i.reuse.map(X).join(", ") : "None. Start again with the current inputs and setup.", _("#resume-rerun").textContent = [...i.rerun.map(X), "Final checks"].join(", "), _("#resume-adapted").hidden = !i.reuse.includes("adapt"), _("#resume-error").textContent = "", _("#confirm-resume").disabled = !1, _("#resume-dialog").open || _("#resume-dialog").showModal();
 			} catch (e) {
 				v.resumeReview = null, _("#confirm-resume").disabled = !0, _("#resume-error").textContent = e.message, N(e.message, !0), v.resumeCaptured && (_("#resume-config-choice").hidden = !1, _("#resume-summary").textContent = "The captured setup could not be checked. Reconnect the account in this application, then explicitly choose its current setup, or cancel and review the error.", _("#resume-reuse").textContent = "Not verified. A valid retry plan is required before starting.", _("#resume-rerun").textContent = "Not planned yet.", _("#resume-adapted").hidden = !0, _("#resume-dialog").open || _("#resume-dialog").showModal());
 			} finally {
-				v.retryPlanning = !1, _("#resume-current-config").disabled = !1, J();
+				v.retryPlanning = !1, _("#resume-current-config").disabled = !1, Y();
 			}
 		}
 	}
 }
 _("#resume-run").onclick = () => {
-	v.resumeCaptured = !0, _("#resume-current-config").checked = !1, X();
-}, _("#resume-current-config").onchange = () => X(), _("#resume-form").onsubmit = async (e) => {
+	v.resumeCaptured = !0, _("#resume-current-config").checked = !1, Z();
+}, _("#resume-current-config").onchange = () => Z(), _("#resume-form").onsubmit = async (e) => {
 	e.preventDefault();
 	let t = v.resumeReview;
 	if (t && !v.launching) {
-		v.launching = !0, _("#confirm-resume").disabled = !0, J(), q();
+		v.launching = !0, _("#confirm-resume").disabled = !0, Y(), J();
 		try {
 			let e = await M("/api/resume", {
 				...t.request,
 				token: t.plan.token
 			});
-			_("#resume-dialog").close(), _("#selected-run").hidden = !0, await Se(e, t.snapshot);
+			_("#resume-dialog").close(), _("#selected-run").hidden = !0, await we(e, t.snapshot);
 		} catch (e) {
 			_("#resume-error").textContent = e.message;
 		} finally {
-			v.launching = !1, _("#confirm-resume").disabled = !1, q(), J();
+			v.launching = !1, _("#confirm-resume").disabled = !1, J(), Y();
 		}
 	}
 }, _("#resume-dialog").onclose = () => {
@@ -797,7 +822,7 @@ _("#resume-run").onclick = () => {
 	e.disabled = !0;
 	try {
 		let e = await M("/api/checkpoints-cleanup", {});
-		_("#cleanup-checkpoints-status").textContent = `Removed checkpoints for ${e.removed.length} preparations. ${e.retainedRuns} retained. Your drafts and review results are unchanged.`, await D.refresh(), J();
+		_("#cleanup-checkpoints-status").textContent = `Removed checkpoints for ${e.removed.length} preparations. ${e.retainedRuns} retained. Your drafts and review results are unchanged.`, await D.refresh(), Y();
 	} catch (e) {
 		_("#cleanup-checkpoints-status").textContent = e.message;
 	} finally {
@@ -806,23 +831,23 @@ _("#resume-run").onclick = () => {
 }, _("#mark-run-reviewed").onclick = async () => {
 	let e = v.displayedRun;
 	if (!(!e || s(e) || e.reviewed || v.reviewingRunId)) {
-		v.graphRunId = e.id, v.reviewingRunId = e.id, J(), N();
+		v.graphRunId = e.id, v.reviewingRunId = e.id, Y(), N();
 		try {
 			let t = await M("/api/job-reviewed", { id: e.id });
-			v.runs = v.runs.map((e) => e.id === t.id ? t : e), F(), J(), P("Run marked as reviewed."), await D.refresh();
+			v.runs = v.runs.map((e) => e.id === t.id ? t : e), F(), Y(), P("Run marked as reviewed."), await D.refresh();
 		} catch (e) {
 			N(e.message, !0);
 		} finally {
-			v.reviewingRunId = null, J();
+			v.reviewingRunId = null, Y();
 		}
 	}
 }, _("#workflow-run").onchange = () => {
-	v.graphRunId = _("#workflow-run").value, J();
+	v.graphRunId = _("#workflow-run").value, v.historyRunId = v.graphRunId, Y();
 };
 for (let e of C) _("#step-" + e).onchange = () => {
-	v.workflowChoices.set(v.snapshot.branch, K()), v.graphRunId = "draft", q(), J();
+	v.workflowChoices.set(v.snapshot.branch, q()), v.graphRunId = "draft", v.historyRunId = null, J(), Y();
 };
-_("#task-run").onclick = () => W([v.selectedTask]), _("#task-configure").onclick = () => A.openStep(v.selectedTask), _("#run-all").onclick = () => W(C.filter(w)), _("#toggle-workflow").onclick = () => {
+_("#task-run").onclick = () => U(v.displayedRun, v.selectedTask) ? W(v.displayedRun).catch((e) => N(e.message, !0)) : G([v.selectedTask]), _("#task-configure").onclick = () => A.openStep(v.selectedTask), _("#run-all").onclick = () => G(C.filter(w)), _("#toggle-workflow").onclick = () => {
 	let e = _("#workflow-body");
 	e.hidden = !e.hidden, _("#toggle-workflow").textContent = e.hidden ? "Show steps" : "Hide steps", _("#toggle-workflow").setAttribute("aria-expanded", String(!e.hidden));
 }, _("#task-output").onclick = async () => {
@@ -830,10 +855,10 @@ _("#task-run").onclick = () => W([v.selectedTask]), _("#task-configure").onclick
 	if (e === "validating") V("structure"), _("#comparison").scrollIntoView({ block: "start" });
 	else try {
 		if (e === "cover" && t && t.source !== "jobenu" && !s(t) && (await M("/api/job-result?id=" + encodeURIComponent(t.id))).coverPdf) {
-			await Ae(t.id);
+			await Ne(t.id);
 			return;
 		}
-		t && !s(t) ? await G(t) : V("ai");
+		t && !s(t) ? await K(t) : V("ai");
 		let n = {
 			extract: "job.json",
 			analyze: "analy",
@@ -846,11 +871,11 @@ _("#task-run").onclick = () => W([v.selectedTask]), _("#task-configure").onclick
 		N(e.message, !0);
 	}
 };
-var Z;
-async function Oe() {
-	return Z || (Z = await import("/vendor/pdf.mjs"), Z.GlobalWorkerOptions.workerSrc = "/vendor/pdf.worker.mjs"), Z;
+var Q;
+async function Ae() {
+	return Q || (Q = await import("/vendor/pdf.mjs"), Q.GlobalWorkerOptions.workerSrc = "/vendor/pdf.worker.mjs"), Q;
 }
-async function ke(e, t, n) {
+async function je(e, t, n) {
 	let r = v.snapshot;
 	if (r) {
 		if (e === "current" && v.dirty) N("Save your CV draft and recreate the preview before saving the PDF.", !0);
@@ -883,8 +908,8 @@ async function ke(e, t, n) {
 		}
 	}
 }
-async function Q(e, t, n) {
-	let r = await Oe(), i = _(`#${e}-pdf`), a = r.getDocument({
+async function Me(e, t, n) {
+	let r = await Ae(), i = _(`#${e}-pdf`), a = r.getDocument({
 		url: t.url,
 		cMapUrl: "/vendor/cmaps/",
 		cMapPacked: !0,
@@ -901,7 +926,7 @@ async function Q(e, t, n) {
 	let c = document.createElement("a");
 	c.className = "pdf-download", c.href = t.url, c.tabIndex = 0, c.target = "_blank", c.rel = "noopener", c.textContent = "Open PDF ↗";
 	let l = document.createElement("button");
-	l.className = "save-pdf", l.textContent = "Save PDF to application folder", l.title = t.filename || "Save this PDF", l.disabled = !v.snapshot?.editable, l.onclick = () => ke(e, t, l), s.append(c, l), i.append(s);
+	l.className = "save-pdf", l.textContent = "Save PDF to application folder", l.title = t.filename || "Save this PDF", l.disabled = !v.snapshot?.editable, l.onclick = () => je(e, t, l), s.append(c, l), i.append(s);
 	for (let e = 1; e <= o.numPages; e++) {
 		let t = await o.getPage(e);
 		if (n !== v.pdfGeneration) {
@@ -934,20 +959,20 @@ async function Q(e, t, n) {
 	}
 	await a.destroy();
 }
-async function Ae(e = null) {
-	v.pdfDocument = "cover", _("#pdf-document").value = "cover", V("pdf"), await je(e);
+async function Ne(e = null) {
+	v.pdfDocument = "cover", _("#pdf-document").value = "cover", V("pdf"), await Pe(e);
 }
 _("#pdf-document").onchange = async () => {
 	v.pdfDocument = _("#pdf-document").value;
 	let e = ++v.pdfGeneration;
 	V("pdf");
 	try {
-		for (let t of v.pdfDocument === "cover" ? ["cover"] : ["original", "current"]) v.pdfs[t] && await Q(t, v.pdfs[t], e);
+		for (let t of v.pdfDocument === "cover" ? ["cover"] : ["original", "current"]) v.pdfs[t] && await Me(t, v.pdfs[t], e);
 	} catch (e) {
 		N(e.message, !0);
 	}
 };
-async function je(e = null) {
+async function Pe(e = null) {
 	if (v.dirty && v.pdfDocument === "cv") {
 		N("Save your CV draft before creating PDF previews.", !0);
 		return;
@@ -966,7 +991,7 @@ async function je(e = null) {
 					document: t,
 					runId: t === "cover" ? e : null
 				});
-				return n === v.pdfGeneration ? (v.pdfs[i] = a, i === "cover" && (_("#cover-pdf-label").textContent = e ? "PDF from this preparation" : S(r)), await Q(i, a, n), a) : void 0;
+				return n === v.pdfGeneration ? (v.pdfs[i] = a, i === "cover" && (_("#cover-pdf-label").textContent = e ? "PDF from this preparation" : S(r)), await Me(i, a, n), a) : void 0;
 			} catch (e) {
 				throw n === v.pdfGeneration && (_(`#${i}-pdf`).innerHTML = `<p class="pdf-message">${k(e.message)}</p>`), e;
 			}
@@ -981,16 +1006,16 @@ async function je(e = null) {
 _("#zoom").onchange = async () => {
 	let e = ++v.pdfGeneration;
 	try {
-		for (let t of v.pdfDocument === "cover" ? ["cover"] : ["original", "current"]) v.pdfs[t] && await Q(t, v.pdfs[t], e);
+		for (let t of v.pdfDocument === "cover" ? ["cover"] : ["original", "current"]) v.pdfs[t] && await Me(t, v.pdfs[t], e);
 	} catch (e) {
 		N(e.message, !0);
 	}
 }, document.querySelectorAll("[data-filter]").forEach((e) => e.onclick = () => {
 	v.filter = e.dataset.filter, document.querySelectorAll("[data-filter]").forEach((t) => t.setAttribute("aria-pressed", String(t === e))), F();
-}), _("#search").oninput = F, _("#refresh").onclick = I, _("#new-branch").onclick = xe, _("#branch-from").onclick = xe, _("#back").onclick = () => {
+}), _("#search").oninput = F, _("#refresh").onclick = I, _("#new-branch").onclick = Ce, _("#branch-from").onclick = Ce, _("#back").onclick = () => {
 	if (!L()) return;
 	let e = v.snapshot?.branch;
-	v.generation++, v.pdfGeneration++, v.snapshot = null, v.dirty = !1, v.jobDirty = !1, _("#workspace").hidden = !0, _("#board").hidden = !1, document.body.classList.remove("in-workspace"), history.replaceState(null, "", "/"), _("#search").focus(), e && de(e), I();
+	v.generation++, v.pdfGeneration++, v.snapshot = null, v.dirty = !1, v.jobDirty = !1, _("#workspace").hidden = !0, _("#board").hidden = !1, document.body.classList.remove("in-workspace"), history.replaceState(null, "", "/"), _("#search").focus(), e && fe(e), I();
 }, _("#reload").onclick = () => R(v.snapshot?.branch || _("#branch-title").textContent), document.querySelectorAll("[data-view]").forEach((e) => e.onclick = () => V(e.dataset.view)), _(".tabs").addEventListener("focusin", (e) => requestAnimationFrame(() => {
 	document.activeElement === e.target && e.target.scrollIntoView({
 		block: "nearest",
@@ -1009,7 +1034,7 @@ _("#zoom").onchange = async () => {
 	e.preventDefault(), V(t[r].dataset.view), t[r].focus();
 }, document.querySelectorAll(".close-dialog").forEach((e) => e.onclick = () => e.closest("dialog").close()), _("#job-description").oninput = () => {
 	v.jobDirty = _("#job-description").value !== v.snapshot.job, _("#job-state").textContent = v.jobDirty ? "Unsaved changes" : "Saved on this computer", B();
-}, _("#save-source").onclick = H, _("#save-job").onclick = ge, _("#commit-push").onclick = be, _("#run-adapt").onclick = () => W(), _("#compile").onclick = () => je(), window.addEventListener("beforeunload", (e) => {
+}, _("#save-source").onclick = _e, _("#save-job").onclick = ve, _("#commit-push").onclick = Se, _("#run-adapt").onclick = () => G(), _("#compile").onclick = () => Pe(), window.addEventListener("beforeunload", (e) => {
 	(v.dirty || v.jobDirty) && (e.preventDefault(), e.returnValue = "");
 }), window.addEventListener("pagehide", () => {
 	v.snapshot && v.session && fetch("/api/release-worktree", {
@@ -1022,22 +1047,22 @@ _("#zoom").onchange = async () => {
 		body: JSON.stringify({ branch: v.snapshot.branch })
 	}).catch(() => {});
 }), document.addEventListener("keydown", (e) => {
-	e.key === "/" && !e.target.closest("input,textarea,select,[contenteditable]") && !_("#board").hidden && (e.preventDefault(), _("#search").focus()), (e.ctrlKey || e.metaKey) && e.key === "s" && v.snapshot && (e.preventDefault(), v.view === "ai" ? ge() : H());
+	e.key === "/" && !e.target.closest("input,textarea,select,[contenteditable]") && !_("#board").hidden && (e.preventDefault(), _("#search").focus()), (e.ctrlKey || e.metaKey) && e.key === "s" && v.snapshot && (e.preventDefault(), v.view === "ai" ? ve() : _e());
 });
-var Me = f({
+var $ = p({
 	api: M,
 	retry: async (e, t) => {
 		if (v.dirty || v.jobDirty) throw Error("Save your CV and job description drafts before retrying.");
 		let n = await M("/api/job?id=" + encodeURIComponent(e));
-		if (t(), await G(n), v.snapshot?.branch !== n.branch) throw Error("Open this application before retrying.");
-		v.resumeCaptured = !0, _("#resume-current-config").checked = !1, await X();
+		if (t(), await K(n), v.snapshot?.branch !== n.branch) throw Error("Open this application before retrying.");
+		v.resumeCaptured = !0, _("#resume-current-config").checked = !1, await Z();
 	}
 });
-_("#inspect-run").onclick = () => v.displayedRun?.source === "jobenu" ? oe.open() : Me.open(v.displayedRun?.id), _("#inspect-step").onclick = () => Me.open(v.displayedRun?.id, v.selectedTask), _("#inspect-step-dialog").onclick = () => {
-	_("#step-ai-dialog").close(), Me.open(v.displayedRun?.id, v.selectedTask);
+_("#inspect-run").onclick = () => v.displayedRun?.source === "jobenu" ? se.open() : $.open(v.displayedRun?.id), _("#inspect-step").onclick = () => $.open(v.displayedRun?.id, v.selectedTask), _("#inspect-step-dialog").onclick = () => {
+	_("#step-ai-dialog").close(), $.open(v.displayedRun?.id, v.selectedTask);
 };
 try {
-	await ae(), await I();
+	await oe(), await I();
 	let e = new URLSearchParams(location.search), t = e.get("branch");
 	[
 		"structure",
@@ -1047,7 +1072,7 @@ try {
 		"ai"
 	].includes(e.get("view")) && (v.view = e.get("view")), t && await R(t), D = l({
 		api: M,
-		changed: we
+		changed: Ee
 	}), D.start();
 } catch (e) {
 	_("#branch-list").innerHTML = `<p class="empty">${k(e.message)}</p>`;
@@ -1057,19 +1082,3 @@ setInterval(() => {
 		e.textContent = `${Math.max(0, Math.floor(Date.now() / 1e3 - Number(e.dataset.startedAt)))}s`;
 	});
 }, 1e3);
-var $ = !1;
-setInterval(async () => {
-	let e = v.snapshot;
-	if (!(!e || _("#workspace").hidden || $)) {
-		$ = !0;
-		try {
-			let { runs: t } = await M("/api/jobenu/history?branch=" + encodeURIComponent(e.branch));
-			if (v.snapshot !== e) return;
-			JSON.stringify(t) !== JSON.stringify(e.nativeRuns || []) && (e.nativeRuns = t, J());
-		} catch {
-			_("#ai-status").textContent = "Import history could not refresh. Reload to reconnect.";
-		} finally {
-			$ = !1;
-		}
-	}
-}, 2500);

@@ -53,7 +53,7 @@ def preview(manager, ident, keys=None):
     from .jobenu import read_json
 
     with manager.lock:
-        if manager.ws._closed or manager.running:
+        if manager.ws._closed or ident in manager.running:
             raise ValueError("Wait for the running batch, or restart Vita Tree, before retrying.")
         original = manager.record(ident)
         targets = failed_rows(original, manager.entries(original), keys)

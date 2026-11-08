@@ -5600,7 +5600,7 @@ if (!dc) throw Error("Vita Tree could not find its application root.");
 	children: /* @__PURE__ */ (0, s.jsx)(uc, {})
 })));
 try {
-	await import("./assets/frontend-app-Q6g8xrhX.js"), dc.dataset.ready = "true";
+	await import("./assets/frontend-app-C4XSgSe3.js"), dc.dataset.ready = "true";
 } catch (e) {
 	let t = document.createElement("p");
 	throw t.setAttribute("role", "alert"), t.textContent = e instanceof Error ? e.message : "The application could not start. Reload to try again.", dc.prepend(t), e;

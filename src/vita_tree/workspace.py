@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import difflib
+from contextlib import contextmanager
 import hashlib
 from importlib.metadata import distribution, PackageNotFoundError
 import json
@@ -52,6 +53,10 @@ class AIRunError(ValueError):
 
 class PreparationConflict(AIRunError):
     pass
+
+
+class ReviewRequired(AIRunError):
+    """An expected approval gate, separate from execution failure."""
 
 
 def digest(content: str) -> str:
@@ -107,6 +112,7 @@ class Workspace:
         self._publishing = set()
         self._previewing = {}
         self._setup_checks = set()
+        self._reviewing = {}
         self._release_requested = set()
         self._publish_locks = {}
         self._pending_publications = set()
@@ -212,7 +218,9 @@ class Workspace:
     def release_worktree(self, name):
         """Release only an idle, clean worktree owned by this application."""
         with self.lock:
-            if self.active_job(name) or name in self._publishing or self._previewing.get(name):
+            if self.active_job(name) or name in self._publishing or self._previewing.get(name) or name in self._reviewing or name in self.jobenu.reviewing or any(
+                    row.get('branch') == name for ident in self.jobenu.running.copy()
+                    for row in self.jobenu.entries(self.jobenu.record(ident))):
                 self._release_requested.add(name)
                 return {"released": False, "reason": "active", "message": "This application is still working."}
             self._release_requested.discard(name)
@@ -221,10 +229,10 @@ class Workspace:
             if location is None:
                 return {"released": False, "reason": "absent", "message": "The branch is already available in Git."}
             if location == self.repository.resolve() or location != expected.resolve() or expected.is_symlink():
-                return {"released": False, "reason": "external", "message": "This folder is managed outside Vita Tree."}
+                return {"released": False, "reason": "external", "message": f'This folder is managed outside Vita Tree. Continue in it with git -C "{location}" status. Release it from the CLI only after saving your work.'}
             # Ignored files may contain credentials or local reports: never discard them.
             if run_git(location, "status", "--porcelain", "--untracked-files=all", "--ignored"):
-                return {"released": False, "reason": "dirty", "message": "Your application folder was kept because it contains files that have not been saved as a version."}
+                return {"released": False, "reason": "dirty", "message": f'Your application folder was kept because it contains drafts or local files. Continue with git -C "{location}" status --ignored, save your work, then close it again.'}
             try:
                 run_git(self.repository, "worktree", "remove", str(location))
             except RuntimeError:
@@ -244,6 +252,7 @@ class Workspace:
             return self._snapshot(name)
 
     def _snapshot(self, name):
+        from .exports import cover_outputs
         branch = self.branch(name)
         commit = run_git(self.repository, "rev-parse", branch["ref"])
         meta = self.metadata(name)
@@ -285,13 +294,14 @@ class Workspace:
                 "original": original, "originalDocument": parse_document(original, self.document_path),
                 "files": files, "projectRevision": project['revision'], "originalProjectRevision": before['revision'], "includeDiagnostics": project['diagnostics'],
                 "job": job, "jobRevision": digest(job), "artifacts": artifacts, "cover": read("cover-letter.tex"),
+                "coverOutputs": cover_outputs(read('cover-letter.tex')),
                 "diff": "".join(difflib.unified_diff(original.splitlines(True), source.splitlines(True), fromfile="original/"+self.document_path, tofile=name+"/"+self.document_path)),
                 "worktree": str(location) if location else None, "editable": bool(branch["local"]),
                 "dirty": source != self.committed(commit, self.document_path),
                 "running": self.active_job(name), "nativeRuns": self.jobenu.history(name)}
 
     JOB_FIELDS = ("id", "branch", "opportunity", "status", "step", "message", "provider", "model",
-                  "reasoning", "language", "createdAt", "startedAt", "finishedAt", "reviewed", "stages", "stepConfig", "parentRunId", "rootRunId", "attempt", "checkpointSteps", "outcomes", "traceId", "requirementsRevision", "requirementsDraft", "preflight", "compileEngine", "reviewPolicy")
+                  "reasoning", "language", "createdAt", "startedAt", "finishedAt", "reviewed", "stages", "stepConfig", "parentRunId", "rootRunId", "attempt", "checkpointSteps", "outcomes", "traceId", "requirementsRevision", "requirementsDraft", "preflight", "compileEngine", "reviewPolicy", "contextInvalidated")
     ACTIVE_STATUSES = {"queued", "running"}
 
     def _job_secrets(self):
@@ -300,9 +310,10 @@ class Workspace:
     def _public_job(self, record, *, parents=None, secrets=None, factuals=None, requirements=None):
         result = {key: record.get(key) for key in self.JOB_FIELDS}
         result['reviewPolicy'] = 'automatic' if record.get('reviewPolicy') == 'automatic' else 'manual'
+        result['contextInvalidated'] = record.get('contextInvalidated') is True
         start = record.get("startedAt")
         result["elapsedSeconds"] = max(0, (record.get("finishedAt") or time.time()) - start) if start else 0
-        result['resumeAvailable'] = record.get('status') in {'failed', 'interrupted'} and bool(record.get('attempt'))
+        result['resumeAvailable'] = record.get('status') in {'failed', 'interrupted', 'awaiting_review'} and bool(record.get('attempt'))
         result['checkpointSteps'] = [step for step in record.get('checkpointSteps') or []
                                      if (self.root/'checkpoints'/record['id']/step/'manifest.json').is_file()]
         parent = (self.jobs if parents is None else parents).get(record.get('parentRunId'))
@@ -344,7 +355,7 @@ class Workspace:
     def resume_ai(self, ident, revision, job_revision, ai_config=None, language=None, token=None, preview=False):
         with self.lock:
             parent = self.jobs.get(ident)
-            if not parent or parent.get('status') not in {'failed', 'interrupted'} or not parent.get('attempt'):
+            if not parent or parent.get('status') not in {'failed', 'interrupted', 'awaiting_review'} or not parent.get('attempt'):
                 raise ConflictError('Select a failed or interrupted preparation to retry.')
             if (factual_review.summary(self, ident) or {}).get('state') in {'pending', 'unavailable'}:
                 raise ConflictError('Review and resolve the factual changes before retrying this preparation.')
@@ -382,24 +393,24 @@ class Workspace:
     def _automatic_review(self, record):
         """An explicitly selected policy uses the same review and checkpoint gates."""
         with self.lock:
-            if self._closed or record.get('reviewPolicy') != 'automatic' or record['status'] != 'failed':
+            if self._closed or record.get('reviewPolicy') != 'automatic' or record['status'] != 'awaiting_review':
                 return
-            facts = factual_review.summary(self, record['id'])
-            if facts and facts['state'] == 'pending':
-                review = factual_review.view(self, record['id'])
-                factual_review.apply(self, record['id'], review['revision'], review['token'],
-                                     [{'id': item['id'], 'action': 'accept'} for item in review['items']], True,
-                                     automatic=True)
-            elif record.get('requirementsDraft'):
-                review = requirements_review.view(self, record['branch'])
-                if review['state'] != 'pending' or review['revision'] != record['requirementsDraft']:
-                    return
-                requirements_review.change(self, record['branch'], review['token'], review['revision'],
-                                           approve=True, confirmed=True, automatic=True)
-            else:
-                return  # Provider, compilation and conflict failures never auto-retry.
-            self.continue_review(record['id'], digest(self.read(record['branch'], 'main.tex')),
-                                 digest(self.read(record['branch'], 'job.md')))
+        facts = factual_review.summary(self, record['id'])
+        if facts and facts['state'] == 'pending':
+            review = factual_review.view(self, record['id'])
+            factual_review.apply(self, record['id'], review['revision'], review['token'],
+                                 [{'id': item['id'], 'action': 'accept'} for item in review['items']], True,
+                                 automatic=True)
+        elif record.get('requirementsDraft'):
+            review = requirements_review.view(self, record['branch'])
+            if review['state'] != 'pending' or review['revision'] != record['requirementsDraft']:
+                return
+            requirements_review.change(self, record['branch'], review['token'], review['revision'],
+                                       approve=True, confirmed=True, automatic=True)
+        else:
+            return
+        self.continue_review(record['id'], digest(self.read(record['branch'], 'main.tex')),
+                             digest(self.read(record['branch'], 'job.md')))
 
     def _persist_job(self, record):
         try:
@@ -415,7 +426,7 @@ class Workspace:
                 record = json.loads(path.read_text(encoding="utf-8"))
                 if (not re.fullmatch(r"[a-f0-9]{32}", path.stem) or record.get("id") != path.stem
                         or not isinstance(record.get("branch"), str)
-                        or record.get("status") not in self.ACTIVE_STATUSES | {"succeeded", "failed", "interrupted"}):
+                        or record.get("status") not in self.ACTIVE_STATUSES | {"succeeded", "failed", "interrupted", "awaiting_review"}):
                     continue
                 record = {key: record.get(key) for key in self.JOB_FIELDS}
                 record['reviewPolicy'] = 'automatic' if record.get('reviewPolicy') == 'automatic' else 'manual'
@@ -475,7 +486,7 @@ class Workspace:
                     native = safe_outcome({'schema_version': 1, 'status': native.get('status'),
                                            'attempts': native.get('attempts'), 'run_id': native.get('backendRunId'), 'routing': native.get('routing'),
                                            'error': {**(native.get('providerError') or {}), **(native.get('errorDetails') if isinstance(native.get('errorDetails'),dict) else {}), 'code': native.get('errorCode')}}, secrets)
-                result[step] = {'status': value.get('status') if value.get('status') in {'success','failed'} else 'failed',
+                result[step] = {'status': value.get('status') if value.get('status') in {'success','failed','awaiting_review'} else 'failed',
                                 'verified': value.get('verified') is True, 'backend': native}
         return result
 
@@ -517,18 +528,35 @@ class Workspace:
         parents = {record['id']: record for record in records}
         factuals = factual_review.summaries(self, parents)
         requirements = requirements_review.run_statuses(self, records)
-        return {"runs": [self._public_job(record, parents=parents, secrets=secrets, factuals=factuals, requirements=requirements)
-                         for record in sorted(records, key=lambda item: item.get('createdAt') or 0, reverse=True)]}
+        runs = [self._public_job(record, parents=parents, secrets=secrets, factuals=factuals, requirements=requirements)
+                for record in records]
+        runs.extend(self._native_jobs())
+        return {"runs": sorted(runs, key=lambda item: item.get('createdAt') or 0, reverse=True)}
+
+    def _native_jobs(self):
+        runs = self.jobenu.history()
+        for run in runs:
+            path = self.root/'jobenu-reviewed'/(run['id']+'.json')
+            run['reviewed'] = path.is_file()
+        return runs
 
     def get_job(self, ident):
         with self.lock:
             if ident not in self.jobs:
+                native = next((run for run in self._native_jobs() if run['id'] == ident), None)
+                if native:
+                    return native
                 raise FileNotFoundError("Preparation not found")
             return self._public_job(self.jobs[ident])
 
     def review_job(self, ident):
         with self.lock:
-            self.get_job(ident)
+            public = self.get_job(ident)
+            if public.get('source') == 'jobenu':
+                if public['status'] in self.ACTIVE_STATUSES:
+                    raise ConflictError('This import is still in progress.')
+                atomic_write(self.root/'jobenu-reviewed'/(ident+'.json'), '{}')
+                return {**public, 'reviewed': True}
             record = self.jobs[ident]
             if record["status"] in self.ACTIVE_STATUSES:
                 raise ConflictError("This preparation is still in progress. Review the results when it finishes.")
@@ -548,16 +576,21 @@ class Workspace:
                 not isinstance(ident, str) or not re.fullmatch(r'[a-f0-9]{32}', ident) for ident in identifiers):
             raise ValueError('Select between 1 and 500 results to mark as reviewed.')
         reviewed, failed = [], []
+        native = {run['id']: run for run in self._native_jobs()} if any(ident not in self.jobs for ident in identifiers) else {}
         with self.lock:
             for ident in dict.fromkeys(identifiers):
-                if ident not in self.jobs:
+                record = self.jobs.get(ident) or native.get(ident)
+                if record is None:
                     failed.append({'id': ident, 'error': 'These results are no longer available. Refresh the applications list.'})
                     continue
-                if self.jobs[ident]['status'] in self.ACTIVE_STATUSES:
+                if record['status'] in self.ACTIVE_STATUSES:
                     failed.append({'id': ident, 'error': 'This preparation is still in progress. Wait for it to finish.'})
                     continue
                 try:
-                    self.review_job(ident)
+                    if ident in native:
+                        atomic_write(self.root/'jobenu-reviewed'/(ident+'.json'), '{}')
+                    else:
+                        self.review_job(ident)
                 except (RuntimeError, OSError):
                     failed.append({'id': ident, 'error': 'Review state could not be saved. Check write access and retry.'})
                 else:
@@ -583,7 +616,34 @@ class Workspace:
                 return None
         return {'pdf': pdf, 'engine': info['engine'], 'warnings': info['warnings']}
 
+    def final_pdf_result(self, name, document, engine='auto'):
+        """Use a published PDF only while its exact source and assets still match."""
+        location = self.location(name)
+        if location is None:
+            return None
+        filename = 'cv-final.pdf' if document == 'cv' else 'cover-letter.pdf'
+        entry = self.document_path if document == 'cv' else 'cover-letter.tex'
+        try:
+            info = json.loads(read_text(safe_path(location, '.vita/results/final-pdfs.json')))[filename]
+            pdf = safe_path(location, filename)
+            if (info['source'] != digest(read_text(safe_path(location, entry))) or
+                    info.get('job') != digest(read_text(safe_path(location, 'job.md'))) or
+                    info['engine'] not in {'pdflatex', 'xelatex', 'lualatex'} or
+                    engine not in {'auto', info['engine']} or
+                    any(not safe_path(location, path).is_file() or
+                        hashlib.sha256(safe_path(location, path).read_bytes()).hexdigest() != value
+                        for path, value in info['assets'].items()) or
+                    not pdf.is_file() or pdf.stat().st_size > 32_000_000):
+                return None
+            data = pdf.read_bytes()
+            if not data.startswith(b'%PDF-') or hashlib.sha256(data).hexdigest() != info['sha256']:
+                return None
+            return dict(pdf=pdf, content=data, engine=info['engine'], warnings=info.get('warnings') or [])
+        except (OSError, ValueError, KeyError, TypeError, AttributeError):
+            return None
+
     def job_result(self, ident):
+        from .exports import cover_outputs
         record = self.get_job(ident)
         if record["status"] in self.ACTIVE_STATUSES:
             raise ConflictError("This preparation has not finished yet.")
@@ -610,7 +670,8 @@ class Workspace:
         attempts = [self._public_job(item) for item in self.jobs.values()
                     if (item.get('rootRunId') or item['id']) == root_id]
         return {"run": record, "files": files, "attemptHistory": sorted(attempts, key=lambda item: item.get('createdAt') or 0), "inputs": sorted(inputs & files.keys()),
-                "coverPdf": {"runId": ident} if self.cover_pdf_result(ident) else None}
+                "coverPdf": {"runId": ident} if self.cover_pdf_result(ident) else None,
+                "coverOutputs": cover_outputs(files.get('cover-letter.tex')) if not review or review['state'] == 'resolved' else None}
 
     def active_job(self, name):
         with self.lock:
@@ -646,6 +707,8 @@ class Workspace:
                 worker.join(timeout=max(0, deadline - time.monotonic()))
 
     def busy(self, name):
+        if name in self._reviewing and self._reviewing[name] != threading.get_ident():
+            raise ConflictError('A review is updating this application. Wait before changing it.')
         if name in self.jobenu.reviewing:
             raise ConflictError('An import review is updating this application. Wait before changing it.')
         for ident in self.jobenu.running.copy():
@@ -657,6 +720,19 @@ class Workspace:
             raise ConflictError("This application is being prepared. Wait before changing its files.")
         if name in self._publishing:
             raise ConflictError("This application is being saved and synced. Wait before changing it.")
+
+    @contextmanager
+    def review_guard(self, name):
+        with self.lock:
+            self.busy(name)
+            if name in self._reviewing:
+                raise ConflictError('This application already has a review in progress.')
+            self._reviewing[name] = threading.get_ident()
+        try:
+            yield
+        finally:
+            with self.lock:
+                self._reviewing.pop(name, None)
 
     def save(self, name, filename, revision, content=None, leaf=None, text=None, project_revision=None):
         with self.lock:
@@ -931,7 +1007,9 @@ class Workspace:
             for path in missing:
                 safe_path(target, path).unlink(missing_ok=True)
             atomic_write(safe_path(target, "job.md"), job)
-            atomic_write(self.metadata_path(name), json.dumps({"baseCommit": commit, "baseBranch": base, "original": source, "originalFiles": {**project['files'], **missing}, **({"displayName": display_name} if display_name else {})}))
+            settings = self.ai_settings(base)
+            atomic_write(self.root/'ai-settings'/(digest(name)+'.json'), json.dumps(settings))
+            atomic_write(self.metadata_path(name), json.dumps({"baseCommit": commit, "baseBranch": base, "aiSettingsOrigin": base, "original": source, "originalFiles": {**project['files'], **missing}, **({"displayName": display_name} if display_name else {})}))
             return self.snapshot(name)
 
     def vita_command(self):
@@ -1002,6 +1080,22 @@ class Workspace:
         selected = {task['id'] for task in plan(workflow, workflow_capabilities(self.vita_source)) if task['status'] != 'skipped'}
         return preflight.check_workspace(self, name, revision, job_revision, engine, selected)
 
+    def _analysis_evidence(self, context, settings):
+        from .resume_inputs import credential_fingerprint
+        route = effective_settings(settings, {'analyze'})['analyze']
+        try:
+            key = self.connections.get(route['connection'], route['provider']) if route['connection'] else None
+            backup = route.get('backup') or {}
+            backup_key = self.connections.get(backup['connection'], backup['provider']) if backup.get('connection') else None
+        except ValueError:
+            return {}  # Missing optional analysis credentials must not block other steps.
+        captured = {**context, 'stepConfig': {'analyze': route},
+                    'credentialHashes': {'analyze': credential_fingerprint((self.root/'checkpoint-key').read_bytes(),
+                                                                         context['env'], route, key, backup_key)},
+                    'stepSkills': {'analyze': checkpoints.fingerprint({name: content for name, content in context['skills'].items()
+                                                                      if name.startswith('.vita/skills/analyze/')})}}
+        return {'analyze': checkpoints.signature(captured, 'analyze', {})}
+
     def start_ai(self, name, revision, job_revision, provider="", language="en", model=None, reasoning="", workflow=None, ai_config=None, resume_from=None, resume_token=None, preview_only=False, captured_origins=None, engine='auto', review_policy='manual'):
         with self.lock:
             if self._closed:
@@ -1026,8 +1120,9 @@ class Workspace:
                 if not isinstance(value, str) or (value and not re.fullmatch(r"[a-zA-Z0-9_.-]{1,64}", value)):
                     raise ValueError("Choose a supported AI service and output language")
             if uses_ai:
-                settings = clean_settings(self, name, ai_config if ai_config is not None else {
-                    'default': {'provider': provider, 'model': model, 'reasoning': reasoning}})
+                settings = clean_settings(self, name, ai_config if ai_config is not None else (
+                    {'default': {'provider': provider, 'model': model, 'reasoning': reasoning}}
+                    if provider or model or reasoning else self.ai_settings(name)))
                 provider, model, reasoning = (settings['default'][key] for key in ('provider', 'model', 'reasoning'))
                 routes = effective_settings(settings, selected)
                 # Snapshot keys before the worker starts. Removing a connection cannot
@@ -1076,8 +1171,11 @@ class Workspace:
                 raise ValueError("This CV collection needs to use cover-letter.tex for cover letters. Check its Vita CV settings.")
             context["baseCommit"] = self.head(name)
             captured = {p: read_text(safe_path(location, p)) for p in (*self.report_paths(), "cover-letter.tex")}
-            context['coverBefore'] = captured['cover-letter.tex'] if context['factualBackend'] and safe_path(location, 'cover-letter.tex').is_file() else None
+            context['coverBefore'] = captured['cover-letter.tex'] if (context['factualBackend'] or selected == {'validating'}) and safe_path(location, 'cover-letter.tex').is_file() else None
             context["reports"] = {p: digest(content) for p, content in captured.items()}
+            context['pdfBefore'] = {filename: hashlib.sha256(safe_path(location, filename).read_bytes()).hexdigest()
+                                    if safe_path(location, filename).is_file() else None
+                                    for filename in ('cv-final.pdf', 'cover-letter.pdf')}
             context["dependencies"] = reusable_reports(captured, digest(job))
             context["selected"] = selected
             if record['attempt'] > 100:
@@ -1087,14 +1185,31 @@ class Workspace:
                 if review['state'] == 'approved':
                     data = requirements_review.definition(self, context, review['approvedRevision'])
                     context['requirementsRevision'] = record['requirementsRevision'] = data['revision']
-                elif selected - {'extract', 'validating'} and 'extract' not in selected:
-                    raise ValueError('Run Extract, then review and approve the job requirements before starting dependent steps.')
                 if review['state'] == 'pending':
                     record['requirementsDraft'] = review['revision']
-                    raise ValueError('A job definition is awaiting review. Open requirements from Extract and approve it before continuing.')
+                    context['pendingRequirements'] = True
                 # Old assessments are never context for a different definition.
                 context['dependencies'] = reusable_reports(captured, digest(job), context.get('requirementsRevision'))
             capture_resume_inputs(self, context, record)
+            # Analysis is context only when its exact captured inputs and route match.
+            evidence_path = self.root/'report-evidence'/(digest(name)+'.json')
+            try:
+                evidence = json.loads(read_text(evidence_path))
+            except (OSError, ValueError):
+                evidence = {}
+            if not isinstance(evidence, dict):
+                evidence = {}
+            context['reportEvidence'] = self._analysis_evidence(context, settings) if uses_ai else {}
+            expected = {step: checkpoints.fingerprint({'inputs': key, 'reports': {
+                path: digest(content) for path, content in captured.items()
+                if path in {'.vita/results/'+filename for filename in REPORTS[step]}}})
+                        for step, key in context['reportEvidence'].items()}
+            context['dependencies'] = reusable_reports(captured, digest(job), context.get('requirementsRevision'),
+                                                       evidence=evidence, expected=expected)
+            record['contextInvalidated'] = bool(captured.get('.vita/results/analysis.json') and
+                                               '.vita/results/analysis.json' not in context['dependencies'])
+            context['initialArtifacts'].update({path: context['dependencies'].get(path)
+                                               for path in context['initialArtifacts'] if path.startswith('.vita/results/')})
             if context['requirementsBackend'] and selected - {'validating'}:
                 pointer = context['criteria'].get('approved/'+digest(job)+'.json')
                 captured_revision = json.loads(pointer)['revision'] if pointer else None
@@ -1189,7 +1304,7 @@ class Workspace:
             try:
                 self._persist_job(updated)
             except OSError as error:
-                if updated['status'] not in {'failed', 'interrupted'}:
+                if updated['status'] not in {'failed', 'interrupted', 'awaiting_review'}:
                     raise AIRunError('The preparation could not save its status. Check folder access and review the application files before retrying.') from error
                 updated['message'] = 'The preparation stopped, but its history could not be saved. Check folder access and review the application before retrying.'
             record.update(updated)
@@ -1205,6 +1320,8 @@ class Workspace:
         stage = self.root / "runs" / record["id"]
         location, source, job = (context[key] for key in ("location", "source", "job"))
         try:
+            if context.get('pendingRequirements'):
+                raise ReviewRequired('Review and approve the saved job requirements to continue. Your application is unchanged.')
             with self.inspector.phase(record, "staging"):
                 export_snapshot(self.repository, context["baseCommit"], stage, location)
                 for name, expected in context['checkpointInputs']['assets'].items():
@@ -1274,10 +1391,19 @@ class Workspace:
                     reused_pdf = None
                     if step == 'cover' and not saved[0].get('omitted'):
                         output = safe_path(self.root, 'run-pdfs/' + record['id'])
-                        prior_pdf = self.root/'checkpoints'/record['parentRunId']/step/'cover-letter.pdf'
-                        atomic_write_bytes(output/'cover-letter.pdf', prior_pdf.read_bytes())
-                        atomic_write(output/'ready.json', json.dumps({key: saved[0]['pdf'][key] for key in ('engine','warnings')}))
-                        reused_pdf = dict(path=output/'cover-letter.pdf', **{key: saved[0]['pdf'][key] for key in ('engine','warnings')})
+                        if saved[0].get('pdfPending'):
+                            if checkpoints.write_checkpoint(self.root/'checkpoints', record['id'], step, key,
+                                                            saved[1], saved[0]['outcome'], pdf_pending=True):
+                                self._job_update(record, checkpointSteps=[*record['checkpointSteps'], step])
+                            self._job_update(record, step=step, message='Retrying the saved cover-letter PDF. No new AI request…')
+                            with self.inspector.phase(record, 'pdf', step):
+                                built = compile_document(stage, 'cover-letter.tex', engine=context['compileEngine'], output=output)
+                            reused_pdf = dict(path=built['pdf'], engine=built['engine'], warnings=built['warnings'])
+                        else:
+                            prior_pdf = self.root/'checkpoints'/record['parentRunId']/step/'cover-letter.pdf'
+                            atomic_write_bytes(output/'cover-letter.pdf', prior_pdf.read_bytes())
+                            reused_pdf = dict(path=output/'cover-letter.pdf', **{key: saved[0]['pdf'][key] for key in ('engine','warnings')})
+                        atomic_write(output/'ready.json', json.dumps({key: reused_pdf[key] for key in ('engine','warnings')}))
                     with self.inspector.phase(record, 'checkpoint', step):
                         saved_child = checkpoints.write_checkpoint(self.root/'checkpoints', record['id'], step, key, saved[1], saved[0]['outcome'], reused_pdf, saved[0].get('omitted', False))
                     if not saved_child:
@@ -1294,6 +1420,8 @@ class Workspace:
                 if not self._job_update(record, step=step, message=MESSAGES[step],
                                         stages=transition(record["stages"], step=step)):
                     return
+                if step == 'extract' and context.get('requirementsBackend') and not context.get('requirementsRevision'):
+                    self._job_update(record, message='Extracting job context and drafting canonical requirements. This backend uses two generation operations; each may use provider credits.')
                 step_pdf = None
                 route = context['stepConfig'][step]
                 env = stage_environment(context['env'], route, context['keys'].get(step), context['keys'].get(step + ':backup'))
@@ -1326,19 +1454,12 @@ class Workspace:
                 with self.inspector.phase(record, 'subprocess', step):
                     process = self.processes.run(args, cwd=stage, env=env, stdin=subprocess.DEVNULL,
                                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=600)
-                if process.returncode:
-                    self.inspector.mark(record, 'subprocess', 'error', step, error=RuntimeError())
                 with self.inspector.phase(record, 'validation', step):
                     secrets = set(context['keys'].values()) | {v for k,v in context['env'].items() if credential_name(k)}
                     if scrub_generated(stage,secrets):
                         raise AIRunError('Generated output contained a session credential and was withheld. Your application is unchanged. Review the source and provider setup before retrying.')
                     reports = [read_text(safe_path(stage, ".vita/results/" + name)).strip() for name in REPORTS[step]]
-                    if process.returncode:
-                        self.diagnostics.record('provider_failed', 'ERROR', run_id=record['id'], step=step, exit_code=process.returncode)
                     outcome = read_outcome(stage, step, execution_id)
-                    if outcome:
-                        if not self._job_update(record, outcomes={**record['outcomes'], step: outcome}):
-                            return
                     if step in {'adapt', 'cover'}:
                         try:
                             if context['factualBackend'] and not process.returncode and not safe_path(stage, '.vita/results/' + step + '.facts.json').is_file():
@@ -1347,7 +1468,15 @@ class Workspace:
                         except (OSError, ValueError, KeyError, TypeError):
                             raise AIRunError('Factual-change evidence could not be verified. Check Vita CV contract support and regenerate. Your application is unchanged.') from None
                         if pending:
-                            raise AIRunError('Review the proposed factual changes before continuing. Your application is unchanged.')
+                            if outcome:
+                                self._job_update(record, outcomes={**record['outcomes'], step: {**outcome, 'status': 'awaiting_review', 'verified': False}})
+                            raise ReviewRequired('Review the proposed factual changes before continuing. Your application is unchanged.')
+                    if process.returncode:
+                        self.inspector.mark(record, 'subprocess', 'error', step, error=RuntimeError())
+                        self.diagnostics.record('provider_failed', 'ERROR', run_id=record['id'], step=step, exit_code=process.returncode)
+                    if outcome:
+                        if not self._job_update(record, outcomes={**record['outcomes'], step: outcome}):
+                            return
                     if process.returncode or not any(reports) or (outcome and outcome['status'] != 'success'):
                         info = failure(outcome)
                         raise AIRunError((info['title'] + '. ' + info['action'] if info else 'The expected results were not returned. Inspect execution details before retrying.') + ' Your CV is unchanged.')
@@ -1380,6 +1509,10 @@ class Workspace:
                         raise AIRunError('Your AI service did not produce a valid cover letter. Your application is unchanged; inspect the preparation results.')
                     if not self._job_update(record, message='Compiling the cover-letter PDF…'):
                         return
+                    if outcome and outcome['verified'] and outcome['status'] == 'success':
+                        if checkpoints.write_checkpoint(self.root/'checkpoints', record['id'], step, key,
+                                                        checkpoints.artifacts(stage), outcome, pdf_pending=True):
+                            self._job_update(record, checkpointSteps=list(dict.fromkeys([*record['checkpointSteps'], step])))
                     try:
                         output = safe_path(self.root, 'run-pdfs/' + record['id'])
                         with self.inspector.phase(record, 'pdf', step):
@@ -1395,13 +1528,41 @@ class Workspace:
                                                              checkpoints.artifacts(stage), outcome, step_pdf)
                     if not saved:
                         self.inspector.mark(record, 'checkpoint', 'not_retained', step)
-                    if saved and not self._job_update(record, checkpointSteps=[*record['checkpointSteps'], step]):
+                    if saved and not self._job_update(record, checkpointSteps=list(dict.fromkeys([*record['checkpointSteps'], step]))):
                         return
                 if step == 'extract':
                     requirements_review.require_approval(self, record, context)
             if not self._job_update(record, step="validating", message=MESSAGES["validating"],
                                     stages=transition(record["stages"], step="validating")):
                 return
+            final_pdfs = {}
+            if 'adapt' in context['selected'] or context['selected'] == {'validating'}:
+                self._job_update(record, message='Creating the final CV PDF…')
+                try:
+                    with self.inspector.phase(record, 'pdf', 'validating'):
+                        built = compile_document(stage, self.document_path, engine=context['compileEngine'],
+                                                 output=self.root/'run-pdfs'/record['id']/'cv')
+                    final_pdfs['cv-final.pdf'] = built
+                except (ValueError, OSError, subprocess.SubprocessError) as error:
+                    raise AIRunError('The final CV PDF could not be created. Approved source and completed AI checkpoints are saved. Check the PDF engine and packages, then retry to compile without repeating matching AI steps.') from error
+            if 'cover' in context['selected'] and not checkpoints.rejected_cover(checkpoints.artifacts(stage)):
+                output = self.root/'run-pdfs'/record['id']
+                ready = json.loads(read_text(output/'ready.json'))
+                final_pdfs['cover-letter.pdf'] = dict(pdf=output/'cover-letter.pdf', **ready)
+            elif context['selected'] == {'validating'} and context.get('coverBefore'):
+                try:
+                    self._job_update(record, message='Creating the saved cover-letter PDF…')
+                    with self.inspector.phase(record, 'pdf', 'validating'):
+                        built = compile_document(stage, 'cover-letter.tex', engine=context['compileEngine'],
+                                                 output=self.root/'run-pdfs'/record['id'])
+                    atomic_write(self.root/'run-pdfs'/record['id']/'ready.json', json.dumps({key: built[key] for key in ('engine','warnings')}))
+                    final_pdfs['cover-letter.pdf'] = built
+                except (ValueError, OSError, subprocess.SubprocessError) as error:
+                    raise AIRunError('The saved cover-letter PDF could not compile. Source and prior outputs were preserved; check the PDF tools and retry Final checks without any AI calls.') from error
+            for name, expected in context['checkpointInputs']['assets'].items():
+                path = safe_path(stage, name)
+                if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != expected:
+                    raise AIRunError('A preparation step changed a captured dependency. The draft was retained separately; application files and prior PDFs were preserved.')
             with self.lock:
                 with self.inspector.phase(record, 'validation', 'validating'):
                     cover = None
@@ -1411,8 +1572,6 @@ class Workspace:
                             raise AIRunError("Your AI service did not produce a valid cover letter. Your application is unchanged; inspect the preparation results.")
                     result = read_text(stage / "main.tex")
                     adapting = 'adapt' in context['selected']
-                    if adapting or context['selected'] == {'validating'}:
-                        verify_limited_source(result)
                     if not adapting and result != source:
                         raise AIRunError("This feedback step unexpectedly changed the CV. Your application is unchanged; inspect the preparation results.")
                     with self.lock:
@@ -1434,6 +1593,27 @@ class Workspace:
                                for key in ('assets', 'criteria', 'backend')):
                             raise PreparationConflict('Your application inputs or AI configuration changed during preparation. Results were retained separately and your edits were preserved.')
                         updates = {}
+                        if final_pdfs:
+                            from .publication import pdf_content
+                            metadata = {}
+                            for filename, built in final_pdfs.items():
+                                entry = self.document_path if filename == 'cv-final.pdf' else 'cover-letter.tex'
+                                updates[filename] = pdf_content(built['pdf'])
+                                metadata[filename] = dict(runId=record['id'], source=digest(read_text(stage/entry)),
+                                    job=digest(job),
+                                    assets=context['checkpointInputs']['assets'], engine=built['engine'],
+                                    warnings=built['warnings'],
+                                    sha256=hashlib.sha256(built['pdf'].read_bytes()).hexdigest())
+                            updates['.vita/results/final-pdfs.json'] = json.dumps(metadata)
+                        elif context['selected'] & {'adapt', 'cover'}:
+                            updates['.vita/results/final-pdfs.json'] = None
+                        if 'cover' in context['selected'] and checkpoints.rejected_cover(checkpoints.artifacts(stage)):
+                            updates['cover-letter.pdf'] = None
+                        for filename in {'cv-final.pdf', 'cover-letter.pdf'} & updates.keys():
+                            target = safe_path(location, filename)
+                            current = hashlib.sha256(target.read_bytes()).hexdigest() if target.is_file() else None
+                            if current != context['pdfBefore'][filename]:
+                                raise PreparationConflict('A saved PDF changed during preparation. The new results are retained separately and your existing PDF was preserved.')
                         if adapting and result != source:
                             meta = self.metadata(record['branch'])
                             meta.update(baseCommit=self.head(record['branch']), baseBranch=record['branch'] + ' · before AI', original=source,
@@ -1456,10 +1636,24 @@ class Workspace:
                 with self.lock, self.inspector.phase(record, 'publication', 'validating'):
                     with publish(self, record['id'], record['branch'], updates):
                         if not self._job_update(record, status="succeeded", step="completed", finishedAt=time.time(),
-                                                message=("Your changes were checked. Create a PDF preview to check the final layout."
-                                                         if context['selected'] == {'validating'} else "Cover-letter PDF ready. Open the run to review and save it." if cover is not None else "Selected steps finished. Open the run to review the results."),
+                                                message=("Final PDFs saved in the application folder. Open the results to check their layout."
+                                                         if final_pdfs else "Selected steps finished. Open the run to review the results."),
                                                 stages=transition(record['stages'], terminal='succeeded')):
                             raise AIRunError('The preparation was interrupted before publication completed.')
+                    if 'analyze' in context['selected']:
+                        evidence = {}
+                        evidence['analyze'] = checkpoints.fingerprint({'inputs': context['reportEvidence']['analyze'], 'reports': {
+                            '.vita/results/'+filename: digest(read_text(stage/'.vita/results'/filename))
+                            for filename in REPORTS['analyze']}})
+                        try:
+                            atomic_write(self.root/'report-evidence'/(digest(record['branch'])+'.json'), json.dumps(evidence))
+                        except OSError as error:
+                            # Reuse is optional; failure to retain evidence must not
+                            # turn an already published application into a failed run.
+                            self.diagnostics.error('history_write_failed', error, run_id=record['id'], operation='report_evidence')
+        except ReviewRequired as error:
+            self._job_update(record, status='awaiting_review', step='awaiting_review', finishedAt=time.time(),
+                             message=str(error), stages=transition(record.get('stages'), terminal='awaiting_review'))
         except Exception as error:
             self.diagnostics.error('run_error', error, run_id=record['id'], step=record.get('step'))
             # Never persist exception text or provider stdout: either can contain

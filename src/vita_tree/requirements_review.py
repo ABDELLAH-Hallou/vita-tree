@@ -113,10 +113,11 @@ def view(workspace, branch, run_id=None):
             data = read(workspace.root/'run-requirements'/(run_id+'.json'))
             if data['revision'] != (record.get('requirementsRevision') or record.get('requirementsDraft')):
                 raise ValueError('The captured requirements evidence changed.')
-            backend(workspace, {'action':'validate','source':data['source_text'],'definition':data})
-            return {**current,'definition':data,'readOnly':True,'runId':run_id}
-        data = definition(workspace, context, current['revision']) if current['revision'] else None
-        return {**current, 'definition':data, 'readOnly':False, 'source':context['job'], 'available':supported(workspace)}
+    if run_id:
+        backend(workspace, {'action':'validate','source':data['source_text'],'definition':data})
+        return {**current,'definition':data,'readOnly':True,'runId':run_id}
+    data = definition(workspace, context, current['revision']) if current['revision'] else None
+    return {**current, 'definition':data, 'readOnly':False, 'source':context['job'], 'available':supported(workspace)}
 
 
 def retain(store, data):
@@ -184,7 +185,7 @@ def run_statuses(workspace, records):
 
 def change(workspace, branch, token, revision, items=None, approve=False, confirmed=False, *, automatic=False):
     from .workspace import ConflictError, digest
-    with workspace.lock:
+    with workspace.review_guard(branch):
         workspace.busy(branch)
         context = context_for(workspace, branch)
         current = state(workspace, context)
@@ -196,19 +197,22 @@ def change(workspace, branch, token, revision, items=None, approve=False, confir
             raise ConflictError('This revision is already approved. Save corrections as a new draft before approving again.')
         data = definition(workspace, context, revision)
         data = backend(workspace, {'action':'approve' if approve else 'edit', 'definition':data, 'source':context['job'], 'items':items})
-        if (state(workspace, context_for(workspace, branch))['token'] != token or workspace.read(branch, 'job.md') != context['job']):
-            raise ConflictError('The job definition changed while validating. Reload requirements before saving.')
-        store, approval, marker = paths(workspace, context)
-        retain(store, data)
-        # Marker is published last. A partial approval stays blocked until retried.
-        if approve:
-            write(approval, {'schema_version':1,'source_sha256':digest(context['job']), 'revision':data['revision']})
-        write(marker, {'state':'approved' if approve else 'pending', 'revision':data['revision'],
-                       'parentRevision':revision if revision != data['revision'] else current['parentRevision'],
-                       'originBranch':branch, 'decidedAt':time.time(), 'method':('automatic_run_policy' if automatic else 'explicit_ui_review') if approve else 'ui_correction'})
-        # Immutable provenance survives future approvals for the same source.
-        write(workspace.root/'requirements-history'/(data['revision']+'-'+str(time.time_ns())+'.json'),
-              {'revision':data['revision'], 'parentRevision':revision, 'branch':branch,'approved':approve,'at':time.time(),'actor':'automatic_policy' if automatic else 'local_user'})
+        with workspace.lock:
+            if workspace._closed:
+                raise ConflictError('Vita Tree stopped before the decision was saved. Reopen the review.')
+            if (state(workspace, context_for(workspace, branch))['token'] != token or workspace.read(branch, 'job.md') != context['job']):
+                raise ConflictError('The job definition changed while validating. Reload requirements before saving.')
+            store, approval, marker = paths(workspace, context)
+            retain(store, data)
+            # Marker is published last. A partial approval stays blocked until retried.
+            if approve:
+                write(approval, {'schema_version':1,'source_sha256':digest(context['job']), 'revision':data['revision']})
+            write(marker, {'state':'approved' if approve else 'pending', 'revision':data['revision'],
+                           'parentRevision':revision if revision != data['revision'] else current['parentRevision'],
+                           'originBranch':branch, 'decidedAt':time.time(), 'method':('automatic_run_policy' if automatic else 'explicit_ui_review') if approve else 'ui_correction'})
+            # Immutable provenance survives future approvals for the same source.
+            write(workspace.root/'requirements-history'/(data['revision']+'-'+str(time.time_ns())+'.json'),
+                  {'revision':data['revision'], 'parentRevision':revision, 'branch':branch,'approved':approve,'at':time.time(),'actor':'automatic_policy' if automatic else 'local_user'})
         return view(workspace, branch)
 
 
@@ -234,8 +238,8 @@ def capture(workspace, record, context, stage, execution_id):
 
 
 def require_approval(workspace, record, context):
-    from .workspace import AIRunError
+    from .workspace import ReviewRequired
     if context.get('requirementsBackend') and not context.get('requirementsRevision'):
         stages = [dict(item, status='succeeded', finishedAt=time.time()) if item['id']=='extract' and item['status']!='skipped' else item for item in record['stages']]
         workspace._job_update(record, stages=stages)
-        raise AIRunError('Review and approve the job requirements from Extract, then retry to continue. Your application is unchanged.')
+        raise ReviewRequired('Review and approve the job requirements from Extract, then continue. Your application is unchanged.')

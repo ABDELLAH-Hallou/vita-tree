@@ -68,12 +68,12 @@ def signature(context, step, before):
                         'dependencies': before})
 
 
-def write_checkpoint(root, ident, step, key, files, outcome, pdf=None, omitted=False):
+def write_checkpoint(root, ident, step, key, files, outcome, pdf=None, omitted=False, *, pdf_pending=False):
     with STORE_LOCK:
-        return _write_checkpoint(root, ident, step, key, files, outcome, pdf, omitted)
+        return _write_checkpoint(root, ident, step, key, files, outcome, pdf, omitted, pdf_pending)
 
 
-def _write_checkpoint(root, ident, step, key, files, outcome, pdf=None, omitted=False):
+def _write_checkpoint(root, ident, step, key, files, outcome, pdf=None, omitted=False, pdf_pending=False):
     data = {'schemaVersion': 1, 'step': step, 'signature': key,
             'hashes': {name: fingerprint(content) for name, content in files.items()},
             'outcome': outcome, 'createdAt': time.time()}
@@ -82,7 +82,9 @@ def _write_checkpoint(root, ident, step, key, files, outcome, pdf=None, omitted=
         raise ValueError('Only an explicitly rejected letter can omit its PDF')
     if omitted:
         data['omitted'] = True
-    if step == 'cover' and not omitted and not pdf_bytes.startswith(b'%PDF-'):
+    if pdf_pending and step == 'cover' and files.get('cover-letter.tex') and not omitted:
+        data['pdfPending'] = True
+    if step == 'cover' and not omitted and not data.get('pdfPending') and not pdf_bytes.startswith(b'%PDF-'):
         return False
     size = sum(len((content or '').encode()) for content in files.values()) + len(pdf_bytes)
     if size > MAX_CHECKPOINT_BYTES:
@@ -147,7 +149,9 @@ def load_checkpoint(root, ident, step):
                 return None
         if data.get('omitted') and (step != 'cover' or not rejected_cover(files)):
             return None
-        if step == 'cover' and not data.get('omitted'):
+        if data.get('pdfPending') and (step != 'cover' or not files.get('cover-letter.tex') or data.get('omitted')):
+            return None
+        if step == 'cover' and not data.get('omitted') and not data.get('pdfPending'):
             pdf_path = folder/'cover-letter.pdf'
             if pdf_path.is_symlink() or pdf_path.stat().st_size > MAX_CHECKPOINT_BYTES:
                 return None

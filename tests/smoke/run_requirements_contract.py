@@ -102,10 +102,12 @@ class RequirementsTests(unittest.TestCase):
         with patch.dict(os.environ,{'VITA_TEST_CANONICAL':'1'}):
             run=self.workspace.start_ai('requirements',branch['revision'],branch['jobRevision'],provider='codex',workflow={'steps':['extract','analyze']})
             parent=self.finished(run['id'])
-        self.assertEqual(parent['status'],'failed',parent)
+        self.assertEqual(parent['status'],'awaiting_review',parent)
         self.assertTrue(parent['requirementsApprovalNeeded'])
+        self.assertEqual(parent['failures'],{})
         self.assertEqual(parent['checkpointSteps'],['extract'])
         self.assertEqual(next(i['status'] for i in parent['stages'] if i['id']=='extract'),'succeeded')
+        self.assertEqual(next(i['status'] for i in parent['stages'] if i['id']=='analyze'),'pending')
         self.assertFalse((self.control/'requirements.analyze.calls').exists())
         self.assertEqual(self.workspace.read('requirements','main.tex'),SOURCE)
         view=review.view(self.workspace,'requirements');self.change(view,approve=True)
