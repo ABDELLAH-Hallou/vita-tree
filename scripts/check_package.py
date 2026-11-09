@@ -1,4 +1,4 @@
-﻿"""Validate the exact wheel/sdist contents before publication (no upload)."""
+"""Validate the exact wheel/sdist contents before publication (no upload)."""
 from email.parser import BytesParser
 from email.utils import getaddresses
 import hashlib
@@ -43,9 +43,9 @@ def check(directory):
         assert 'vt = vita_tree.cli:main' in entries and 'vita-tree = vita_tree.cli:main' in entries
     with tarfile.open(sdists[0]) as sdist:
         source_names = set(sdist.getnames())
-        for path in ['LICENSE', 'THIRD_PARTY_NOTICES.md', 'README.md', 'CHANGELOG.md', 'pyproject.toml',
+        for path in ['LICENSE', 'THIRD_PARTY_NOTICES.md', 'README.md', 'CHANGELOG.md', 'SECURITY.md', 'pyproject.toml',
                      'scripts/check_package.py', 'scripts/check_privacy.py', 'scripts/validate_release.py',
-                     'scripts/vendor-pdf.mjs', 'tests/support.py', 'tests/browser_check.py',
+                     'scripts/vendor-pdf.mjs', 'scripts/setup.ps1', 'scripts/setup.sh', 'tests/support.py', 'tests/browser_check.py',
                      'tests/smoke/run_installed_package.py', 'tests/smoke/installed_check.py', 'package-lock.json']:
             assert f'vita_tree-{version}/{path}' in source_names, path
         for name in expected:

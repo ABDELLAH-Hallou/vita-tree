@@ -1,55 +1,94 @@
-﻿# Vita Tree
+# Vita Tree
 
-Browse, edit, and adapt LaTeX CVs across Git branches. Compare versions side by side, keep a job description with each branch, and preview the compiled PDFs.
+Browse, edit, and adapt LaTeX CVs across Git branches with side-by-side version comparison, structured editing, and live PDF previews.
 
-## Install and run
+![Vita Tree dashboard showing LaTeX source, structured reading view, and compiled PDF preview side by side](https://raw.githubusercontent.com/ABDELLAH-Hallou/vita-tree/main/.github/assets/dashboard-preview.png)
 
-Requires **Python 3.10+**, **Git**, and a Git repository containing a LaTeX CV.
-Install the CLI in an isolated environment with pipx:
+## Quick start
+
+### 1. Try the sample CV (fastest way to explore)
+
+Explore Vita Tree immediately without preparing an existing LaTeX CV repository:
 
 ```sh
 pipx install "vita-tree[ai]"
-vt run /path/to/your/cv-repository
+vt demo
 ```
 
-Or use uv:
+Or using `uv`:
 
 ```sh
 uv tool install "vita-tree[ai]"
-vt run /path/to/your/cv-repository
+vt demo
 ```
 
-`vita-tree` is also available as an alias for `vt`; `python -m vita_tree` works
-inside the environment where the package is installed. Use `pipx upgrade vita-tree` or `uv tool upgrade vita-tree` to update a published installation.
+`vt demo` creates an isolated sample CV repository with a synthetic resume and job description, initializes a clean Git history, and opens the local dashboard at `http://127.0.0.1:8765`. It requires Git but works completely offline without network access, cloud provider accounts, or global Git identity configuration.
 
-The optional `[ai]` extra installs the compatible VITA CLI and enables provider
-and reasoning integration automatically. Install plain `vita-tree` if you only
-need browsing, editing, and PDF previews. AI calls still require your VITA
-configuration and provider credentials or Codex login. See
-[VITA](https://github.com/ABDELLAH-Hallou/vita-cv) for CV initialization and provider
-setup. VITA can also be used from a local checkout with `--vita-source`.
-
-**PDF previews:** install MiKTeX (Windows) or TeX Live (Linux/macOS), including your
-template's packages and fonts, and put its executables on PATH. Git and TeX are
-system requirements and are not installed by pip. Browser assets, PDF.js, fonts,
-and character maps are bundled; no Node installation or CDN is needed at runtime.
-
-To run from source:
+### 2. Open your own CV repository
 
 ```sh
-git clone https://github.com/ABDELLAH-Hallou/vita-tree.git
-cd vita-tree
-python -m pip install -e ".[ai]"
 vt run /path/to/your/cv-repository
 ```
 
-On Windows use a path such as `vt run "C:\path\to\cv-repository"`.
+On Windows:
 
-```text
-vt run [REPOSITORY] [--port 8765] [--file main.tex] [--no-browser] [--vita-source PATH]
+```powershell
+vt run "C:\path\to\cv-repository"
 ```
 
-The server accepts localhost connections only. It can modify the chosen repository, so do not expose it through a network proxy. Compile only trusted local LaTeX: disabling shell escape is not an operating-system sandbox.
+**Requirements:**
+- **Git** and **Python 3.10+**.
+- Your CV project must be a Git repository containing a UTF-8 LaTeX CV (`main.tex` at the repository root).
+- Vita Tree does not import raw PDF or DOCX files directly; if you currently only have a PDF or DOCX, launch `vt demo` to try the editor and structure.
+
+### 3. Guided setup scripts
+
+To check system capabilities and set up prerequisites automatically:
+
+**Windows (PowerShell or CMD):**
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
+```
+
+**Linux and macOS:**
+
+```bash
+bash scripts/setup.sh
+```
+
+The script verifies compatible Python (>=3.10), Git, and optional TeX engines, guides you through any missing requirements, and offers to launch the sample demo.
+
+---
+
+## Installation options
+
+| Installation method | Command | Best for |
+| :--- | :--- | :--- |
+| **pipx (Recommended)** | `pipx install "vita-tree[ai]"` | Isolated, globally available CLI tool |
+| **uv tool** | `uv tool install "vita-tree[ai]"` | Fast, modern isolated tool installation |
+| **pip user install** | `python -m pip install --user "vita-tree[ai]"` | Standard per-user Python environments |
+| **From source** | `git clone https://github.com/ABDELLAH-Hallou/vita-tree.git && cd vita-tree && python -m pip install -e ".[ai]"` | Development and contributing |
+
+`vita-tree` is available as an alias for `vt`; `python -m vita_tree` works in any environment where the package is installed.
+
+### Extras and optional dependencies
+
+- **`[ai]` extra**: Installs the compatible [VITA](https://github.com/ABDELLAH-Hallou/vita-cv) CLI and enables multi-provider model routing and reasoning. Install plain `vita-tree` if you only need local editing, branch comparison, and PDF previews.
+- **PDF compilation (Optional)**: Install MiKTeX (Windows) or TeX Live (Linux/macOS) with your template's packages and fonts. Browsing, syntax checking, and structured editing work without TeX; TeX is only needed for PDF compilation.
+- Browser assets, PDF.js, editor components, and fonts are bundled locally; no Node runtime or CDN connection is needed.
+
+---
+
+## Security and local execution
+
+- **Localhost only:** The server binds to `127.0.0.1` and accepts localhost connections only. Never expose it through an untrusted public network proxy.
+- **Trusted LaTeX compilation:** LaTeX compilers run with `-no-shell-escape`. Compile only trusted local LaTeX source code.
+- **Privacy by design:** Logs exclude CV contents, prompts, and credentials. Secrets stay in memory and are never written to disk or Git history.
+
+Read the full [Security policy](https://github.com/ABDELLAH-Hallou/vita-tree/blob/main/SECURITY.md) for details.
+
+---
 
 ## Applications and saving
 
@@ -77,32 +116,6 @@ The editor is bundled locally and follows the selected light/dark theme.
 
 **Save draft** remains local and uncommitted. **Save** includes only the displayed main document, `job.md`, the generated `cover-letter.tex`, and reviewed VITA Markdown/JSON/TOON reports; unrelated working-tree changes are reported and excluded. It never force-pushes or publishes other branches. Worktrees containing local changes persist across server restarts; leaving a clean worktree releases its branch for CLI checkout.
 
-For existing branches without a recorded baseline, Original means that branch's committed CV. New branches retain the viewed base CV; AI runs retain the pre-run CV. Reload imports changes made by a terminal/editor. Saving with a stale revision returns a conflict and preserves the user's editor text.
-
-VITA's local `config.json`, `extensions.json`, `cv.yaml`, and task Markdown files under `.vita/skills/<step>/` are supplied to isolated AI runs. API-key/token values from `.vita/.env` are passed in child-process memory. Existing reports are branch-local. The UI does not expose credentials or raw provider logs.
-
-Provider/model dropdowns scan `.vita/extensions.json` on every local and remote branch ref and in linked working trees. Duplicate choices are combined; hovering over Model lists their sources. Reload rescans the repository. Choosing a model from another branch overrides only the isolated run, leaving your branch configuration intact. These are discovered configurations, not a guarantee that historical model names remain available to your account.
-
-**Background AI runs:** use one `vt run` server and port for all branches. Every workflow action starts an independent background process immediately, with its own provider, model, reasoning, language, and isolated files. Codex runs use separate CLI invocations; API providers make independent requests through VITA. There is no Vita Tree queue or concurrency cap. Each run executes its enabled tasks sequentially; different branches run at the same time. Only the running branch stays locked for edits and publication. Provider rate limits and machine resources still apply.
-
-Leaving a branch (back to the list, opening another branch, or closing the page) releases its clean, idle Vita Tree worktree so the branch can be checked out from the CLI. No force removal is used. Running operations, uncommitted changes, untracked files, and ignored files keep the worktree intact; the UI explains when local files prevent release. Commit or move those files, then open and leave the branch again. Worktrees created outside Vita Tree and the original repository are never removed.
-
-Use the sidebar **Running**, **Needs review**, and **Needs attention** filters to find active work and results. Open a branch for its workflow progress and run history. The sidebar counts and branch badges show results waiting for review. In **Needs review**, open a branch to inspect its pending result in **Job & AI**, including retained reports and source files. Click **Mark as reviewed** beside **Preparation history** when finished. This clears only the selected run; a branch leaves **Needs review** once all its completed runs are marked. Opening results alone does not dismiss them, and reviewed state survives refresh and server restarts. Use the run selector and **View results** to revisit earlier runs. The opportunity label is the branch name; job description text and provider output are not included in the global status list.
-
-From **All applications**, select branches with unreviewed runs, then choose **Mark selected as reviewed**. Select visible respects the current search and filter. The action acknowledges the selected branches' finished runs, including failures; it does not change CV files. Active runs cannot be acknowledged. If a history write fails, successful acknowledgements are kept and failed runs remain selected for retry.
-
-Run history and review state survive browser refreshes and server restarts. A server restart marks unfinished work as interrupted; it does not automatically resume or resend AI requests. Start a new run after reviewing the branch. Keep one Vita Tree server per CV repository. No desktop-notification permission is needed.
-
-With the `[ai]` extra or `--vita-source`, the child-process adapter makes environment credentials available to VITA and forwards Codex reasoning as an explicit `-c model_reasoning_effort` override for all selected AI steps. Available levels come from the selected model's entry in `$CODEX_HOME/models_cache.json` (default `~/.codex`). Models absent from that catalog and non-Codex providers offer **Provider default** only; unsupported settings are rejected by the server. No parent VITA source files or global Codex settings are changed.
-
-Extraction and structured evaluation reports require Vita CV 2.5+. The UI detects task prompts in the connected installation and disables unavailable options; older integrations can still run Analyze and Adapt together or independently. The selected provider/model applies to every enabled step, overriding per-stage routing only in that run. Analyze, Adapt, and available AI review are selected initially; every AI step can be unchecked. **Prepare application** includes all supported AI steps regardless of checkbox selection. Validation runs automatically before applying outputs and can also run alone, without a job description or AI provider. Single steps never launch other AI steps. Analyze, Review, Extract, and Cover leave the CV and comparison baseline untouched. Review uses an existing matching structured analysis for score deltas, or evaluates the CV on its own when none exists. Matching extraction and analysis are captured at launch; analysis Markdown without job provenance is not reused. Running Analyze again clears the previous score delta; unrelated reports remain available. The current UI requires `tex_entry=main.tex` and, for cover generation, `cover_tex_entry=cover-letter.tex`. Cover letter generates `cover-letter.tex` and compiles a PDF before succeeding. Use **Open generated cover-letter PDF** in the run results to view that exact run, or select **Cover letter** in the PDF tab to compile the branch’s saved source. PDF compilation failures fail the cover step and preserve existing branch files; the attempted source remains in the run results.
-
-Vita CV 2.5 writes `analysis.md`/`analysis.json`, `review.md`/`review.json`, and comparable `delta.md`/`delta.json` reports. Vita Tree retains these along with `job.json` and `job.toon`. Reports render as readable Markdown with tables; raw HTML is treated as text. Historical runs without recorded task progress display **Not recorded**, never inferred success.
-
-The **Appearance** selector in the header offers Light, Dark, and System. Your preference is saved in this browser; System follows OS appearance changes. Reading pages and compiled PDFs remain white in dark mode.
-
-For a pipx editable installation, source changes take effect when you restart `vt`; no reinstall is needed. To reinstall its environment explicitly, run `pipx reinstall vita-tree`, then restart the command above.
-
 ## What is supported and what is limited
 
 | Capability | Status |
@@ -120,33 +133,11 @@ For a pipx editable installation, source changes take effect when you restart `v
 | Guaranteed perfect PDF reading order for arbitrary templates/fonts | Not possible; depends on the PDF's text encoding and layout |
 | Successful AI generation for every provider | Depends on VITA credentials/provider availability; provider, validation, and conflict failures preserve the CV; inspect files after disk-write failures |
 
-Structure preserves unsupported source and explicitly reports unknown commands/environments. It is a reading/editing aid, not a TeX engine. Source edits can temporarily be invalid; the UI reports parse/compile failures instead of pretending a stale PDF is current. AI results are syntax-checked but still require PDF compilation and factual review.
-
-PDF previews and AI snapshots are stored under the repository Git common directory's `vita-tree/pdf/` and `vita-tree/runs/`. AI input text is retained in `vita-tree/run-inputs/`, cover-letter PDFs in `vita-tree/run-pdfs/`, and run status and review state in `vita-tree/job-history/`. These can accumulate; keep the server stopped before manually cleaning old cache folders. Do not delete `worktrees/` directly; use Git's worktree commands.
-
-Vita Tree reserves its listening port before opening workspace history. A second server on the same address and port is rejected; stop the existing server or choose a different `--port`. On Windows, the port is reserved exclusively so an older server cannot silently receive requests intended for a new one.
-
 ## Activity, errors, and logs
 
 Open **Activity & support** in the sidebar or workspace footer for running/completed/failed run counts, request metrics, and recent events. Errors include a reference ID; paste it into the activity search to find the operation, error type, OS error code, and code location. **Download diagnostics** exports a sanitized snapshot without local log paths.
 
-`vt run` prints the log filename and metrics URL at startup. Rotating JSON logs live outside the repository, under `%LOCALAPPDATA%\vita-tree\logs\<repository-id>` on Windows or `$XDG_STATE_HOME/vita-tree/logs/<repository-id>` on other platforms (default `~/.local/state`). Each server session keeps up to six 1 MB files. Logs exclude CV/job contents, prompts, credentials, request payloads, and raw provider output. If file logging cannot write, the UI retains the latest 200 events in memory and reports the logging failure.
-
-```powershell
-vt run . --log-level debug --log-dir C:\path\to\private-logs
-```
-
-Prometheus metrics are available at `http://127.0.0.1:8765/metrics` on the same server port. They include HTTP counts/durations, active runs, workflow outcomes, and step counts/durations. Request/workflow counters reset on restart; saved run history remains available.
-
-**Permission denied when marking reviewed:** the run is acknowledged only after history is saved. Temporary file locks are retried. Permanent write denials still require write access to `.git/vita-tree`; if the server was launched inside a restricted agent terminal, stop it and restart `vt run` from a normal terminal as your own user. No administrator mode or automatic permission changes are required by Vita Tree.
-
-A Git `cannot lock ref ... Permission denied` error means the server cannot write the repository's Git metadata. Stop Vita Tree and start `vt run` from a normal terminal outside a restricted sandbox. If it persists, check write permission for the repository and its `.git` folder. Removing a lock file does not resolve a permission denial.
-
-## Save a PDF into its worktree
-
-Compile the PDF, then click **Save PDF to application folder** above the preview. Cover letters save as `cover-letter-Jordan_Lee.pdf`, separately from the CV, and use the same stale-source and overwrite checks. A CV headed “Jordan Lee” saves as `cv-Jordan_Lee.pdf` in the selected branch's existing worktree. The original preview uses `cv-Jordan_Lee-original.pdf`; documents without a recognizable name use `cv.pdf`. The UI shows the saved path. Existing files require confirmation, and a changed branch must be compiled again before saving.
-
-These PDFs are local artifacts; saving does not stage, commit, or push them. Repository ignore rules still apply. **Open PDF** uses the browser viewer, whose own download button follows the browser's save-location settings.
+`vt run` prints the log filename and metrics URL at startup. Rotating JSON logs live outside the repository, under `%LOCALAPPDATA%\vita-tree\logs\<repository-id>` on Windows or `$XDG_STATE_HOME/vita-tree/logs/<repository-id>` on other platforms (default `~/.local/state`). Each server session keeps up to six 1 MB files. Logs exclude CV/job contents, prompts, credentials, request payloads, and raw provider output.
 
 ## Development and verification
 
@@ -159,42 +150,10 @@ python tests/browser_jobs.py --browser chromium
 python tests/browser_workflow.py --browser chromium
 ```
 
-Browser tests cover editing, branch creation, provider settings, themes, conflicts,
-and real PDF compilation and text selection. They use synthetic CVs and a fake AI
-provider. Screenshots and PDFs are saved in ignored `.test-artifacts/`.
+## Release and Changelog
 
-PDF.js is pinned in `package-lock.json`; browser assets and its Apache license are vendored into the Python package. Node is only needed to refresh these assets:
-
-```powershell
-npm ci
-npm run vendor
-```
-
-Use Node 22.13+ or 24+ when updating PDF.js. The application itself runs on Python 3.10+.
-
-## Releases
-
-Use `feat:` and `fix:` commit messages. Releases have two separate PRs:
-
-1. **Release to TestPyPI:** Release Please updates the version and changelog.
-   Merging this PR creates the tag/GitHub release and runs code, browser/PDF,
-   installation, and privacy checks before uploading to TestPyPI only.
-2. **Publish to PyPI:** after verifying the TestPyPI downloads, automation opens
-   a separate promotion PR with installation commands, the source commit, workflow
-   run, and SHA-256 hashes. Test that candidate, then merge this PR to publish it
-   to PyPI. Leaving it open keeps the candidate off PyPI.
-
-Promotion downloads the exact wheel and source archive from TestPyPI and verifies
-their hashes again; it does not rebuild from a potentially newer main branch.
-If a candidate needs fixes, close its promotion PR and release a new version.
-Published candidate files and version numbers cannot be replaced. If production
-publishing fails, rerun the failed workflow or run **Promote approved release to
-PyPI** on `main` with the already-merged promotion PR number.
-
-Publishing uses `PYPI_API_TOKEN` in the `pypi` environment,
-`TEST_PYPI_API_TOKEN` in `testpypi`, and the repository's `RELEASE_PLEASE_TOKEN`.
-The release automation token needs permission to create branches and PRs. No new
-secrets or environments are required for the two-stage process.
+- Consult the [Changelog](https://github.com/ABDELLAH-Hallou/vita-tree/blob/main/CHANGELOG.md) for version release notes.
+- Maintainers should follow the [Maintainer release runbook](https://github.com/ABDELLAH-Hallou/vita-tree/blob/main/.github/RELEASING.md) for the two-stage TestPyPI and PyPI promotion procedure.
 
 ## Author
 

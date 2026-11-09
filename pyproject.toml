@@ -9,7 +9,7 @@ description = "A local Git and LaTeX CV workspace with branch comparison, editin
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
-license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md", "src/vita_tree/static/vendor/*LICENSE*", "src/vita_tree/static/vendor/*/LICENSE*"]
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md", "SECURITY.md", "src/vita_tree/static/vendor/*LICENSE*", "src/vita_tree/static/vendor/*/LICENSE*"]
 authors = [{ name = "Abdellah HALLOU", email = "abdeallahhallou33@gmail.com" }]
 keywords = ["git", "latex", "resume", "dashboard"]
 classifiers = [
@@ -42,6 +42,8 @@ Homepage = "https://github.com/ABDELLAH-Hallou/vita-tree"
 Repository = "https://github.com/ABDELLAH-Hallou/vita-tree"
 Issues = "https://github.com/ABDELLAH-Hallou/vita-tree/issues"
 Changelog = "https://github.com/ABDELLAH-Hallou/vita-tree/blob/main/CHANGELOG.md"
+Documentation = "https://github.com/ABDELLAH-Hallou/vita-tree#readme"
+Security = "https://github.com/ABDELLAH-Hallou/vita-tree/blob/main/SECURITY.md"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
