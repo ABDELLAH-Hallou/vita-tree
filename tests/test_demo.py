@@ -22,7 +22,9 @@ class DemoTests(unittest.TestCase):
         demo = self.root / "CV example é"
         self.assertEqual(prepare_demo_repository(demo), demo.resolve())
         document = demo / "main.tex"
-        baseline = subprocess.check_output(["git", "-C", str(demo), "show", "HEAD:main.tex"]).decode("utf-8")
+        baseline = subprocess.check_output(
+            ["git", "-C", str(demo), "show", "HEAD:main.tex"], encoding="utf-8"
+        )
         self.assertEqual(baseline, document.read_text(encoding="utf-8"))
         document.write_text(baseline + "% local edit\n", encoding="utf-8")
         self.assertEqual(prepare_demo_repository(demo), demo.resolve())
