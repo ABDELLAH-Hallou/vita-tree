@@ -1,11 +1,23 @@
-"""Validate the exact wheel/sdist contents before publication (no upload)."""
+﻿"""Validate the exact wheel/sdist contents before publication (no upload)."""
 from email.parser import BytesParser
 from email.utils import getaddresses
 import hashlib
+import json
 from pathlib import Path, PurePosixPath
 import sys
 import tarfile
 import zipfile
+
+
+def check_description(metadata):
+    assert metadata['Description-Content-Type'].startswith('text/markdown')
+    description = metadata.get_payload()
+    for text in ('## Quick start', 'vt demo', 'https://raw.githubusercontent.com/',
+                 '/SECURITY.md)', '/CHANGELOG.md)', '/docs/WORKSPACE_GUIDE.md)'):
+        assert text in description, f'Missing package description content: {text}'
+    for text in ('PYPI_API_TOKEN', 'RELEASE_PLEASE_TOKEN', 'Promote approved release to PyPI'):
+        assert text not in description, 'Maintainer publishing instructions are in the package description'
+    return description
 
 
 def check(directory):
@@ -25,6 +37,7 @@ def check(directory):
             if wheel.read(name) != path.read_bytes():
                 raise ValueError(f'Stale or changed wheel file: {name}')
         metadata = BytesParser().parsebytes(wheel.read(next(n for n in names if n.endswith('.dist-info/METADATA'))))
+        description = check_description(metadata)
         assert metadata['Name'] == 'vita-tree'
         assert getaddresses(metadata.get_all('Author-email') or []) == [
             ('Abdellah HALLOU', 'abdeallahhallou33@gmail.com')
@@ -43,13 +56,31 @@ def check(directory):
         assert 'vt = vita_tree.cli:main' in entries and 'vita-tree = vita_tree.cli:main' in entries
     with tarfile.open(sdists[0]) as sdist:
         source_names = set(sdist.getnames())
-        for path in ['LICENSE', 'THIRD_PARTY_NOTICES.md', 'README.md', 'CHANGELOG.md', 'SECURITY.md', 'pyproject.toml',
+        info = BytesParser().parsebytes(sdist.extractfile(f'vita_tree-{version}/PKG-INFO').read())
+        assert check_description(info) == description, 'Wheel and sdist descriptions differ'
+        for path in ['LICENSE', 'THIRD_PARTY_NOTICES.md', 'README.md', 'CHANGELOG.md', 'pyproject.toml',
+                     'SECURITY.md', 'docs/WORKSPACE_GUIDE.md', 'docs/SECURITY_REVIEW.md',
+                     'scripts/setup.ps1', 'scripts/setup.sh',
                      'scripts/check_package.py', 'scripts/check_privacy.py', 'scripts/validate_release.py',
-                     'scripts/vendor-pdf.mjs', 'scripts/setup.ps1', 'scripts/setup.sh', 'tests/support.py', 'tests/browser_check.py',
+                     'scripts/vendor-pdf.mjs', 'tests/support.py', 'tests/browser_check.py',
                      'tests/smoke/run_installed_package.py', 'tests/smoke/installed_check.py', 'package-lock.json']:
+            assert f'vita_tree-{version}/{path}' in source_names, path
+        for path in ['frontend/index.html', 'frontend/src/main.tsx', 'frontend/src/api/client.ts',
+                     'frontend/src/components/ApplicationShell.tsx', 'frontend/tests/views.test.tsx',
+                     'vite.config.ts', 'tsconfig.json', 'scripts/build-frontend.mjs',
+                     'scripts/test-frontend.mjs']:
             assert f'vita_tree-{version}/{path}' in source_names, path
         for name in expected:
             assert f'vita_tree-{version}/src/{name}' in source_names, name
+        # The source archive must contain the exact licensed corpus needed to
+        # reproduce compatibility evidence; test assets stay out of the wheel.
+        corpus = root/'tests/fixtures/template_matrix'
+        manifest = json.loads((corpus/'manifest.json').read_text(encoding='utf-8'))
+        for fixture in manifest['fixtures']:
+            for ref in fixture['files'].values():
+                name = f'vita_tree-{version}/tests/fixtures/template_matrix/'+ref['fixture']
+                assert name in source_names, name
+                assert hashlib.sha256(sdist.extractfile(name).read()).hexdigest() == ref['sha256'], name
     for name in names | source_names:
         parts = PurePosixPath(name).parts
         assert not set(parts) & {'.env', '.git', '.venv', '.pypirc', '.test-artifacts', 'node_modules', '__pycache__'}, name

@@ -35,27 +35,37 @@ def main():
     (fake_vita/'vita/__init__.py').write_text('')
     (fake_vita/'vita/helpers').mkdir()
     (fake_vita/'vita/helpers/__init__.py').write_text('')
-    (fake_vita/'vita/helpers/llm.py').write_text("def load_env(): return {}\ndef _find_codex_cli(): return 'codex-fixture'\n")
-    (fake_vita/'vita/__main__.py').write_text('''import sys,time,json,subprocess
+    (fake_vita/'vita/helpers/env.py').write_text('def load_env(): return {}\n')
+    (fake_vita/'vita/helpers/llm.py').write_text("def load_env(): return {}\ndef _find_codex_cli(): return 'codex-fixture'\ndef _call_codex_cli(system,user,model=''): raise AssertionError('Reasoning bridge was not configured')\n")
+    (fake_vita/'vita/__main__.py').write_text("raise AssertionError('Use the structured backend API, not the CLI entrypoint')\n")
+    (fake_vita/'vita/commands').mkdir()
+    (fake_vita/'vita/commands/__init__.py').write_text('')
+    # Match Vita CV's boolean API and native outcome contract. Exercise the real
+    # Tree adapter and reasoning bridge; only the provider subprocess is mocked.
+    (fake_vita/'vita/commands/ai_step.py').write_text('''import time,json,subprocess
 from pathlib import Path
 from unittest.mock import patch
 from vita.helpers import llm
-step=sys.argv[1]
-assert sys.argv[sys.argv.index('--provider')+1]=='codex'
-model=json.loads(Path('.vita/extensions.json').read_text())['llm_providers']['codex']['model']
-assert model=='test-codex'
-def run(command,**kwargs):
- assert command[command.index('-c')+1]=='model_reasoning_effort="high"'
- assert command[command.index('--model')+1]=='test-codex'
- Path(command[command.index('--output-last-message')+1]).write_text('controlled CLI fixture with high reasoning')
- return subprocess.CompletedProcess(command,0)
-with patch('subprocess.run',side_effect=run):
- report=llm._call_codex_cli('System','Task',model)
-time.sleep(1)
-results=Path('.vita/results');results.mkdir(parents=True,exist_ok=True)
-(results/(step+'.md')).write_text('# '+step+' report from '+report)
-if step=='adapt':
- p=Path('main.tex');p.write_text(p.read_text().replace('careful automated tests','rigorous automated tests'))
+def run(step,*,auto=False,provider=None,language=None):
+ assert auto and provider=='codex'
+ model=json.loads(Path('.vita/extensions.json').read_text())['llm_providers']['codex']['model']
+ assert model=='test-codex'
+ def provider_process(command,**kwargs):
+  assert command[command.index('-c')+1]=='model_reasoning_effort="high"'
+  assert command[command.index('--model')+1]=='test-codex'
+  Path(command[command.index('--output-last-message')+1]).write_text('controlled CLI fixture with high reasoning')
+  return subprocess.CompletedProcess(command,0)
+ with patch('subprocess.run',side_effect=provider_process):
+  report=llm._call_codex_cli('System','Task',model)
+ time.sleep(1)
+ results=Path('.vita/results');results.mkdir(parents=True,exist_ok=True)
+ (results/(step+'.md')).write_text('# '+step+' report from '+report)
+ if step=='analyze':
+  (results/'analyze.outcome.json').write_text(json.dumps({'schema_version':1,'step':step,
+   'run_id':'a'*32,'status':'success','attempts':[{'number':1,'category':'valid','mode':'validated_prompt'}]}))
+ if step=='adapt':
+  p=Path('main.tex');p.write_text(p.read_text().replace('careful automated tests','rigorous automated tests'))
+ return True
 ''')
     model_patch=patch('vita_tree.providers.codex_efforts',return_value={'test-codex':['low','medium','high'],'test-current':['low','medium','high']})
     model_patch.start()
@@ -173,14 +183,18 @@ if step=='adapt':
             page.get_by_role('button',name='↻ Reload',exact=True).click();expect(page.locator('#artifacts')).to_contain_text('Strong Python and SQL experience.',timeout=30000)
             expect(page.locator('#provider')).to_have_value('codex')
             page.locator('#provider').select_option('openai');expect(page.locator('#reasoning')).to_be_disabled()
-            page.locator('#provider').select_option('codex');page.locator('#model').select_option('test-codex')
+            page.locator('#provider').select_option('codex');page.locator('#model').fill('test-codex');page.locator('#model').press('Tab')
             page.locator('#reasoning').select_option('high')
             page.screenshot(path=str(artifacts/'ai-light.png'),full_page=True)
             set_theme(page, 'dark')
             page.screenshot(path=str(artifacts/'ai-dark.png'),full_page=True)
             page.get_by_role('button',name='Start selected steps',exact=True).click()
             expect(page.locator('#job-description')).to_have_attribute('readonly','')
-            expect(page.locator('#ai-status')).to_contain_text('Selected steps finished',timeout=60000)
+            expect(page.locator('#ai-status')).to_contain_text('Final PDFs saved',timeout=60000)
+            assert (worktree/'cv-final.pdf').read_bytes().startswith(b'%PDF-')
+            completed=next(job for job in server.workspace.jobs.values() if job['branch']=='etp-acme-swe')
+            assert completed['checkpointSteps']==['analyze','adapt'], completed
+            assert all(completed['outcomes'][step]['verified'] for step in ('analyze','adapt')), completed
             expect(page.locator('#artifacts')).to_contain_text('controlled CLI fixture')
             expect(page.locator('#artifacts')).to_contain_text('high reasoning')
             expect(page.locator('#reasoning')).to_have_value('high')

@@ -1,0 +1,6 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesClass{matrixcv}[2026/10/27 v1.0 Synthetic matrix class]
+\LoadClass[10pt]{article}
+\RequirePackage{geometry}
+\geometry{margin=0.7in}
+\newenvironment{cvBlock}[1]{\section*{#1}\begin{list}{}{}\item[]}{\end{list}}

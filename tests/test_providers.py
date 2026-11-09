@@ -48,7 +48,9 @@ class ProviderTests(unittest.TestCase):
         self.write({'codex': {'model': 'test-model'}, 'openai': {'model': 'gpt-4-turbo'}})
         with patch.object(self.workspace, 'ai_bridge', return_value=True), patch('vita_tree.providers.codex_efforts', return_value={'test-model': ['low','medium','high']}):
             self.assertEqual(resolve(self.workspace, 'master', 'codex', 'test-model', 'high'), ('codex','test-model','high'))
-            for provider, model, effort in [('codex','test-model','ultra'),('openai','gpt-4-turbo','high'),('codex','invented',''),('unknown','','')]:
+            self.assertEqual(resolve(self.workspace, 'master', 'codex', 'custom-model', 'high'), ('codex', 'custom-model', 'high'))
+            self.assertEqual(resolve(self.workspace, 'master', 'mistral', 'custom/model:latest', ''), ('mistral', 'custom/model:latest', ''))
+            for provider, model, effort in [('codex','test-model','ultra'),('openai','gpt-4-turbo','high'),('codex','--model',''),('unknown','','')]:
                 with self.assertRaises(ValueError): resolve(self.workspace,'master',provider,model,effort)
             for model, effort in [([], ''), ('test-model', None), ('test-model', [])]:
                 with self.assertRaises(ValueError): resolve(self.workspace,'master','codex',model,effort)
@@ -68,6 +70,12 @@ class RunnerTests(unittest.TestCase):
             configure(llm)
             self.assertEqual(llm.load_env()['OPENAI_API_KEY'], 'fixture-key')
             self.assertIs(llm._call_codex_cli, original)
+
+    def test_explicit_session_key_wins_over_env_file(self):
+        llm = SimpleNamespace(load_env=lambda: {'OPENAI_API_KEY': 'old-file-key'}, _call_codex_cli=lambda: None)
+        with patch.dict(os.environ, {'OPENAI_API_KEY': 'selected-session-key', 'VITA_TREE_REASONING': ''}):
+            configure(llm)
+            self.assertEqual(llm.load_env()['OPENAI_API_KEY'], 'selected-session-key')
 
     def test_selected_model_effort_and_prompt_reach_codex_without_shell(self):
         llm = SimpleNamespace(_find_codex_cli=lambda:'codex.exe')

@@ -1,0 +1,960 @@
+{
+  "schemaVersion": 1,
+  "scope": "Synthetic corpus 1.0.0 only. Agent visual inspection, not human sign-off or general template certification.",
+  "inspectionNotes": {
+    "geometry": "All painted pixels inspected in native-resolution contact sheets, alongside full page bounds. No apparent clipping, overlapping lines, missing headings/entries or detached associations.",
+    "longDocument": "All eight pages of both snapshots inspected; twelve numbered entries and start/end markers remain visible on each page. Only page four has the planned edited entry; page eight retains the untouched conclusion.",
+    "arabic": "Both Arabic phrases visually present and separated in the Linux PDFs. Poppler extraction is partial; no claim of reliable Arabic selection/search/reading order.",
+    "escaped": "Decoded-leaf edits intentionally replace only the selected glyph span, retaining adjacent literal characters. Untouched punctuation and sections remain visible."
+  },
+  "runs": [
+    {
+      "corpusVersion": "1.0.0",
+      "corpusSha256": "5fb3010018369477a215766cf0a2cdaca3b076cc7ac36655e32913a6cb89430b",
+      "at": "2026-10-27T23:01:19.691839+00:00",
+      "python": "3.12.15",
+      "platform": "Linux",
+      "treeCommit": "3dac320062acf0e5b1d64c80abaf4299f998abad",
+      "adapterHashes": {
+        "latex.py": "f742272ed053388f05c9561e3e10efa811d69a942c9e075d785b83488e8f8d5d",
+        "includes.py": "5414f12e23490071b0fed0a4eff386b46144751ae65769356e8201cc3944c207",
+        "pdf.py": "a2cc26e85ac803535dd33c2d5ab42c25e5dbf481c5b481e86270bd9d272c130e",
+        "workspace.py": "3d0431e399f9113da12a307397206f49d9b8d86826da591cd2751e84b09cca17",
+        "security.py": "5f8fe17edf2b979aa6d3756a1f9c34591db4b9f647abc09cd2eeca041d94b142",
+        "static/app.js": "44365c4d4a12d9cc773bd2dc69ddc9a8e4ac2a6d89f0310740074502b72c765c"
+      },
+      "harnessHashes": {
+        "run_template_matrix.py": "d96ad184ade4b868764e506fa993175ad04776907f6bfad7cdab4eb0380178b6",
+        "template_matrix.py": "d77fc4e5c83b614771f1d741a93180946498943a0f13cc17a121479b9dc25a89"
+      },
+      "toolVersions": {
+        "pdftotext": "pdftotext version 24.02.0",
+        "pdftoppm": "pdftoppm version 24.02.0"
+      },
+      "environment": "Ubuntu 24.04 / TeX Live",
+      "reportSha256": "143fb502e57f5570571087ca921c99a6150cf629e9d5e0a2949e7dd79b7b133d",
+      "evidence": "https://github.com/ABDELLAH-Hallou/vita-tree/actions/runs/40598874448/artifacts/12778100001",
+      "engineVersions": [
+        "This is LuaHBTeX, Version 1.17.0 (TeX Live 2023/Debian)",
+        "XeTeX 3.141592653-2.6-0.999995 (TeX Live 2023/Debian)",
+        "pdfTeX 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian)"
+      ],
+      "packageVersions": [
+        "arabicnumbers.sty    2010/03/18 v0.2 Formatting of Arabic and Farsi digits and",
+        "array.sty    2023/10/16 v2.5g Tabular extension package (FMi)",
+        "article-xetex-bidi.def    2017/06/09 v0.6 bidi adaptations for standard article",
+        "article.cls    2023/05/17 v1.4n Standard LaTeX document class",
+        "atbegshi-ltx.sty    2021/01/10 v1.0c Emulation of the original atbegshi",
+        "atveryend-ltx.sty    2020/08/19 v1.0a Emulation of the original atveryend packa",
+        "auxhook.sty    2019-12-17 v1.6 Hooks for auxiliary files (HO)",
+        "bidi.sty    2023/08/02 v39.8 (Release Donald Ervin Knuth) Bidirectional typ",
+        "biditools.sty    2022/06/15 v2.3 Programming tools for bidi package",
+        "bigintcalc.sty    2019/12/15 v1.5 Expandable calculations on big integers (HO)",
+        "bitset.sty    2019/12/09 v1.3 Handle bit-vector datatype (HO)",
+        "calc.sty    2023/07/08 v4.3 Infix arithmetic (KKT,FJ)",
+        "etexcmds.sty    2019/12/15 v1.7 Avoid name clashes with e-TeX commands (HO)",
+        "etoolbox.sty    2020/10/05 v2.5k e-TeX tools for LaTeX (JAW)",
+        "expl3.sty    2024-01-22 L3 programming layer (loader)",
+        "fontenc.sty    2021/04/29 v2.0v Standard LaTeX package",
+        "fontspec-luatex.sty    2022/01/15 v2.8a Font selection for XeLaTeX and LuaLaTeX",
+        "fontspec-xetex.sty    2022/01/15 v2.8a Font selection for XeLaTeX and LuaLaTeX",
+        "fontspec.sty    2022/01/15 v2.8a Font selection for XeLaTeX and LuaLaTeX",
+        "footnote-xetex-bidi.def    2023/01/18 v1.2 bidi footnote macros for XeTeX engin",
+        "geometry-xetex-bidi.def    2017/01/14 v0.2 bidi adaptations for geometry packag",
+        "geometry.sty    2020/01/02 v5.9 Page Geometry",
+        "gettitlestring.sty    2019/12/15 v1.6 Cleanup title references (HO)",
+        "hijrical.sty    2010/07/12 v0.2 Islamic calendar",
+        "hluatex.def    2024-01-20 v7.01h Hyperref driver for luaTeX",
+        "hpdftex.def    2024-01-20 v7.01h Hyperref driver for pdfTeX",
+        "hxetex.def    2024-01-20 v7.01h Hyperref driver for XeTeX",
+        "hyperref.sty    2024-01-20 v7.01h Hypertext links for LaTeX",
+        "iftex.sty    2022/02/03 v1.0f TeX engine tests",
+        "ifvtex.sty    2019/10/25 v1.7 ifvtex legacy package. Use iftex instead.",
+        "intcalc.sty    2019/12/15 v1.3 Expandable calculations with integers (HO)",
+        "kvdefinekeys.sty    2019-12-19 v1.6 Define keys (HO)",
+        "kvoptions.sty    2022-06-15 v3.15 Key value format for package options (HO)",
+        "kvsetkeys.sty    2022-10-05 v1.19 Key value parser (HO)",
+        "l3backend-luatex.def    2024-01-04 L3 backend support: PDF output (LuaTeX)",
+        "l3backend-pdftex.def    2024-01-04 L3 backend support: PDF output (pdfTeX)",
+        "l3backend-xetex.def    2024-01-04 L3 backend support: XeTeX",
+        "lmodern.sty    2015/05/01 v1.6.1 Latin Modern Fonts",
+        "loadingorder-xetex-bidi.def    2017/12/29 v0.97 making sure that bidi is the la",
+        "ltxcmds.sty    2023-12-04 v1.26 LaTeX kernel commands for general use (HO)",
+        "matrixcv.cls    2026/10/27 v1.0 Synthetic matrix class",
+        "nameref.sty    2023-11-26 v2.56 Cross-referencing by name of section",
+        "pd1enc.def    2024-01-20 v7.01h Hyperref: PDFDocEncoding definition (HO)",
+        "pdftexcmds.sty    2020-06-27 v0.33 Utility functions of pdfTeX for LuaTeX (HO)",
+        "polyglossia.sty    2023/12/11 v1.66 Modern multilingual typesetting with XeLaTe",
+        "puenc.def    2024-01-20 v7.01h Hyperref: PDF Unicode definition (HO)",
+        "refcount.sty    2019/12/15 v3.6 Data extraction from label references (HO)",
+        "rerunfilecheck.sty    2022-07-10 v1.10 Rerun checks for auxiliary files (HO)",
+        "size10.clo    2023/05/17 v1.4n Standard LaTeX file (size option)",
+        "stringenc.sty    2019/11/29 v1.12 Convert strings between diff. encodings (HO)",
+        "t1lmr.fd    2015/05/01 v1.6.1 Font defs for Latin Modern",
+        "ts1cmr.fd    2023/04/13 v2.5m Standard LaTeX font definitions",
+        "uniquecounter.sty    2019/12/15 v1.4 Provide unlimited unique counter (HO)",
+        "url.sty    2013/09/16  ver 3.4  Verb mode for urls, etc.",
+        "xkeyval.sty    2022/06/16 v2.9 package option processing (HA)",
+        "xparse.sty    2023-10-10 L3 Experimental document command parser",
+        "zref-abspage.sty    2023-09-14 v2.35 Module abspage for zref (HO)",
+        "zref-base.sty    2023-09-14 v2.35 Module base for zref (HO)"
+      ],
+      "summary": {
+        "fixtures": 11,
+        "sourceLeaves": 306,
+        "plannedWorkspaceEdits": 15,
+        "compiledPDFs": 48,
+        "renderedPages": 102,
+        "expectedDiagnostics": 12,
+        "missingDependencies": 0,
+        "automatedChecksPassed": true
+      },
+      "fixtures": [
+        {
+          "id": "native-environments",
+          "version": "1.0.0",
+          "structure": "approximate",
+          "limits": "Structure preserves visible text but does not reproduce TeX layout.",
+          "capturedFiles": {
+            "main.tex": "363a27607d177bc0acd6dedaeaafa2331573760801db10d2ae992a8e4d8b0d1f",
+            "matrixcv.cls": "49c88bc72c97fd9cbd0f2865393a91de6ae8ef1a7c8c3820d50e3cb753b41711"
+          },
+          "editedFiles": {
+            "main.tex": "67d980495e69b0438a94ff9ead46d5077bb8cf93208bca96e4c658aad7a7c802",
+            "matrixcv.cls": "49c88bc72c97fd9cbd0f2865393a91de6ae8ef1a7c8c3820d50e3cb753b41711"
+          },
+          "engines": {
+            "pdflatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ],
+            "xelatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ],
+            "lualatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ]
+          }
+        },
+        {
+          "id": "macro-arguments",
+          "version": "1.0.0",
+          "structure": "approximate",
+          "limits": "Known resume macros expose mapped arguments. Arbitrary expansion and inserted literal text (ExpansionOnlyMarker) are not executed in Structure.",
+          "capturedFiles": {
+            "main.tex": "5df612f0fc277b6d513e06740c8810ca0c07b3e4e3317d73f19f1b03e97047b4"
+          },
+          "editedFiles": {
+            "main.tex": "f35e736ab31279d65b2616c43eba20a0a0c1417e5fca6614ead3016070a6defd"
+          },
+          "engines": {
+            "pdflatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ],
+            "xelatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ],
+            "lualatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ]
+          }
+        },
+        {
+          "id": "escaped-text",
+          "version": "1.0.0",
+          "structure": "approximate",
+          "limits": "Structure preserves visible text but does not reproduce TeX layout.",
+          "capturedFiles": {
+            "main.tex": "3a178537fdae2993b8a3734efa64a4da1c798e566066ac9f315c6f1194762b91"
+          },
+          "editedFiles": {
+            "main.tex": "f17511aeacb964e94d484a910e99cfedcf220fa7851b73ef557437fe0c7ae6b9"
+          },
+          "engines": {
+            "pdflatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ],
+            "xelatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ],
+            "lualatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ]
+          }
+        },
+        {
+          "id": "tables-columns",
+          "version": "1.0.0",
+          "structure": "approximate",
+          "limits": "Table cells are mapped. Column positions, widths and minipage layout are approximate in Structure; PDF is the layout authority.",
+          "capturedFiles": {
+            "main.tex": "8b2a9f6f3f722439068a9aed38942cd48036a561d38b5c98733e9df9762f6fb8"
+          },
+          "editedFiles": {
+            "main.tex": "136bef403954b678e567cd1fb20b64227e353da5e79e7da5b1cd69d2ba7f2444"
+          },
+          "engines": {
+            "pdflatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ],
+            "xelatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ],
+            "lualatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ]
+          }
+        },
+        {
+          "id": "nested-includes",
+          "version": "1.0.0",
+          "structure": "approximate",
+          "limits": "Literal includes are navigated as separate files with file-local offsets; Structure does not flatten the document. Duplicate text in another file must stay unchanged.",
+          "capturedFiles": {
+            "main.tex": "72a53aa782a95a70b851091f1ddb3fe0d186c5706f74ea19a6e038ae2fe4b2a0",
+            "sections/details.tex": "906876cba535a698b92a325ef2c0dc9346c4fbf938d8f355bd6f1152ea35a7a2",
+            "sections/profile.tex": "1c87d7a3e5bb721aaafe61abb8357c20f3466e0fdf600ff3ea20377cbdaa7c18",
+            "sections/roles.tex": "8baff6c192e59b3c62b027c48c70c8e840394b892cb913ecc0430e2fb2010ee6"
+          },
+          "editedFiles": {
+            "main.tex": "72a53aa782a95a70b851091f1ddb3fe0d186c5706f74ea19a6e038ae2fe4b2a0",
+            "sections/details.tex": "2f53e972c4966750123f117f20fa85d89d19af3ef468c594ae472ab1a7392236",
+            "sections/profile.tex": "1c87d7a3e5bb721aaafe61abb8357c20f3466e0fdf600ff3ea20377cbdaa7c18",
+            "sections/roles.tex": "3b330abb3b4d95e1a44a201091835a2d797c4136ce3dc0b3b0f44780350ba6ac"
+          },
+          "engines": {
+            "pdflatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ],
+            "xelatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ],
+            "lualatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ]
+          }
+        },
+        {
+          "id": "unicode",
+          "version": "1.0.0",
+          "structure": "approximate",
+          "limits": "Latin accents and a non-BMP comment preceding mapped offsets are tested. Emoji glyphs, CJK and arbitrary script/font coverage are not established.",
+          "capturedFiles": {
+            "main.tex": "7ae2dc1795fa76539f761f5e589bccb950788e91beeddb614b1947b7bd522a1c"
+          },
+          "editedFiles": {
+            "main.tex": "921b00429d0ad9b6f3b3cae0db7f7481b5fc6375851324c485a21d5c4fa512dc"
+          },
+          "engines": {
+            "pdflatex": "not_in_fixture_contract",
+            "xelatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ],
+            "lualatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ]
+          }
+        },
+        {
+          "id": "rtl-arabic",
+          "version": "1.0.0",
+          "structure": "approximate",
+          "limits": "XeLaTeX with polyglossia, bidi and Amiri only. Structure displays logical Unicode text approximately; native RTL shaping, font layout and PDF reading order require separate checks. PDF Arabic text extraction is partial; Arabic phrases require explicit visual review.",
+          "capturedFiles": {
+            "main.tex": "7adc838d7a068d2f55949bf46f88767fed3ecda83d989b65cfca3dfaebecee5c"
+          },
+          "editedFiles": {
+            "main.tex": "bd35cce264361bd87c0c38e23cdaed41dc16463f0f9745fe82dd4f7202cb0830"
+          },
+          "engines": {
+            "pdflatex": "not_in_fixture_contract",
+            "xelatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ],
+            "lualatex": "not_in_fixture_contract"
+          }
+        },
+        {
+          "id": "long-document",
+          "version": "1.0.0",
+          "structure": "approximate",
+          "limits": "Eight explicit pages and 96 numbered entries are checked. This is not evidence for arbitrarily large or deeply nested projects.",
+          "capturedFiles": {
+            "main.tex": "fcc8e868b9d954171bca9dd71494cbb7c6df22ad82c99217ba8f32d8fe8d2c74"
+          },
+          "editedFiles": {
+            "main.tex": "db8c94b04107ed8c46e2a69fa0b7dd5849907b2d1915233d2aa0d538ff3bc22e"
+          },
+          "engines": {
+            "pdflatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ],
+            "xelatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ],
+            "lualatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ]
+          }
+        },
+        {
+          "id": "dynamic-include",
+          "version": "1.0.0",
+          "structure": "unsupported",
+          "limits": "TeX expands the dynamic input for PDF. Structure cannot resolve or navigate it and must emit an unsupported-include diagnostic; edit it externally or use literal inputs.",
+          "capturedFiles": {
+            "main.tex": "0fc45bad71b22089114b7c847328d69061bbbfa4fca016f0f96f707132777a59",
+            "sections/hidden.tex": "19747b4bdd5d58e742ebd988b2b06d2959eead16287bb9b53a717b5d88d427aa"
+          },
+          "editedFiles": {
+            "main.tex": "36c3d3aacbefb5bfb5a67f952dcca96e1e24bfd2a6a7cac9748b371e0d477b6c",
+            "sections/hidden.tex": "19747b4bdd5d58e742ebd988b2b06d2959eead16287bb9b53a717b5d88d427aa"
+          },
+          "engines": {
+            "pdflatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ],
+            "xelatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ],
+            "lualatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ]
+          }
+        },
+        {
+          "id": "missing-dependency",
+          "version": "1.0.0",
+          "structure": "supported",
+          "limits": "Intentional missing package control. This is a setup failure, not a parser defect; the runtime must not install it.",
+          "capturedFiles": {
+            "main.tex": "95c974ae979137ebe3fe721fc68f1c84af8d2a3657b5682d527560a809330a48"
+          },
+          "editedFiles": {
+            "main.tex": "95c974ae979137ebe3fe721fc68f1c84af8d2a3657b5682d527560a809330a48"
+          },
+          "engines": {
+            "pdflatex": [
+              "expected_diagnostic:missing_package",
+              "expected_diagnostic:missing_package"
+            ],
+            "xelatex": [
+              "expected_diagnostic:missing_package",
+              "expected_diagnostic:missing_package"
+            ],
+            "lualatex": [
+              "expected_diagnostic:missing_package",
+              "expected_diagnostic:missing_package"
+            ]
+          }
+        },
+        {
+          "id": "invalid-source",
+          "version": "1.0.0",
+          "structure": "invalid",
+          "limits": "Intentionally malformed braces must be distinguished from limited Structure support and missing packages.",
+          "capturedFiles": {
+            "main.tex": "77fd43c7bc0f4ca22cc0af2356e2f4aab7dea3e5b4c4678a716772e248a03abc"
+          },
+          "editedFiles": {
+            "main.tex": "77fd43c7bc0f4ca22cc0af2356e2f4aab7dea3e5b4c4678a716772e248a03abc"
+          },
+          "engines": {
+            "pdflatex": [
+              "expected_diagnostic:compile_failed",
+              "expected_diagnostic:compile_failed"
+            ],
+            "xelatex": [
+              "expected_diagnostic:compile_failed",
+              "expected_diagnostic:compile_failed"
+            ],
+            "lualatex": [
+              "expected_diagnostic:compile_failed",
+              "expected_diagnostic:compile_failed"
+            ]
+          }
+        }
+      ],
+      "visualReview": {
+        "reviewer": "Codex visual inspection; not a human sign-off",
+        "method": "Every rendered page inspected. 100 page images matched SHA-256 identities of already inspected native-resolution contact sheets; the two newly compiled XeLaTeX macro pages were inspected as full-page PNGs. Page geometry and required text independently checked by the matrix.",
+        "status": "All rendered pages inspected; no apparent clipping, collision or section omission.",
+        "pageImageSha256": {
+          "native-environments/pdflatex/before/1": "b68b0b606e04e5ae8a7a17d7c8a1c8cedf8fabb0d17acdf86d71ef5ebd1c6ec5",
+          "native-environments/pdflatex/after/1": "2fd6b7d15c1697891d0b51531a5e6e1dc174edf311348e08a54851997346145d",
+          "native-environments/xelatex/before/1": "5a9a7827a4a0619c8128a80d94117963d95f811dbe1a4424807ee669ccad4761",
+          "native-environments/xelatex/after/1": "2d03157b1a42feec3b58cc4e236c306022986db03a91018d38b6b7da004035d1",
+          "native-environments/lualatex/before/1": "799545bd008ebb6be3717a79eee9774afb291dbd35c6ff11765a826247d7b23a",
+          "native-environments/lualatex/after/1": "a4ba6382df93d8dd17f58ea1d9021c1d181804795dfe9305edd39d9e42155c35",
+          "macro-arguments/pdflatex/before/1": "491d5741614cb66ec3f932b8ec3ea1aa063ff35212836bd4673514118572a575",
+          "macro-arguments/pdflatex/after/1": "06e9f7cec6f9f2e66d2793769f7f5b60e659ac4fe01a25b38af30b44a733d846",
+          "macro-arguments/xelatex/before/1": "cc2d706ed4c4adfe54119f6b67be2aaa4f568fb6466fc8de057429aac4cd9345",
+          "macro-arguments/xelatex/after/1": "5e058c7b408af4741866a2ac6a946a688b3fad53229ed09060034b54695a2d16",
+          "macro-arguments/lualatex/before/1": "3f6145edaa989eb287ecfd93b1d11127ab19362e93b3636d1c54f04e0645f4da",
+          "macro-arguments/lualatex/after/1": "f3ea8039e5b50e458485443574a3e5c53246d7ad1609c900ed7679af3fe6c502",
+          "escaped-text/pdflatex/before/1": "09565c3240ccec5c7420c634519812754ffd4964537695bb0a9969c4794e1379",
+          "escaped-text/pdflatex/after/1": "f9acbdd8b0b2407c3e4f71094286cbaf2d4da28c847529a0f8e08da714e63d0e",
+          "escaped-text/xelatex/before/1": "32a2c17788cfc592e2c9205ef79276e30d4bf859dcfc8308cea1c8265ba5f5e2",
+          "escaped-text/xelatex/after/1": "d9f0e30230f7d3098e6b10c274251d1c955d0930d14365144f5a4fb866b671f3",
+          "escaped-text/lualatex/before/1": "79ef9cd4765a7c3d56b615aa1afbf35cf21da2b56b8f630433090f27e7ad9525",
+          "escaped-text/lualatex/after/1": "d9f0e30230f7d3098e6b10c274251d1c955d0930d14365144f5a4fb866b671f3",
+          "tables-columns/pdflatex/before/1": "f6c405610dc4a6c058facb35694a09613e583d076fcf6fc1b898d023ef2da78b",
+          "tables-columns/pdflatex/after/1": "332750badc3ae8703fcd34fe241327f71b40e8a7d4df3c27e243c4beb691a7d7",
+          "tables-columns/xelatex/before/1": "0c06a85f4a0e265168a44cbff2e5b9aec0c2df089f7dd57b24791c8d4e4e04c0",
+          "tables-columns/xelatex/after/1": "ecbda278059c1532bd7a0eeeb35f2404a7fcbbdad6a93288c4a63659077ec7f2",
+          "tables-columns/lualatex/before/1": "1d9527c8d8e4a5d7914f375b2ed7e41e140257520a3f882d56b8e8c3a998e07e",
+          "tables-columns/lualatex/after/1": "6812e4a41e5aeec19bb02be12d22d470ed4b711c4fca7aa9e4f8d3228acd570a",
+          "nested-includes/pdflatex/before/1": "60c064fbbd017b30f4ee3bd42e2ba1cc99451e13733283d5a5bc50bf829b9b7f",
+          "nested-includes/pdflatex/before/2": "3647aadcb1bd28a215367161523f127b9094ab8471404b5d04998579a824e836",
+          "nested-includes/pdflatex/before/3": "8aecb1061b130a0af08faebe32b93dd38e2664a8648d870c0b3922e1f69cd8d8",
+          "nested-includes/pdflatex/after/1": "60c064fbbd017b30f4ee3bd42e2ba1cc99451e13733283d5a5bc50bf829b9b7f",
+          "nested-includes/pdflatex/after/2": "6edab2bab7e14363d5cfbe3e878cd05aec352c11833d7a15135367234054dfb7",
+          "nested-includes/pdflatex/after/3": "8aecb1061b130a0af08faebe32b93dd38e2664a8648d870c0b3922e1f69cd8d8",
+          "nested-includes/xelatex/before/1": "2d8594cd79522029406e2cbb15106e899893e62e1eddafd7e965ff2d88e825ac",
+          "nested-includes/xelatex/before/2": "08afd3a90b9adc4b40802c32fba9c49da91b93c9debed9d325a194fd17da283f",
+          "nested-includes/xelatex/before/3": "16ee8943de7f6872acf9f947c499d5e0c8e689bfad8292e6a22f1076c8c1dc7c",
+          "nested-includes/xelatex/after/1": "2d8594cd79522029406e2cbb15106e899893e62e1eddafd7e965ff2d88e825ac",
+          "nested-includes/xelatex/after/2": "a187f42c843646abbec7b74dfb58e1f044de8e5f6d7161afe379420f35063030",
+          "nested-includes/xelatex/after/3": "16ee8943de7f6872acf9f947c499d5e0c8e689bfad8292e6a22f1076c8c1dc7c",
+          "nested-includes/lualatex/before/1": "8c4a0f9a2c4dc8ae5b8762f9653b5836c56d9cb394d8395207f224703effde80",
+          "nested-includes/lualatex/before/2": "085dc93093de09e2502886bcf6bb97267f149865cb70e2766fdd2aeaa4bf6267",
+          "nested-includes/lualatex/before/3": "69a188ab83fe73fa09f8ab959aa9786b9efd37863e4f9c28719baf539249fc5b",
+          "nested-includes/lualatex/after/1": "8c4a0f9a2c4dc8ae5b8762f9653b5836c56d9cb394d8395207f224703effde80",
+          "nested-includes/lualatex/after/2": "3255e682f1e936156af4451b6802015869adde8b8c6f6d6ef1025bdf9ccbb0f1",
+          "nested-includes/lualatex/after/3": "69a188ab83fe73fa09f8ab959aa9786b9efd37863e4f9c28719baf539249fc5b",
+          "unicode/xelatex/before/1": "ef43327bbdfa6e699342627060266f3e344c848f557e125e9421ca398ff65c0b",
+          "unicode/xelatex/after/1": "67935365908163bb0589c867e21306b9b7d8cc30ea5dc2313b9b462166ffaa4b",
+          "unicode/lualatex/before/1": "245c8f81d780e072ed7fbeb2c9e7a25a3b7702098bca8be864066d0ee5025d9a",
+          "unicode/lualatex/after/1": "e597e0f5f52a7883a8e2dc33ef20abbbe776e931aafc33d3ba2c14c91adb5210",
+          "rtl-arabic/xelatex/before/1": "395f1175682de676147968a9f08e3e6a0f5802cfd3b17abd39a5a336c7e91bd9",
+          "rtl-arabic/xelatex/after/1": "9ea4b385ce4d6dd1f42c58dd3197b0fcc7bf19820780f2b3be5b2bf9855551a2",
+          "long-document/pdflatex/before/1": "a1dfdd549624bea0ce421dad45676fc5a9c5962827bb18475f67dbf7b27f8d68",
+          "long-document/pdflatex/before/2": "74e4f5d7fcbe9891f548dae6f7ab842c5cfd0f778e5b800e22096503772fc4ee",
+          "long-document/pdflatex/before/3": "cce25a0d042e520667ca241e23d24e3c6e547858fd353b56405dab8ce6e9b876",
+          "long-document/pdflatex/before/4": "6621d395d89fae58663791d27e4fbb4dd5e290cbf9605c50b6add06675102776",
+          "long-document/pdflatex/before/5": "b729ed4e2dc2f2f0c784815f51546528d3079ca43b528bdadd45007dbbe5be3b",
+          "long-document/pdflatex/before/6": "4b2b4376bc8deee2b6ba3092780ddb592ae06edaf3eec6f2e2e8826ccc874803",
+          "long-document/pdflatex/before/7": "672621706c30ad77e8761f956fd5aa818f2f7b5b1699b2954326169897fe1f92",
+          "long-document/pdflatex/before/8": "e74913536f5a2573978f71e7e0709d83f4dcb140adba928011075ea90668974a",
+          "long-document/pdflatex/after/1": "a1dfdd549624bea0ce421dad45676fc5a9c5962827bb18475f67dbf7b27f8d68",
+          "long-document/pdflatex/after/2": "74e4f5d7fcbe9891f548dae6f7ab842c5cfd0f778e5b800e22096503772fc4ee",
+          "long-document/pdflatex/after/3": "cce25a0d042e520667ca241e23d24e3c6e547858fd353b56405dab8ce6e9b876",
+          "long-document/pdflatex/after/4": "f46218cc829437d6ba99cf97e3b21af1d74146d93ae5bc13a491d77720ea4661",
+          "long-document/pdflatex/after/5": "b729ed4e2dc2f2f0c784815f51546528d3079ca43b528bdadd45007dbbe5be3b",
+          "long-document/pdflatex/after/6": "4b2b4376bc8deee2b6ba3092780ddb592ae06edaf3eec6f2e2e8826ccc874803",
+          "long-document/pdflatex/after/7": "672621706c30ad77e8761f956fd5aa818f2f7b5b1699b2954326169897fe1f92",
+          "long-document/pdflatex/after/8": "e74913536f5a2573978f71e7e0709d83f4dcb140adba928011075ea90668974a",
+          "long-document/xelatex/before/1": "f446efb2c957f81c19c3df0137c5e2631201582c6cff79bb9e549c7fffed0733",
+          "long-document/xelatex/before/2": "ed89614103be082185a85baec9c47c754467ec466df99dfa05359fab04d6cdae",
+          "long-document/xelatex/before/3": "11992c0b0d4bf8e3d25a3eb51a8f117c31e53d1a79e0ebcb7d03816b79cb97fd",
+          "long-document/xelatex/before/4": "7eaca458386b3fab507afe99ce9420f96ef7962dedc97ac1fea0afa536a79696",
+          "long-document/xelatex/before/5": "026791005b5227858ba5803fb1ceb09dc9f7ccc810fea655194b4dc4893a0fd5",
+          "long-document/xelatex/before/6": "32a01f0cb9bd5dcdb5cf8cdaf009fe5f12c4afc48dba73d06548e22a48ebe02f",
+          "long-document/xelatex/before/7": "cdd6e360d213dd43e13f43d0f3aabf50836da1246320575f9db8bec144dbee76",
+          "long-document/xelatex/before/8": "f83da00966eb576d94a11afc43a2899d3698ade5af9b4d6844c93af48a0c3a9c",
+          "long-document/xelatex/after/1": "f446efb2c957f81c19c3df0137c5e2631201582c6cff79bb9e549c7fffed0733",
+          "long-document/xelatex/after/2": "ed89614103be082185a85baec9c47c754467ec466df99dfa05359fab04d6cdae",
+          "long-document/xelatex/after/3": "11992c0b0d4bf8e3d25a3eb51a8f117c31e53d1a79e0ebcb7d03816b79cb97fd",
+          "long-document/xelatex/after/4": "62946c5162c8117207b12946a6672fa6382695f805cd045a0939ebc995f6d5ba",
+          "long-document/xelatex/after/5": "026791005b5227858ba5803fb1ceb09dc9f7ccc810fea655194b4dc4893a0fd5",
+          "long-document/xelatex/after/6": "32a01f0cb9bd5dcdb5cf8cdaf009fe5f12c4afc48dba73d06548e22a48ebe02f",
+          "long-document/xelatex/after/7": "cdd6e360d213dd43e13f43d0f3aabf50836da1246320575f9db8bec144dbee76",
+          "long-document/xelatex/after/8": "f83da00966eb576d94a11afc43a2899d3698ade5af9b4d6844c93af48a0c3a9c",
+          "long-document/lualatex/before/1": "7e357d52833627e03f38ba28dd3aebeafca2815933686eba52bcf0fba35b3fff",
+          "long-document/lualatex/before/2": "3ad62d4ab46bcb35c8e9997775e94e4a98ceaf946521245bc0095151fd853ece",
+          "long-document/lualatex/before/3": "4dc595f47442fe2d0d9433a65e83c7e59a3893caf34f2d083fe568f9758ed65f",
+          "long-document/lualatex/before/4": "93ff36ace1ad1079a5b2b559c89ec3009c662ae9d165d2580f28ad8220273946",
+          "long-document/lualatex/before/5": "ae02abc85eca8fe0a64fb70e55da6404a4aa8db7b6927a88a5b4ba68f4cfa56b",
+          "long-document/lualatex/before/6": "4e60a1d8828f0d68b25e83b86be852ad1b2879b4834961178ff170a75bfc0e96",
+          "long-document/lualatex/before/7": "797192cd7a481cc360e913eaf059056a75347f42d0e701a331b16cf54178f8ae",
+          "long-document/lualatex/before/8": "63427ca225883bee99f63106176bdf7f4e6da424c917a4a16a56798eae0c1ea2",
+          "long-document/lualatex/after/1": "7e357d52833627e03f38ba28dd3aebeafca2815933686eba52bcf0fba35b3fff",
+          "long-document/lualatex/after/2": "3ad62d4ab46bcb35c8e9997775e94e4a98ceaf946521245bc0095151fd853ece",
+          "long-document/lualatex/after/3": "4dc595f47442fe2d0d9433a65e83c7e59a3893caf34f2d083fe568f9758ed65f",
+          "long-document/lualatex/after/4": "fb1d84f6df0d474a7d14d772091d9d7f5a98c6750f3145d8bc586c7c2d3c49ae",
+          "long-document/lualatex/after/5": "ae02abc85eca8fe0a64fb70e55da6404a4aa8db7b6927a88a5b4ba68f4cfa56b",
+          "long-document/lualatex/after/6": "4e60a1d8828f0d68b25e83b86be852ad1b2879b4834961178ff170a75bfc0e96",
+          "long-document/lualatex/after/7": "797192cd7a481cc360e913eaf059056a75347f42d0e701a331b16cf54178f8ae",
+          "long-document/lualatex/after/8": "63427ca225883bee99f63106176bdf7f4e6da424c917a4a16a56798eae0c1ea2",
+          "dynamic-include/pdflatex/before/1": "0e5645bf3deb3e38625f522f8903f5a1195b63c26693457ca3c4eda0fbe55e2b",
+          "dynamic-include/pdflatex/after/1": "425388b79198c3e531112586b0621576c6e978936238df552b11f06c6b9f704a",
+          "dynamic-include/xelatex/before/1": "279abb2a7d53bf65ea70c0bd9c815d6021b82e67c8741f0f64ff3937d8f532e1",
+          "dynamic-include/xelatex/after/1": "41e89938ac8f072b68acc698ace644c2476ba43e6d5d5e30482ec824d6886ae0",
+          "dynamic-include/lualatex/before/1": "c9a24b361c76a50fb1d18b0663a51495c95665c6e048fcbdaf875fb28b308088",
+          "dynamic-include/lualatex/after/1": "64a92916db8a03e2a16645111943199d2cfc2c69ece7c8cd862ea910559a36d4"
+        }
+      }
+    },
+    {
+      "corpusVersion": "1.0.0",
+      "corpusSha256": "8b7ca64e94195693f82af281963f5f1a93791021d8ec9cb0ea8fbf20ff3b41d4",
+      "at": "2026-10-27T22:51:08.850638+00:00",
+      "python": "3.12.4",
+      "platform": "Windows",
+      "treeCommit": "5778be04b121d0c6a26f2ca35e88edb898e111a7",
+      "adapterHashes": {
+        "latex.py": "d8921da9cfc12f7dc819e4bd5ed541c422348a661ac26ad9a618c4f53fde8726",
+        "includes.py": "5414f12e23490071b0fed0a4eff386b46144751ae65769356e8201cc3944c207",
+        "pdf.py": "0bb31d51158e700b36442dd4e6b18ecf181edc15fc16df7fa70dca209d135777",
+        "workspace.py": "60c349a7d922cbef9a7b197c98e64efb01d0dead01b5721a4937baa62420f706",
+        "security.py": "5f8fe17edf2b979aa6d3756a1f9c34591db4b9f647abc09cd2eeca041d94b142",
+        "static/app.js": "1ebedb49e978a341209bbc3b096215a07f9f4b92f246e376d7f208143e132758"
+      },
+      "harnessHashes": {
+        "run_template_matrix.py": "35c750da347e8f4daf599661c8c39d456e9b2c1ad13d9c4ac72a4c560ac9779a",
+        "template_matrix.py": "d77fc4e5c83b614771f1d741a93180946498943a0f13cc17a121479b9dc25a89"
+      },
+      "toolVersions": {
+        "pdftotext": "pdftotext version 24.04.0",
+        "pdftoppm": "pdftoppm version 26.07.0"
+      },
+      "environment": "Windows / MiKTeX 24.4",
+      "reportSha256": "adaa007fe944442e47c996dd31c1fdf8ff5a7b63ec9aac1ce4bae35f186d279e",
+      "evidence": "Local ignored .test-artifacts/template-matrix-v1-reviewed; reproduce with documented commands",
+      "engineVersions": [
+        "MiKTeX-XeTeX 4.11 (MiKTeX 24.4)",
+        "MiKTeX-pdfTeX 4.19 (MiKTeX 24.4)",
+        "This is LuaHBTeX, Version 1.18.1 (MiKTeX 24.4)"
+      ],
+      "packageVersions": [
+        "array.sty    2023/10/16 v2.5g Tabular extension package (FMi)",
+        "article.cls    2023/05/17 v1.4n Standard LaTeX document class",
+        "atbegshi-ltx.sty    2021/01/10 v1.0c Emulation of the original atbegshi",
+        "atveryend-ltx.sty    2020/08/19 v1.0a Emulation of the original atveryend packa",
+        "auxhook.sty    2019-12-17 v1.6 Hooks for auxiliary files (HO)",
+        "bigintcalc.sty    2019/12/15 v1.5 Expandable calculations on big integers (HO)",
+        "bitset.sty    2019/12/09 v1.3 Handle bit-vector datatype (HO)",
+        "etoolbox.sty    2020/10/05 v2.5k e-TeX tools for LaTeX (JAW)",
+        "expl3.sty    2024-04-11 L3 programming layer (loader)",
+        "fontenc.sty    2021/04/29 v2.0v Standard LaTeX package",
+        "fontspec-xetex.sty    2024/05/07 v2.9d Font selection for XeLaTeX and LuaLaTeX",
+        "fontspec.sty    2024/05/07 v2.9d Font selection for XeLaTeX and LuaLaTeX",
+        "geometry.sty    2020/01/02 v5.9 Page Geometry",
+        "gettitlestring.sty    2019/12/15 v1.6 Cleanup title references (HO)",
+        "hpdftex.def    2024-01-20 v7.01h Hyperref driver for pdfTeX",
+        "hxetex.def    2024-01-20 v7.01h Hyperref driver for XeTeX",
+        "hyperref.sty    2024-01-20 v7.01h Hypertext links for LaTeX",
+        "iftex.sty    2022/02/03 v1.0f TeX engine tests",
+        "ifvtex.sty    2019/10/25 v1.7 ifvtex legacy package. Use iftex instead.",
+        "intcalc.sty    2019/12/15 v1.3 Expandable calculations with integers (HO)",
+        "kvdefinekeys.sty    2019-12-19 v1.6 Define keys (HO)",
+        "kvoptions.sty    2022-06-15 v3.15 Key value format for package options (HO)",
+        "kvsetkeys.sty    2022-10-05 v1.19 Key value parser (HO)",
+        "l3backend-pdftex.def    2024-04-11 L3 backend support: PDF output (pdfTeX)",
+        "l3backend-xetex.def    2024-04-11 L3 backend support: XeTeX",
+        "lmodern.sty    2015/05/01 v1.6.1 Latin Modern Fonts",
+        "ltxcmds.sty    2023-12-04 v1.26 LaTeX kernel commands for general use (HO)",
+        "matrixcv.cls    2026/10/27 v1.0 Synthetic matrix class",
+        "nameref.sty    2023-11-26 v2.56 Cross-referencing by name of section",
+        "pd1enc.def    2024-01-20 v7.01h Hyperref: PDFDocEncoding definition (HO)",
+        "pdftexcmds.sty    2020-06-27 v0.33 Utility functions of pdfTeX for LuaTeX (HO)",
+        "puenc.def    2024-01-20 v7.01h Hyperref: PDF Unicode definition (HO)",
+        "refcount.sty    2019/12/15 v3.6 Data extraction from label references (HO)",
+        "rerunfilecheck.sty    2022-07-10 v1.10 Rerun checks for auxiliary files (HO)",
+        "size10.clo    2023/05/17 v1.4n Standard LaTeX file (size option)",
+        "stringenc.sty    2019/11/29 v1.12 Convert strings between diff. encodings (HO)",
+        "t1lmr.fd    2015/05/01 v1.6.1 Font defs for Latin Modern",
+        "ts1cmr.fd    2023/04/13 v2.5m Standard LaTeX font definitions",
+        "uniquecounter.sty    2019/12/15 v1.4 Provide unlimited unique counter (HO)",
+        "url.sty    2013/09/16  ver 3.4  Verb mode for urls, etc.",
+        "xparse.sty    2024-03-14 L3 Experimental document command parser"
+      ],
+      "summary": {
+        "fixtures": 11,
+        "sourceLeaves": 306,
+        "plannedWorkspaceEdits": 15,
+        "compiledPDFs": 30,
+        "renderedPages": 66,
+        "expectedDiagnostics": 8,
+        "missingDependencies": 22,
+        "automatedChecksPassed": true
+      },
+      "fixtures": [
+        {
+          "id": "native-environments",
+          "version": "1.0.0",
+          "structure": "approximate",
+          "limits": "Structure preserves visible text but does not reproduce TeX layout.",
+          "capturedFiles": {
+            "main.tex": "363a27607d177bc0acd6dedaeaafa2331573760801db10d2ae992a8e4d8b0d1f",
+            "matrixcv.cls": "49c88bc72c97fd9cbd0f2865393a91de6ae8ef1a7c8c3820d50e3cb753b41711"
+          },
+          "editedFiles": {
+            "main.tex": "67d980495e69b0438a94ff9ead46d5077bb8cf93208bca96e4c658aad7a7c802",
+            "matrixcv.cls": "49c88bc72c97fd9cbd0f2865393a91de6ae8ef1a7c8c3820d50e3cb753b41711"
+          },
+          "engines": {
+            "pdflatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ],
+            "xelatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ],
+            "lualatex": [
+              "dependency_missing:format_missing",
+              "dependency_missing:format_missing"
+            ]
+          }
+        },
+        {
+          "id": "macro-arguments",
+          "version": "1.0.0",
+          "structure": "approximate",
+          "limits": "Known resume macros expose mapped arguments. Arbitrary expansion and inserted literal text (ExpansionOnlyMarker) are not executed in Structure.",
+          "capturedFiles": {
+            "main.tex": "5df612f0fc277b6d513e06740c8810ca0c07b3e4e3317d73f19f1b03e97047b4"
+          },
+          "editedFiles": {
+            "main.tex": "f35e736ab31279d65b2616c43eba20a0a0c1417e5fca6614ead3016070a6defd"
+          },
+          "engines": {
+            "pdflatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ],
+            "xelatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ],
+            "lualatex": [
+              "dependency_missing:format_missing",
+              "dependency_missing:format_missing"
+            ]
+          }
+        },
+        {
+          "id": "escaped-text",
+          "version": "1.0.0",
+          "structure": "approximate",
+          "limits": "Structure preserves visible text but does not reproduce TeX layout.",
+          "capturedFiles": {
+            "main.tex": "3a178537fdae2993b8a3734efa64a4da1c798e566066ac9f315c6f1194762b91"
+          },
+          "editedFiles": {
+            "main.tex": "f17511aeacb964e94d484a910e99cfedcf220fa7851b73ef557437fe0c7ae6b9"
+          },
+          "engines": {
+            "pdflatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ],
+            "xelatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ],
+            "lualatex": [
+              "dependency_missing:format_missing",
+              "dependency_missing:format_missing"
+            ]
+          }
+        },
+        {
+          "id": "tables-columns",
+          "version": "1.0.0",
+          "structure": "approximate",
+          "limits": "Table cells are mapped. Column positions, widths and minipage layout are approximate in Structure; PDF is the layout authority.",
+          "capturedFiles": {
+            "main.tex": "8b2a9f6f3f722439068a9aed38942cd48036a561d38b5c98733e9df9762f6fb8"
+          },
+          "editedFiles": {
+            "main.tex": "136bef403954b678e567cd1fb20b64227e353da5e79e7da5b1cd69d2ba7f2444"
+          },
+          "engines": {
+            "pdflatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ],
+            "xelatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ],
+            "lualatex": [
+              "dependency_missing:format_missing",
+              "dependency_missing:format_missing"
+            ]
+          }
+        },
+        {
+          "id": "nested-includes",
+          "version": "1.0.0",
+          "structure": "approximate",
+          "limits": "Literal includes are navigated as separate files with file-local offsets; Structure does not flatten the document. Duplicate text in another file must stay unchanged.",
+          "capturedFiles": {
+            "main.tex": "72a53aa782a95a70b851091f1ddb3fe0d186c5706f74ea19a6e038ae2fe4b2a0",
+            "sections/details.tex": "906876cba535a698b92a325ef2c0dc9346c4fbf938d8f355bd6f1152ea35a7a2",
+            "sections/profile.tex": "1c87d7a3e5bb721aaafe61abb8357c20f3466e0fdf600ff3ea20377cbdaa7c18",
+            "sections/roles.tex": "8baff6c192e59b3c62b027c48c70c8e840394b892cb913ecc0430e2fb2010ee6"
+          },
+          "editedFiles": {
+            "main.tex": "72a53aa782a95a70b851091f1ddb3fe0d186c5706f74ea19a6e038ae2fe4b2a0",
+            "sections/details.tex": "2f53e972c4966750123f117f20fa85d89d19af3ef468c594ae472ab1a7392236",
+            "sections/profile.tex": "1c87d7a3e5bb721aaafe61abb8357c20f3466e0fdf600ff3ea20377cbdaa7c18",
+            "sections/roles.tex": "3b330abb3b4d95e1a44a201091835a2d797c4136ce3dc0b3b0f44780350ba6ac"
+          },
+          "engines": {
+            "pdflatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ],
+            "xelatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ],
+            "lualatex": [
+              "dependency_missing:format_missing",
+              "dependency_missing:format_missing"
+            ]
+          }
+        },
+        {
+          "id": "unicode",
+          "version": "1.0.0",
+          "structure": "approximate",
+          "limits": "Latin accents and a non-BMP comment preceding mapped offsets are tested. Emoji glyphs, CJK and arbitrary script/font coverage are not established.",
+          "capturedFiles": {
+            "main.tex": "7ae2dc1795fa76539f761f5e589bccb950788e91beeddb614b1947b7bd522a1c"
+          },
+          "editedFiles": {
+            "main.tex": "921b00429d0ad9b6f3b3cae0db7f7481b5fc6375851324c485a21d5c4fa512dc"
+          },
+          "engines": {
+            "pdflatex": "not_in_fixture_contract",
+            "xelatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ],
+            "lualatex": [
+              "dependency_missing:format_missing",
+              "dependency_missing:format_missing"
+            ]
+          }
+        },
+        {
+          "id": "rtl-arabic",
+          "version": "1.0.0",
+          "structure": "approximate",
+          "limits": "XeLaTeX with polyglossia, bidi and Amiri only. Structure displays logical Unicode text approximately; native RTL shaping, font layout and PDF reading order require separate checks.",
+          "capturedFiles": {
+            "main.tex": "7adc838d7a068d2f55949bf46f88767fed3ecda83d989b65cfca3dfaebecee5c"
+          },
+          "editedFiles": {
+            "main.tex": "bd35cce264361bd87c0c38e23cdaed41dc16463f0f9745fe82dd4f7202cb0830"
+          },
+          "engines": {
+            "pdflatex": "not_in_fixture_contract",
+            "xelatex": [
+              "dependency_missing:missing_font",
+              "dependency_missing:missing_font"
+            ],
+            "lualatex": "not_in_fixture_contract"
+          }
+        },
+        {
+          "id": "long-document",
+          "version": "1.0.0",
+          "structure": "approximate",
+          "limits": "Eight explicit pages and 96 numbered entries are checked. This is not evidence for arbitrarily large or deeply nested projects.",
+          "capturedFiles": {
+            "main.tex": "fcc8e868b9d954171bca9dd71494cbb7c6df22ad82c99217ba8f32d8fe8d2c74"
+          },
+          "editedFiles": {
+            "main.tex": "db8c94b04107ed8c46e2a69fa0b7dd5849907b2d1915233d2aa0d538ff3bc22e"
+          },
+          "engines": {
+            "pdflatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ],
+            "xelatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ],
+            "lualatex": [
+              "dependency_missing:format_missing",
+              "dependency_missing:format_missing"
+            ]
+          }
+        },
+        {
+          "id": "dynamic-include",
+          "version": "1.0.0",
+          "structure": "unsupported",
+          "limits": "TeX expands the dynamic input for PDF. Structure cannot resolve or navigate it and must emit an unsupported-include diagnostic; edit it externally or use literal inputs.",
+          "capturedFiles": {
+            "main.tex": "0fc45bad71b22089114b7c847328d69061bbbfa4fca016f0f96f707132777a59",
+            "sections/hidden.tex": "19747b4bdd5d58e742ebd988b2b06d2959eead16287bb9b53a717b5d88d427aa"
+          },
+          "editedFiles": {
+            "main.tex": "36c3d3aacbefb5bfb5a67f952dcca96e1e24bfd2a6a7cac9748b371e0d477b6c",
+            "sections/hidden.tex": "19747b4bdd5d58e742ebd988b2b06d2959eead16287bb9b53a717b5d88d427aa"
+          },
+          "engines": {
+            "pdflatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ],
+            "xelatex": [
+              "verified_automatically:compiled",
+              "verified_automatically:compiled"
+            ],
+            "lualatex": [
+              "dependency_missing:format_missing",
+              "dependency_missing:format_missing"
+            ]
+          }
+        },
+        {
+          "id": "missing-dependency",
+          "version": "1.0.0",
+          "structure": "supported",
+          "limits": "Intentional missing package control. This is a setup failure, not a parser defect; the runtime must not install it.",
+          "capturedFiles": {
+            "main.tex": "95c974ae979137ebe3fe721fc68f1c84af8d2a3657b5682d527560a809330a48"
+          },
+          "editedFiles": {
+            "main.tex": "95c974ae979137ebe3fe721fc68f1c84af8d2a3657b5682d527560a809330a48"
+          },
+          "engines": {
+            "pdflatex": [
+              "expected_diagnostic:missing_package",
+              "expected_diagnostic:missing_package"
+            ],
+            "xelatex": [
+              "expected_diagnostic:missing_package",
+              "expected_diagnostic:missing_package"
+            ],
+            "lualatex": [
+              "dependency_missing:format_missing",
+              "dependency_missing:format_missing"
+            ]
+          }
+        },
+        {
+          "id": "invalid-source",
+          "version": "1.0.0",
+          "structure": "invalid",
+          "limits": "Intentionally malformed braces must be distinguished from limited Structure support and missing packages.",
+          "capturedFiles": {
+            "main.tex": "77fd43c7bc0f4ca22cc0af2356e2f4aab7dea3e5b4c4678a716772e248a03abc"
+          },
+          "editedFiles": {
+            "main.tex": "77fd43c7bc0f4ca22cc0af2356e2f4aab7dea3e5b4c4678a716772e248a03abc"
+          },
+          "engines": {
+            "pdflatex": [
+              "expected_diagnostic:compile_failed",
+              "expected_diagnostic:compile_failed"
+            ],
+            "xelatex": [
+              "expected_diagnostic:compile_failed",
+              "expected_diagnostic:compile_failed"
+            ],
+            "lualatex": [
+              "dependency_missing:format_missing",
+              "dependency_missing:format_missing"
+            ]
+          }
+        }
+      ],
+      "visualReview": {
+        "reviewer": "Codex visual inspection; not a human sign-off",
+        "method": "Every page inspected via contact sheets preserving all painted pixels at native resolution; original page bounds checked separately by the matrix. No manual typography or semantic-reading-order certification.",
+        "status": "All rendered pages inspected; no apparent clipping, collision or section omission.",
+        "pageImageSha256": {
+          "native-environments/pdflatex/before/1": "b68b0b606e04e5ae8a7a17d7c8a1c8cedf8fabb0d17acdf86d71ef5ebd1c6ec5",
+          "native-environments/pdflatex/after/1": "2fd6b7d15c1697891d0b51531a5e6e1dc174edf311348e08a54851997346145d",
+          "native-environments/xelatex/before/1": "5a9a7827a4a0619c8128a80d94117963d95f811dbe1a4424807ee669ccad4761",
+          "native-environments/xelatex/after/1": "2d03157b1a42feec3b58cc4e236c306022986db03a91018d38b6b7da004035d1",
+          "macro-arguments/pdflatex/before/1": "491d5741614cb66ec3f932b8ec3ea1aa063ff35212836bd4673514118572a575",
+          "macro-arguments/pdflatex/after/1": "06e9f7cec6f9f2e66d2793769f7f5b60e659ac4fe01a25b38af30b44a733d846",
+          "macro-arguments/xelatex/before/1": "cc2d706ed4c4adfe54119f6b67be2aaa4f568fb6466fc8de057429aac4cd9345",
+          "macro-arguments/xelatex/after/1": "5e058c7b408af4741866a2ac6a946a688b3fad53229ed09060034b54695a2d16",
+          "escaped-text/pdflatex/before/1": "09565c3240ccec5c7420c634519812754ffd4964537695bb0a9969c4794e1379",
+          "escaped-text/pdflatex/after/1": "f9acbdd8b0b2407c3e4f71094286cbaf2d4da28c847529a0f8e08da714e63d0e",
+          "escaped-text/xelatex/before/1": "32a2c17788cfc592e2c9205ef79276e30d4bf859dcfc8308cea1c8265ba5f5e2",
+          "escaped-text/xelatex/after/1": "d9f0e30230f7d3098e6b10c274251d1c955d0930d14365144f5a4fb866b671f3",
+          "tables-columns/pdflatex/before/1": "f6c405610dc4a6c058facb35694a09613e583d076fcf6fc1b898d023ef2da78b",
+          "tables-columns/pdflatex/after/1": "332750badc3ae8703fcd34fe241327f71b40e8a7d4df3c27e243c4beb691a7d7",
+          "tables-columns/xelatex/before/1": "0c06a85f4a0e265168a44cbff2e5b9aec0c2df089f7dd57b24791c8d4e4e04c0",
+          "tables-columns/xelatex/after/1": "ecbda278059c1532bd7a0eeeb35f2404a7fcbbdad6a93288c4a63659077ec7f2",
+          "nested-includes/pdflatex/before/1": "60c064fbbd017b30f4ee3bd42e2ba1cc99451e13733283d5a5bc50bf829b9b7f",
+          "nested-includes/pdflatex/before/2": "3647aadcb1bd28a215367161523f127b9094ab8471404b5d04998579a824e836",
+          "nested-includes/pdflatex/before/3": "8aecb1061b130a0af08faebe32b93dd38e2664a8648d870c0b3922e1f69cd8d8",
+          "nested-includes/pdflatex/after/1": "60c064fbbd017b30f4ee3bd42e2ba1cc99451e13733283d5a5bc50bf829b9b7f",
+          "nested-includes/pdflatex/after/2": "6edab2bab7e14363d5cfbe3e878cd05aec352c11833d7a15135367234054dfb7",
+          "nested-includes/pdflatex/after/3": "8aecb1061b130a0af08faebe32b93dd38e2664a8648d870c0b3922e1f69cd8d8",
+          "nested-includes/xelatex/before/1": "2d8594cd79522029406e2cbb15106e899893e62e1eddafd7e965ff2d88e825ac",
+          "nested-includes/xelatex/before/2": "08afd3a90b9adc4b40802c32fba9c49da91b93c9debed9d325a194fd17da283f",
+          "nested-includes/xelatex/before/3": "16ee8943de7f6872acf9f947c499d5e0c8e689bfad8292e6a22f1076c8c1dc7c",
+          "nested-includes/xelatex/after/1": "2d8594cd79522029406e2cbb15106e899893e62e1eddafd7e965ff2d88e825ac",
+          "nested-includes/xelatex/after/2": "a187f42c843646abbec7b74dfb58e1f044de8e5f6d7161afe379420f35063030",
+          "nested-includes/xelatex/after/3": "16ee8943de7f6872acf9f947c499d5e0c8e689bfad8292e6a22f1076c8c1dc7c",
+          "unicode/xelatex/before/1": "ef43327bbdfa6e699342627060266f3e344c848f557e125e9421ca398ff65c0b",
+          "unicode/xelatex/after/1": "67935365908163bb0589c867e21306b9b7d8cc30ea5dc2313b9b462166ffaa4b",
+          "long-document/pdflatex/before/1": "a1dfdd549624bea0ce421dad45676fc5a9c5962827bb18475f67dbf7b27f8d68",
+          "long-document/pdflatex/before/2": "74e4f5d7fcbe9891f548dae6f7ab842c5cfd0f778e5b800e22096503772fc4ee",
+          "long-document/pdflatex/before/3": "cce25a0d042e520667ca241e23d24e3c6e547858fd353b56405dab8ce6e9b876",
+          "long-document/pdflatex/before/4": "6621d395d89fae58663791d27e4fbb4dd5e290cbf9605c50b6add06675102776",
+          "long-document/pdflatex/before/5": "b729ed4e2dc2f2f0c784815f51546528d3079ca43b528bdadd45007dbbe5be3b",
+          "long-document/pdflatex/before/6": "4b2b4376bc8deee2b6ba3092780ddb592ae06edaf3eec6f2e2e8826ccc874803",
+          "long-document/pdflatex/before/7": "672621706c30ad77e8761f956fd5aa818f2f7b5b1699b2954326169897fe1f92",
+          "long-document/pdflatex/before/8": "e74913536f5a2573978f71e7e0709d83f4dcb140adba928011075ea90668974a",
+          "long-document/pdflatex/after/1": "a1dfdd549624bea0ce421dad45676fc5a9c5962827bb18475f67dbf7b27f8d68",
+          "long-document/pdflatex/after/2": "74e4f5d7fcbe9891f548dae6f7ab842c5cfd0f778e5b800e22096503772fc4ee",
+          "long-document/pdflatex/after/3": "cce25a0d042e520667ca241e23d24e3c6e547858fd353b56405dab8ce6e9b876",
+          "long-document/pdflatex/after/4": "f46218cc829437d6ba99cf97e3b21af1d74146d93ae5bc13a491d77720ea4661",
+          "long-document/pdflatex/after/5": "b729ed4e2dc2f2f0c784815f51546528d3079ca43b528bdadd45007dbbe5be3b",
+          "long-document/pdflatex/after/6": "4b2b4376bc8deee2b6ba3092780ddb592ae06edaf3eec6f2e2e8826ccc874803",
+          "long-document/pdflatex/after/7": "672621706c30ad77e8761f956fd5aa818f2f7b5b1699b2954326169897fe1f92",
+          "long-document/pdflatex/after/8": "e74913536f5a2573978f71e7e0709d83f4dcb140adba928011075ea90668974a",
+          "long-document/xelatex/before/1": "f446efb2c957f81c19c3df0137c5e2631201582c6cff79bb9e549c7fffed0733",
+          "long-document/xelatex/before/2": "ed89614103be082185a85baec9c47c754467ec466df99dfa05359fab04d6cdae",
+          "long-document/xelatex/before/3": "11992c0b0d4bf8e3d25a3eb51a8f117c31e53d1a79e0ebcb7d03816b79cb97fd",
+          "long-document/xelatex/before/4": "7eaca458386b3fab507afe99ce9420f96ef7962dedc97ac1fea0afa536a79696",
+          "long-document/xelatex/before/5": "026791005b5227858ba5803fb1ceb09dc9f7ccc810fea655194b4dc4893a0fd5",
+          "long-document/xelatex/before/6": "32a01f0cb9bd5dcdb5cf8cdaf009fe5f12c4afc48dba73d06548e22a48ebe02f",
+          "long-document/xelatex/before/7": "cdd6e360d213dd43e13f43d0f3aabf50836da1246320575f9db8bec144dbee76",
+          "long-document/xelatex/before/8": "f83da00966eb576d94a11afc43a2899d3698ade5af9b4d6844c93af48a0c3a9c",
+          "long-document/xelatex/after/1": "f446efb2c957f81c19c3df0137c5e2631201582c6cff79bb9e549c7fffed0733",
+          "long-document/xelatex/after/2": "ed89614103be082185a85baec9c47c754467ec466df99dfa05359fab04d6cdae",
+          "long-document/xelatex/after/3": "11992c0b0d4bf8e3d25a3eb51a8f117c31e53d1a79e0ebcb7d03816b79cb97fd",
+          "long-document/xelatex/after/4": "62946c5162c8117207b12946a6672fa6382695f805cd045a0939ebc995f6d5ba",
+          "long-document/xelatex/after/5": "026791005b5227858ba5803fb1ceb09dc9f7ccc810fea655194b4dc4893a0fd5",
+          "long-document/xelatex/after/6": "32a01f0cb9bd5dcdb5cf8cdaf009fe5f12c4afc48dba73d06548e22a48ebe02f",
+          "long-document/xelatex/after/7": "cdd6e360d213dd43e13f43d0f3aabf50836da1246320575f9db8bec144dbee76",
+          "long-document/xelatex/after/8": "f83da00966eb576d94a11afc43a2899d3698ade5af9b4d6844c93af48a0c3a9c",
+          "dynamic-include/pdflatex/before/1": "0e5645bf3deb3e38625f522f8903f5a1195b63c26693457ca3c4eda0fbe55e2b",
+          "dynamic-include/pdflatex/after/1": "425388b79198c3e531112586b0621576c6e978936238df552b11f06c6b9f704a",
+          "dynamic-include/xelatex/before/1": "279abb2a7d53bf65ea70c0bd9c815d6021b82e67c8741f0f64ff3937d8f532e1",
+          "dynamic-include/xelatex/after/1": "41e89938ac8f072b68acc698ace644c2476ba43e6d5d5e30482ec824d6886ae0"
+        }
+      },
+      "contractNote": "Captured before the RTL visual-only extraction contract was added. Fixture source files are byte-identical; missing LuaLaTeX format and Amiri font are not counted as compiled coverage."
+    }
+  ]
+}

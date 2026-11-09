@@ -1,0 +1,23 @@
+\documentclass[10pt]{article}
+\usepackage[margin=0.7in]{geometry}
+\pagestyle{empty}
+\listfiles
+\usepackage{fontspec}
+\usepackage{polyglossia}
+\setmainlanguage{english}
+\setotherlanguage{arabic}
+\setmainfont{Latin Modern Roman}
+\newfontfamily\arabicfont[Script=Arabic]{Amiri}
+\begin{document}
+\section*{Arabic profile}
+\textbf{RTL source target}
+
+\begin{Arabic}
+مهندس برمجيات
+
+خبرة في تطوير الأنظمة
+\end{Arabic}
+\section*{Untouched section}
+Untouched conclusion.
+
+\end{document}

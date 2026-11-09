@@ -1,11 +1,11 @@
 import {EditorState, Compartment} from '@codemirror/state';
 import {EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, drawSelection} from '@codemirror/view';
 import {defaultKeymap, history, historyKeymap, redo} from '@codemirror/commands';
-import {StreamLanguage, syntaxHighlighting, HighlightStyle, bracketMatching} from '@codemirror/language';
+import {StreamLanguage, syntaxHighlighting, HighlightStyle, bracketMatching, syntaxTree} from '@codemirror/language';
 import {stex} from '@codemirror/legacy-modes/mode/stex';
 import {searchKeymap, highlightSelectionMatches} from '@codemirror/search';
 import {linter, lintGutter, lintKeymap, openLintPanel} from '@codemirror/lint';
-import {tags} from '@lezer/highlight';
+import {tags, highlightTree} from '@lezer/highlight';
 
 const highlighting = HighlightStyle.define([
   {tag: [tags.tagName, tags.keyword, tags.standard(tags.variableName)], class: 'tex-command'},
@@ -14,6 +14,19 @@ const highlighting = HighlightStyle.define([
   {tag: [tags.bracket, tags.punctuation], class: 'tex-bracket'},
   {tag: [tags.number, tags.operator], class: 'tex-math'},
 ]);
+
+// Static snippets share the editor's real TeX tokenizer, without one editor per change.
+export function renderLatexSnippet(host, value, changedFrom=0, changedTo=0) {
+  const state=EditorState.create({doc:value,extensions:[StreamLanguage.define(stex)]});
+  const tokens=[];highlightTree(syntaxTree(state),highlighting,(from,to,classes)=>tokens.push({from,to,classes}));
+  const cuts=[...new Set([0,value.length,changedFrom,changedTo,...tokens.flatMap(t=>[t.from,t.to])])].sort((a,b)=>a-b);
+  host.replaceChildren();
+  for(let i=0;i<cuts.length-1;i++){
+    const from=cuts[i],to=cuts[i+1];if(from===to)continue;
+    const span=document.createElement(from>=changedFrom&&to<=changedTo?'mark':'span');
+    span.textContent=value.slice(from,to);span.className=tokens.find(t=>t.from<=from&&t.to>=to)?.classes||'';host.append(span);
+  }
+}
 
 export function createLatexEditor(host, {label, readOnly = false, onChange, lint}) {
   const mount = document.createElement('div');
@@ -94,5 +107,6 @@ export function createLatexEditor(host, {label, readOnly = false, onChange, lint
       view.dispatch({effects: access.reconfigure([EditorState.readOnly.of(value), EditorView.contentAttributes.of({'aria-readonly': String(value)})])});
     },
     refresh() {view.requestMeasure();},
+    destroy() {request?.abort();view.destroy();},
   };
 }

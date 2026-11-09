@@ -1,9 +1,70 @@
 import unittest
 from vita_tree.latex import parse_document, replace_leaf, lint_source
-from support import SOURCE
+from support import SOURCE, CUSTOM_ENVIRONMENT_SOURCE
 
 
 class LatexTests(unittest.TestCase):
+    def test_custom_environment_definition_preserves_body_and_source_mapped_edits(self):
+        doc = parse_document(CUSTOM_ENVIRONMENT_SOURCE)
+        self.assertIsNone(doc['error'])
+        self.assertEqual(lint_source(CUSTOM_ENVIRONMENT_SOURCE), [])
+        self.assertIn('Sample experience.', doc['html'])
+        self.assertTrue(any('approximate layout' in warning for warning in doc['warnings']))
+        key, leaf = next((key, leaf) for key, leaf in doc['leaves'].items()
+                         if leaf['text'] == 'Sample experience.')
+        edited = replace_leaf(CUSTOM_ENVIRONMENT_SOURCE, key, 'Updated & reviewed.')
+        self.assertEqual(edited, CUSTOM_ENVIRONMENT_SOURCE[:leaf['start']] +
+                         r'Updated \& reviewed.' + CUSTOM_ENVIRONMENT_SOURCE[leaf['end']:])
+        self.assertIsNone(parse_document(edited)['error'])
+
+    def test_lint_offset_after_custom_definition_remains_utf16(self):
+        source = CUSTOM_ENVIRONMENT_SOURCE.replace('Sample experience.', '\U0001f600 Sample experience.')
+        diagnostic, = lint_source(source + '}')
+        offset = len(source.encode('utf-16-le')) // 2
+        self.assertEqual((diagnostic['from'], diagnostic['to']), (offset, offset + 1))
+
+    def test_definition_bodies_are_tokens_not_live_environments_or_math(self):
+        for definition in (
+            r'\newenvironment*{wrapped}[1][x]{\begin{list}{}{}}{\end{list}}',
+            r'\renewenvironment{wrapped}{\begin{list}{}{}}{\end{list}}',
+            r'\provideenvironment{wrapped}{\begin{list}{}{}}{\end{list}}',
+            r'\newcommand{\startlist}{\begin{list}{}{}}',
+            r'\renewcommand\stoplist{\end{list}}',
+            r'\providecommand*{\startmath}{$}',
+            r'\DeclareRobustCommand{\stopmath}{$}',
+        ):
+            with self.subTest(definition=definition):
+                source = r'\begin{document}' + definition + 'Visible text.' + r'\end{document}'
+                doc = parse_document(source)
+                self.assertIsNone(doc['error'])
+                self.assertIn('Visible text.', doc['html'])
+                self.assertNotIn('startlist', doc['html'])
+                self.assertEqual([leaf['text'] for leaf in doc['leaves'].values()], ['Visible text.'])
+                self.assertTrue(any('not expanded' in warning for warning in doc['warnings']))
+                self.assertEqual(lint_source(source), [])
+
+    def test_definition_scanner_respects_comments_escapes_and_nested_braces(self):
+        source = (r'\newenvironment{wrapped}{\begin{list}{}{\textbf{nested}} \{ \} \%' +
+                  '\n% ignored } { \\end{document}\n' +
+                  r'}{\end{list}}\begin{document}After definition.\end{document}')
+        doc = parse_document(source)
+        self.assertIsNone(doc['error'])
+        self.assertEqual(lint_source(source), [])
+        leaf = next(iter(doc['leaves'].values()))
+        self.assertEqual(source[leaf['start']:leaf['end']], 'After definition.')
+
+    def test_incomplete_definitions_and_actual_body_errors_still_fail(self):
+        for source in (
+            r'\newenvironment{x}{\begin{list}',
+            r'\newenvironment{x}{start}',
+            r'\newcommand{\example}{unclosed',
+            CUSTOM_ENVIRONMENT_SOURCE.replace('Sample experience.', r'\textbf{unclosed'),
+            CUSTOM_ENVIRONMENT_SOURCE.replace(r'\end{indentsection}', r'\end{wrong}'),
+        ):
+            with self.subTest(source=source):
+                self.assertTrue(parse_document(source)['error'])
+                self.assertEqual(lint_source(source)[0]['severity'], 'error')
+
     def test_lint_valid_comments_math_verbatim_and_custom_macros(self):
         source = r'\begin{document}\custom{Text} \% $x^2$ \verb|{|' + '\n% unmatched } in a comment\n' + r'\end{document}'
         self.assertEqual(lint_source(source), [])

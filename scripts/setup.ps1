@@ -1,66 +1,50 @@
-# Vita Tree Windows Setup Helper
-# Can be run from PowerShell or CMD:
-# powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
 [CmdletBinding()]
 param(
+    [Parameter(Mandatory, Position = 0)]
+    [ValidatePattern('^\d+\.\d+\.\d+$')]
+    [string]$Version,
+    [string]$Repository,
+    [int]$Port = 0,
     [switch]$Check,
-    [switch]$Demo,
-    [switch]$NonInteractive
+    [switch]$Ai,
+    [switch]$NonInteractive,
+    [switch]$NoBrowser
 )
 
 $ErrorActionPreference = 'Stop'
-
-Write-Host "Vita Tree Setup (Windows)" -ForegroundColor Cyan
-Write-Host "========================="
-
-# 1. Check Python
-$pythonCmd = $null
-foreach ($cmd in @('python', 'py -3', 'python3')) {
-    try {
-        $ver = & $cmd.Split(' ')[0] $cmd.Split(' ')[1..($cmd.Split(' ').Length-1)] -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>$null
-        if ($LASTEXITCODE -eq 0 -and [version]$ver -ge [version]'3.10') {
-            $pythonCmd = $cmd
-            Write-Host "Found compatible Python: $ver ($cmd)" -ForegroundColor Green
+$python = $null
+foreach ($candidate in @(@{ Command = 'python'; Args = @() }, @{ Command = 'py'; Args = @('-3') })) {
+    if (Get-Command $candidate.Command -ErrorAction SilentlyContinue) {
+        $prefix = $candidate.Args
+        & $candidate.Command @prefix -c 'import sys; sys.exit(sys.version_info < (3, 10))'
+        if ($LASTEXITCODE -eq 0) {
+            $python = $candidate.Command
             break
         }
-    } catch {}
+    }
+}
+if (-not $python -or -not (Get-Command git -ErrorAction SilentlyContinue)) {
+    Write-Error 'Install Python 3.10+ and Git, open a new terminal, and rerun setup.'
+    exit 1
 }
 
-if (-not $pythonCmd) {
-    Write-Host "Compatible Python (3.10+) not found on PATH." -ForegroundColor Yellow
-    Write-Host "Please install Python 3.10 or newer from https://www.python.org/downloads/ or via winget: winget install Python.Python.3.12"
-    if ($Check) { exit 1 }
-}
-
-# 2. Check Git
-$gitCmd = Get-Command git -ErrorAction SilentlyContinue
-if ($gitCmd) {
-    Write-Host "Found Git: $($gitCmd.Source)" -ForegroundColor Green
-} else {
-    Write-Host "Git not found on PATH. Git is required to manage CV versions and branches." -ForegroundColor Yellow
-    Write-Host "Install Git from https://git-scm.com/download/win or via winget: winget install Git.Git"
-    if ($Check) { exit 1 }
-}
-
-# 3. Check TeX (optional)
-$texCmd = Get-Command pdflatex -ErrorAction SilentlyContinue
-if ($texCmd) {
-    Write-Host "Found TeX engine: $($texCmd.Source)" -ForegroundColor Green
-} else {
-    Write-Host "TeX engine not found. Note: TeX is only required for PDF previews, not for editing/branching." -ForegroundColor DarkGray
-    Write-Host "To enable PDF previews, install MiKTeX: winget install MiKTeX.MiKTeX" -ForegroundColor DarkGray
-}
-
-if ($Check) {
-    if ($pythonCmd -and $gitCmd) { exit 0 } else { exit 1 }
-}
-
-# 4. Launch setup or demo via python module
-$setupArgs = @()
-if ($Demo) { $setupArgs += '--demo' }
-if ($NonInteractive) { $setupArgs += '--non-interactive' }
-
-if ($pythonCmd) {
-    & $pythonCmd.Split(' ')[0] $pythonCmd.Split(' ')[1..($pythonCmd.Split(' ').Length-1)] -m vita_tree.setup @setupArgs
+$bootstrap = Join-Path ([IO.Path]::GetTempPath()) ("vita-setup-" + [guid]::NewGuid() + ".py")
+try {
+    $url = "https://raw.githubusercontent.com/ABDELLAH-Hallou/vita-tree/v$Version/src/vita_tree/setup.py"
+    try {
+        Invoke-WebRequest -UseBasicParsing -TimeoutSec 30 -Uri $url -OutFile $bootstrap
+    } catch {
+        Write-Error "Setup download failed. Check your connection and the published version $Version, then retry."
+        exit 1
+    }
+    $options = @('--release', $Version, '--port', "$Port")
+    if ($Repository) { $options += @('--repository', $Repository) }
+    if ($Check) { $options += '--check' }
+    if ($Ai) { $options += '--ai' }
+    if ($NonInteractive) { $options += '--non-interactive' }
+    if ($NoBrowser) { $options += '--no-browser' }
+    & $python @prefix -I $bootstrap @options
     exit $LASTEXITCODE
+} finally {
+    if (Test-Path -LiteralPath $bootstrap) { Remove-Item -LiteralPath $bootstrap }
 }

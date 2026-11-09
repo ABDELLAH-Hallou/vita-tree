@@ -1,7 +1,11 @@
-include README.md LICENSE THIRD_PARTY_NOTICES.md CHANGELOG.md SECURITY.md pyproject.toml
+include README.md SECURITY.md LICENSE THIRD_PARTY_NOTICES.md CHANGELOG.md pyproject.toml
 include package.json package-lock.json
+include vite.config.ts tsconfig.json
+recursive-include frontend *.ts *.tsx *.js *.css *.html *.json
+recursive-include docs *.md *.json
 recursive-include scripts *.mjs *.py *.ps1 *.sh
-recursive-include tests *.py
+recursive-include tests *.py *.json *.jsonl *.md
+recursive-include tests/fixtures/template_matrix *.fixture .gitattributes
 recursive-exclude * __pycache__ *.py[cod]
 prune .test-artifacts
 prune .venv

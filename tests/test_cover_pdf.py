@@ -30,8 +30,9 @@ class CoverCompilerTests(TestCase):
             self.assertEqual(kwargs['env']['openin_any'],'p')
             self.assertEqual(kwargs['env']['openout_any'],'p')
             (output/'cover-letter.pdf').write_bytes(b'%PDF-1.7\nfixture')
-            return subprocess.CompletedProcess(args,0,b'LaTeX Warning: fixture',b'')
-        with patch('vita_tree.pdf.shutil.which',return_value='fixture-engine'),patch('vita_tree.pdf.subprocess.run',side_effect=engine):
+            kwargs['stdout'].write(b'LaTeX Warning: fixture')
+            return subprocess.CompletedProcess(args,0)
+        with patch('vita_tree.pdf.engine_executable',return_value='fixture-engine'),patch('vita_tree.pdf.subprocess.run',side_effect=engine):
             result=compile_document(self.root,'cover-letter.tex',output=output)
         self.assertEqual(result['pdf'],output/'cover-letter.pdf')
         self.assertEqual(result['engine'],'pdflatex')
@@ -39,10 +40,10 @@ class CoverCompilerTests(TestCase):
         self.assertEqual(len(calls),3)
 
     def test_missing_engine_and_timeout_are_actionable(self):
-        with patch('vita_tree.pdf.shutil.which',return_value=None):
+        with patch('vita_tree.pdf.engine_executable',side_effect=ValueError('Install MiKTeX or TeX Live')):
             with self.assertRaisesRegex(ValueError,'Install MiKTeX or TeX Live'):
                 compile_document(self.root,'cover-letter.tex')
         calls=[subprocess.CompletedProcess([],0,b'engine',b''),subprocess.TimeoutExpired('fixture',90)]
-        with patch('vita_tree.pdf.shutil.which',return_value='fixture-engine'),patch('vita_tree.pdf.subprocess.run',side_effect=calls):
+        with patch('vita_tree.pdf.engine_executable',return_value='fixture-engine'),patch('vita_tree.pdf.subprocess.run',side_effect=calls):
             with self.assertRaisesRegex(ValueError,'longer than 90 seconds'):
                 compile_document(self.root,'cover-letter.tex')

@@ -1,0 +1,16 @@
+\documentclass[10pt]{article}
+\usepackage[margin=0.7in]{geometry}
+\pagestyle{empty}
+\listfiles
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\begin{document}
+\section*{Escaped text}
+\textbf{Escape target}: 50\% R\&D item\_name \#1 \$20 \{literal\}.
+
+Backslash: \textbackslash{}; tilde: \textasciitilde{}; caret: \textasciicircum{}.
+
+\section*{Untouched section}
+Untouched conclusion.
+
+\end{document}

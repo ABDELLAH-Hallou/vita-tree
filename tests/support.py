@@ -2,6 +2,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import time
+import json
 
 
 def cleanup_repo(temporary):
@@ -53,6 +54,23 @@ def git(root, *args):
     return result.stdout.strip()
 
 
+def assert_public_run_privacy(payload, private_values):
+    """Allow fixed guidance, but reject fixture secrets, source and raw fields."""
+    public = json.dumps(payload)
+    for value in private_values:
+        assert value not in public, 'Private fixture content leaked into the global API'
+    forbidden = {'env', 'stdout', 'stderr', 'prompt', 'source', 'content', 'sourcecontent', 'rawoutput'}
+    def check(value):
+        if isinstance(value, dict):
+            assert not forbidden.intersection(key.casefold() for key in value), 'Raw run payload field leaked into the global API'
+            for child in value.values():
+                check(child)
+        elif isinstance(value, list):
+            for child in value:
+                check(child)
+    check(payload)
+
+
 def init_repo(root):
     root.mkdir(parents=True, exist_ok=True)
     git(root, "init", "-b", "master")
@@ -71,3 +89,17 @@ def set_theme(page, theme):
     if page.locator('html').get_attribute('data-theme') != theme:
         page.get_by_role('button', name=f'Switch to {theme} mode', exact=True).click()
     expect(page.locator('html')).to_have_attribute('data-theme', theme)
+
+
+# Sanitized minimal reproduction from issue #37; no optional TeX packages.
+CUSTOM_ENVIRONMENT_SOURCE = r"""\documentclass{article}
+\newenvironment{indentsection}[1]%
+{\begin{list}{}%
+{\setlength{\leftmargin}{#1}}%
+     \item[]
+}
+{\end{list}}
+\begin{document}
+\begin{indentsection}{1em}Sample experience.\end{indentsection}
+\end{document}
+"""

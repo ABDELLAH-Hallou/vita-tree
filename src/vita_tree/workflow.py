@@ -1,6 +1,7 @@
 """The CLI workflow contract and its small, public progress record."""
 from pathlib import Path
 import time
+import re
 
 REPORTS = {
     'extract': ('job.json', 'job.toon'),
@@ -52,7 +53,7 @@ def plan(options, available):
              'startedAt': None, 'finishedAt': None} for step in STEPS]
 
 
-def reusable_reports(reports, job_hash):
+def reusable_reports(reports, job_hash, requirements_revision=None, *, evidence=None, expected=None):
     """Carry only job-matching context into a new isolated run.
 
     Vita CV validates extraction/evaluation schemas and criteria itself. Markdown
@@ -62,10 +63,15 @@ def reusable_reports(reports, job_hash):
     result = {}
     for step, name, key in (('extract', 'job.json', 'source_sha256'),
                             ('analyze', 'analysis.json', 'job_sha256')):
+        if step == 'analyze' and (not expected or not expected.get(step) or
+                                 (evidence or {}).get(step) != expected[step]):
+            continue
         try:
             data = json.loads(reports.get('.vita/results/' + name, ''))
             metadata = data if step == 'extract' else data.get('metadata', {})
             if metadata.get(key) != job_hash:
+                continue
+            if step != 'extract' and requirements_revision is not None and metadata.get('requirements_revision') != requirements_revision:
                 continue
         except (ValueError, AttributeError):
             continue
@@ -82,7 +88,7 @@ def transition(stages, step=None, terminal=None):
     result = [dict(stage) for stage in stages or []]
     for stage in result:
         if stage['status'] == 'running':
-            stage.update(status=terminal or 'succeeded', finishedAt=now)
+            stage.update(status='review' if terminal == 'awaiting_review' else terminal or 'succeeded', finishedAt=now)
         elif terminal in ('failed', 'interrupted') and stage['status'] == 'pending':
             stage['status'] = 'blocked'
         if stage['id'] == step and not terminal:
@@ -100,12 +106,15 @@ def clean_stages(stages):
     for stage in stages:
         if (not isinstance(stage, dict) or stage.get('id') not in STEPS
                 or stage['id'] in seen or stage.get('status') not in
-                {'pending', 'running', 'succeeded', 'failed', 'blocked', 'interrupted', 'skipped'}):
+                {'pending', 'running', 'review', 'succeeded', 'failed', 'blocked', 'interrupted', 'skipped'}):
             raise ValueError('Invalid workflow stage')
         seen.add(stage['id'])
         value = {key: stage.get(key) for key in ('id', 'status', 'startedAt', 'finishedAt')}
         if any(t is not None and (type(t) not in (int, float) or not 0 <= t < 1e12)
                for t in (value['startedAt'], value['finishedAt'])):
             raise ValueError('Invalid workflow time')
+        parent = stage.get('reusedFrom')
+        if isinstance(parent, str) and re.fullmatch(r'[a-f0-9]{32}', parent):
+            value['reusedFrom'] = parent
         result.append(value)
     return result

@@ -1,0 +1,19 @@
+\documentclass{matrixcv}
+\pagestyle{empty}
+\listfiles
+\newenvironment{nestedblock}[1][1em]%
+{\begin{list}{}{\setlength{\leftmargin}{#1}}\item[]}%
+{\end{list}}
+\begin{document}
+\section*{Synthetic template}
+\begin{cvBlock}{Experience}
+\begin{nestedblock}
+\textbf{Environment target}
+
+Environment body remains associated with its heading.
+\end{nestedblock}
+\end{cvBlock}
+\section*{Untouched section}
+Untouched conclusion.
+
+\end{document}

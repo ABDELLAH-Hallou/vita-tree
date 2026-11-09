@@ -1,5 +1,242 @@
 # Changelog
 
+## [1.19.1](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.19.0...v1.19.1) (2026-11-08)
+
+
+### Bug Fixes
+
+* align workflow approvals and final output recovery ([e042e6e](https://github.com/ABDELLAH-Hallou/vita-tree/commit/e042e6ee2ed8aeeb47137192c9beb9c022a4e34a))
+* align workflow approvals and final output recovery ([704b944](https://github.com/ABDELLAH-Hallou/vita-tree/commit/704b944825ba69db2eebd477e9a198dbc82c2d4d))
+* block retries while related attempts are running ([40dbdd1](https://github.com/ABDELLAH-Hallou/vita-tree/commit/40dbdd12cc49f2c8d48dc5274e2d70c207ce7f10))
+* preserve selected review history during refresh ([f30cf00](https://github.com/ABDELLAH-Hallou/vita-tree/commit/f30cf00b5bb37eac9240f29614d36c72cc53dd85))
+
+## [1.19.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.18.0...v1.19.0) (2026-11-02)
+
+
+### Features
+
+* **jobenu:** add explicit no-review batch approval ([8b35d3b](https://github.com/ABDELLAH-Hallou/vita-tree/commit/8b35d3b8a40e6cfcc5f04e94e07a25244134ee61))
+
+## [1.18.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.17.0...v1.18.0) (2026-11-02)
+
+
+### Features
+
+* add backup AI and improve imported-job reruns ([0e60436](https://github.com/ABDELLAH-Hallou/vita-tree/commit/0e6043614b6a1334a0a90623942737e8d9fe821e))
+* connect native backup AI policies ([faed693](https://github.com/ABDELLAH-Hallou/vita-tree/commit/faed6939ac5813afc2d2a4bf94f38494e55d10b7))
+
+
+### Bug Fixes
+
+* clarify imported-job reruns and hide empty previews ([4177cd8](https://github.com/ABDELLAH-Hallou/vita-tree/commit/4177cd83535e0a469b93829b87cf3303a2680702))
+* own capability probe process trees ([058d68b](https://github.com/ABDELLAH-Hallou/vita-tree/commit/058d68bed20b999dac7e816a1b3aaef67f8f8a6e))
+* preserve Codex reasoning without a model marker ([9b145a7](https://github.com/ABDELLAH-Hallou/vita-tree/commit/9b145a7e69989ffa7f6fecaea881ca8b867d2503))
+
+## [1.17.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.16.1...v1.17.0) (2026-11-02)
+
+
+### Features
+
+* migrate application UI to a React workbench ([5a538b7](https://github.com/ABDELLAH-Hallou/vita-tree/commit/5a538b79a185528b9050ac38e9b9738e0be5aff2))
+* migrate Vita Tree to a React workbench ([9c45c24](https://github.com/ABDELLAH-Hallou/vita-tree/commit/9c45c2419295b0eb79664041ceab9468ae8163c5))
+* prepare failed-only Jobenu retries with captured settings ([ae01904](https://github.com/ABDELLAH-Hallou/vita-tree/commit/ae01904a7df3e6a93e0a201330ad10012f5e191a))
+* retry failed Jobenu jobs from batch activity ([6199a45](https://github.com/ABDELLAH-Hallou/vita-tree/commit/6199a45c00b6689019c7394abd796cf782362067))
+* streamline Jobenu batch selection and role naming ([c516469](https://github.com/ABDELLAH-Hallou/vita-tree/commit/c5164692b90b0d822d6fc192595fff112c133115))
+* validate Jobenu alias batches and date-scoped selections ([f375026](https://github.com/ABDELLAH-Hallou/vita-tree/commit/f375026ba598e7ee74cb48aa793545ab97faf276))
+
+
+### Bug Fixes
+
+* make frontend builds portable and follow mobile navigation ([3790a5c](https://github.com/ABDELLAH-Hallou/vita-tree/commit/3790a5c2f291813dc979d1d3d24103477a3f42de))
+* simplify CV setup guidance and checks ([f4ddfe1](https://github.com/ABDELLAH-Hallou/vita-tree/commit/f4ddfe1694cce20c0882e8b287972e1505b7b734))
+
+
+### Documentation
+
+* update the CV check instructions ([b0d7a61](https://github.com/ABDELLAH-Hallou/vita-tree/commit/b0d7a61f04a30fefdf89d7d739fe5f6f7ed6b090))
+
+## [1.16.1](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.16.0...v1.16.1) (2026-11-01)
+
+
+### Bug Fixes
+
+* retain Jobenu component history in imported workspaces ([6616db3](https://github.com/ABDELLAH-Hallou/vita-tree/commit/6616db3f193f811eded16f1caf80d526bae88594))
+* retain Jobenu component history in imported workspaces ([ad637ef](https://github.com/ABDELLAH-Hallou/vita-tree/commit/ad637ef6b959084666176278b950559af16bfede))
+
+## [1.16.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.15.8...v1.16.0) (2026-10-31)
+
+
+### Features
+
+* add visual Jobenu batch import workflow ([3d21347](https://github.com/ABDELLAH-Hallou/vita-tree/commit/3d21347a62e772b44f86a1930aaa4b20fc827bf2))
+* add visual Jobenu batch import workflow ([5b0f018](https://github.com/ABDELLAH-Hallou/vita-tree/commit/5b0f01862a3f6310e587826a080662fe7eefc235))
+
+## [1.15.8](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.15.7...v1.15.8) (2026-10-30)
+
+
+### Bug Fixes
+
+* avoid signalling owned process groups twice on shutdown ([b40e0a6](https://github.com/ABDELLAH-Hallou/vita-tree/commit/b40e0a650e67f48354e1405189fb8d0a19443b3e))
+* stop owned process groups only once during shutdown ([cef4b41](https://github.com/ABDELLAH-Hallou/vita-tree/commit/cef4b41d33b129f5b29bc112d4b3521e0a844180))
+
+## [1.15.7](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.15.6...v1.15.7) (2026-10-30)
+
+
+### Bug Fixes
+
+* delegate generation prompts to the Vita CV backend ([9bdd357](https://github.com/ABDELLAH-Hallou/vita-tree/commit/9bdd357af551d4ecc87b61d33884ce0e9f024823))
+* keep application tabs disabled until workspace rendering finishes ([50b7b31](https://github.com/ABDELLAH-Hallou/vita-tree/commit/50b7b31ec9ce8b71be623ebbaa74deeb3530e2c1))
+* preserve run ordering when refreshing a continuation ([af0593b](https://github.com/ABDELLAH-Hallou/vita-tree/commit/af0593b5d4cde989655a87dabf21fa1744cb76ae))
+* refresh approved CV results after fast continuations ([226e0f5](https://github.com/ABDELLAH-Hallou/vita-tree/commit/226e0f5f0ccc5eec8d4181e0345bc280326e55f7))
+* refresh approved CVs and clarify preparation history ([4d4b1b8](https://github.com/ABDELLAH-Hallou/vita-tree/commit/4d4b1b896c04ae7385d41455ee3867a42cc8b75c))
+* separate automatic generation from manual factual commands ([6a5be6e](https://github.com/ABDELLAH-Hallou/vita-tree/commit/6a5be6e611822fa6eab863b5427d36eec80c6231))
+
+## [1.15.6](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.15.5...v1.15.6) (2026-10-29)
+
+
+### Bug Fixes
+
+* populate output languages from language_map ([4b8d18e](https://github.com/ABDELLAH-Hallou/vita-tree/commit/4b8d18eabf9b7a3790aee9d380b0e6f1b2aaa858))
+
+## [1.15.5](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.15.4...v1.15.5) (2026-10-29)
+
+
+### Bug Fixes
+
+* restore keyboard focus after settings save failures ([f838f45](https://github.com/ABDELLAH-Hallou/vita-tree/commit/f838f4571d2fdaf3d3aaef6dc7cd6edc44cb12cf))
+* restore keyboard focus after settings save failures ([c43b2e1](https://github.com/ABDELLAH-Hallou/vita-tree/commit/c43b2e1e800343254fdcfc5b9918bd6692338a88))
+
+## [1.15.4](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.15.3...v1.15.4) (2026-10-29)
+
+
+### Bug Fixes
+
+* preserve focus and verify cross-browser review accessibility ([4f65b96](https://github.com/ABDELLAH-Hallou/vita-tree/commit/4f65b966726d4de873c639def6e936ddaa0faacc))
+
+## [1.15.3](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.15.2...v1.15.3) (2026-10-29)
+
+
+### Bug Fixes
+
+* keep component settings actions within reach ([e42dfd1](https://github.com/ABDELLAH-Hallou/vita-tree/commit/e42dfd14b35de0557c32c5b9ba3a1b3e7e120748))
+
+## [1.15.2](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.15.1...v1.15.2) (2026-10-29)
+
+
+### Bug Fixes
+
+* keep parallel workflows responsive and stop orphan processes ([aaf32ca](https://github.com/ABDELLAH-Hallou/vita-tree/commit/aaf32cad8ac59674cfa1d4292e8a55d0fe87ec44))
+* own workflow process lifetimes and add sustained load profiles ([ecac7af](https://github.com/ABDELLAH-Hallou/vita-tree/commit/ecac7afb4f78903ed66f3940d0786f3cc9e8aab9))
+
+
+### Performance Improvements
+
+* batch fresh history metadata reads with bounded capture ([88fca2f](https://github.com/ABDELLAH-Hallou/vita-tree/commit/88fca2f009a31260c03b3321c9ccee820f29c1a9))
+* check trace retention eligibility before parsing archived bodies ([1f72261](https://github.com/ABDELLAH-Hallou/vita-tree/commit/1f722613f2f4364d586f6b0d00b19bc1dd0ceb0e))
+* coalesce overlapping history refreshes without caching completed reads ([b763962](https://github.com/ABDELLAH-Hallou/vita-tree/commit/b763962a34ca3ab70dac37b531592c3504a9cdd2))
+* format large histories outside the workflow lock ([69f4780](https://github.com/ABDELLAH-Hallou/vita-tree/commit/69f4780a1916084772daf2c6f2d9c634a5040c12))
+* serialize history reads without gating workflow progress ([e507954](https://github.com/ABDELLAH-Hallou/vita-tree/commit/e507954434b4b83689d1817e8b7f3c2cbf463aae))
+
+## [1.15.1](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.15.0...v1.15.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* verify template compatibility and restricted LuaLaTeX compilation ([5d0241d](https://github.com/ABDELLAH-Hallou/vita-tree/commit/5d0241d602855bec6957e439574be2f2042be933))
+
+
+### Documentation
+
+* record inspected TeX Live and MiKTeX compatibility baselines ([97d59f1](https://github.com/ABDELLAH-Hallou/vita-tree/commit/97d59f11c605419124ff63bc0ce6dd42fb383fbd))
+
+## [1.15.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.14.0...v1.15.0) (2026-10-25)
+
+
+### Features
+
+* simplify reviews and continue preparation automatically ([62e2858](https://github.com/ABDELLAH-Hallou/vita-tree/commit/62e2858b7ce8f6f58507df7f52ee33a1d241d6ba))
+* simplify reviews and continue preparation automatically ([0caa30b](https://github.com/ABDELLAH-Hallou/vita-tree/commit/0caa30bd855050897ec4ecd6b5ab56e4f3a5b6df))
+
+## [1.14.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.13.0...v1.14.0) (2026-10-24)
+
+
+### Features
+
+* add file-aware editing for local LaTeX includes ([4cb45eb](https://github.com/ABDELLAH-Hallou/vita-tree/commit/4cb45eb28be16aaabdf1122df44ecca55eb4dcfc))
+* add file-aware editing for local LaTeX includes ([5cd5ac4](https://github.com/ABDELLAH-Hallou/vita-tree/commit/5cd5ac426384825ffb40e667a20df32662e35869))
+
+## [1.13.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.12.1...v1.13.0) (2026-10-24)
+
+
+### Features
+
+* add guided project and TeX preflight before AI preparation ([89d2a6c](https://github.com/ABDELLAH-Hallou/vita-tree/commit/89d2a6c75e5f3185d9ecab77245d9868529e80d4))
+* guide LaTeX setup and check dependencies before AI preparation ([8c9211b](https://github.com/ABDELLAH-Hallou/vita-tree/commit/8c9211bc58ffd9c1c7a282999e7ec793a8a221e1))
+
+## [1.12.1](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.12.0...v1.12.1) (2026-10-24)
+
+
+### Bug Fixes
+
+* harden local security boundaries and document audit ([3e853b8](https://github.com/ABDELLAH-Hallou/vita-tree/commit/3e853b8a61d4d171dc20d097f859de7fcaa8c64e))
+* harden local security boundaries and document audit ([54ae895](https://github.com/ABDELLAH-Hallou/vita-tree/commit/54ae8958ac51ac180acb57fe575777b4f08ca6d0))
+
+## [1.12.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.11.0...v1.12.0) (2026-10-24)
+
+
+### Features
+
+* review and approve canonical job requirements ([9e69332](https://github.com/ABDELLAH-Hallou/vita-tree/commit/9e693327756f1de1eb31d2ad61ef916d355ba298))
+* review and approve canonical job requirements ([aaeff8b](https://github.com/ABDELLAH-Hallou/vita-tree/commit/aaeff8bbb28394ab8f381b45f76a51e458552417))
+
+## [1.11.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.10.0...v1.11.0) (2026-10-24)
+
+
+### Features
+
+* review source-linked factual changes before publication ([a66573d](https://github.com/ABDELLAH-Hallou/vita-tree/commit/a66573d3ebe60359b4aa5444bd9dbbf50ff6fb0d))
+* review source-linked factual changes before publication ([d27a912](https://github.com/ABDELLAH-Hallou/vita-tree/commit/d27a9123115c0dc6c4ab488a77fda6cff8622dc9))
+
+## [1.10.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.9.0...v1.10.0) (2026-10-24)
+
+
+### Features
+
+* actionable provider failures, generation checks, and captured retries ([6ee8b6e](https://github.com/ABDELLAH-Hallou/vita-tree/commit/6ee8b6e4ca5666f80bf04c079749ad02dd9f3987))
+* show actionable provider failures and explicit generation checks ([280fe3c](https://github.com/ABDELLAH-Hallou/vita-tree/commit/280fe3c0f75321cb176370898c158f49198fdc66))
+
+## [1.9.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.8.0...v1.9.0) (2026-10-23)
+
+
+### Features
+
+* add workflow execution inspector ([9934265](https://github.com/ABDELLAH-Hallou/vita-tree/commit/9934265f4486e24d9bf2664a2f33e94c5f825a81))
+* inspect workflow executions and provider diagnostics ([69732d3](https://github.com/ABDELLAH-Hallou/vita-tree/commit/69732d36a058c702c0e176919c9981b9baf57378))
+
+## [1.8.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.7.1...v1.8.0) (2026-10-23)
+
+
+### Features
+
+* resume failed preparations from verified checkpoints ([b9aff5a](https://github.com/ABDELLAH-Hallou/vita-tree/commit/b9aff5ab75913f56ca03ac304883c47a66306a82))
+* resume preparations from verified checkpoints ([1040283](https://github.com/ABDELLAH-Hallou/vita-tree/commit/1040283a3f5635fd3b0a9424317614c55198f7a8))
+
+## [1.7.1](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.7.0...v1.7.1) (2026-10-22)
+
+
+### Bug Fixes
+
+* accept custom LaTeX environment definitions ([f46c2a6](https://github.com/ABDELLAH-Hallou/vita-tree/commit/f46c2a683c53c4c9323917f9f12d4704b793c117))
+* accept valid custom LaTeX environment definitions ([20ea548](https://github.com/ABDELLAH-Hallou/vita-tree/commit/20ea5480c31ce817ec8ace442f2d3e97d03b57da))
+
+## [1.7.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.6.0...v1.7.0) (2026-10-20)
+
+
+### Features
+
+* configure AI per workflow step with graph settings popups ([5bdd416](https://github.com/ABDELLAH-Hallou/vita-tree/commit/5bdd416e2dc26f4857fffaa35b62f49e1cd36509))
+* configure AI providers and models per workflow step ([d6d5c35](https://github.com/ABDELLAH-Hallou/vita-tree/commit/d6d5c35aad7f31e7135aa4b516039b600724f8e8))
+
 ## [1.6.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.5.2...v1.6.0) (2026-10-20)
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import errno
 import socket
 import secrets
@@ -16,6 +17,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse, quote
 from .observability import Diagnostics, default_log_directory, request_context
+from .security import redact, credential_name
 
 
 STATIC_ROOT = Path(__file__).resolve().parent / "static"
@@ -145,12 +147,7 @@ def branch_content_payload(
         raise ValueError(f"Application or CV not found: {name}")
 
     try:
-        content = run_git(
-            repository,
-            "show",
-            f"{branch['ref']}:{document_path}",
-            strip=False,
-        )
+        content = git_document(repository, branch['ref'], document_path)
     except RuntimeError as error:
         if "does not exist" in str(error) or "exists on disk" in str(error):
             raise FileNotFoundError(
@@ -165,6 +162,16 @@ def branch_content_payload(
         "commit": branch["commit"],
         "modifiedAt": branch["modifiedAt"],
     }
+
+
+def git_document(repository, ref, name):
+    """Read an immutable blob only after checking its byte size."""
+    ident = run_git(repository, 'rev-parse', '--verify', f'{ref}:{name}')
+    if not re.fullmatch(r'[a-f0-9]{40}|[a-f0-9]{64}', ident):
+        raise ValueError('Invalid document object')
+    if int(run_git(repository, 'cat-file', '-s', ident)) > 2_000_000:
+        raise ValueError('Document exceeds the 2 MB limit')
+    return run_git(repository, 'cat-file', 'blob', ident, strip=False)
 
 
 class VitaTreeServer(ThreadingHTTPServer):
@@ -196,6 +203,8 @@ class VitaTreeServer(ThreadingHTTPServer):
         log_dir: Path | None = None,
         log_level: str = 'INFO',
     ) -> None:
+        if address[0] not in {'127.0.0.1','localhost'}:
+            raise ValueError('Vita Tree supports loopback addresses only.')
         from .workspace import Workspace
         from .pdf import PDFCompiler
         self.repository = repository
@@ -245,6 +254,7 @@ class VitaTreeServer(ThreadingHTTPServer):
 
 class DashboardHandler(SimpleHTTPRequestHandler):
     server: VitaTreeServer
+    idle_timeout = 15
     # Windows registry associations can label JS modules as text/plain, which
     # browsers reject with nosniff. Keep bundled web assets platform-independent.
     extensions_map = {
@@ -257,6 +267,10 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 
     def __init__(self, *args: object, **kwargs: object) -> None:
         super().__init__(*args, directory=str(STATIC_ROOT), **kwargs)
+
+    def setup(self):
+        super().setup()
+        self.connection.settimeout(self.idle_timeout)
 
     def _observe(self, action):
         self.request_id = uuid.uuid4().hex[:12]
@@ -287,6 +301,16 @@ class DashboardHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
         self._observe(self._get)
 
+    def do_HEAD(self):
+        self._observe(lambda: super(DashboardHandler,self).do_HEAD() if self.check_origin() else None)
+
+    @staticmethod
+    def execution_offset(query):
+        raw = query.get('offset', ['0'])[0]
+        if not isinstance(raw, str) or not re.fullmatch(r'\d{1,6}', raw):
+            raise ValueError('Invalid execution pagination offset')
+        return int(raw)
+
     def _get(self) -> None:  # noqa: N802 - stdlib handler API
         if not self.check_origin():
             return
@@ -296,6 +320,26 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         if path == '/api/diagnostics':
             self.api_call(self.server.diagnostic_snapshot)
             return
+        if path == '/api/executions':
+            self.api_call(lambda: self.server.workspace.inspector.listing(self.execution_offset(query), query.get('q',[''])[0], query.get('status',[''])[0]))
+            return
+        if path == '/api/execution':
+            self.api_call(lambda: self.server.workspace.inspector.public_detail(query.get('id',[''])[0], query.get('step',[None])[0], self.execution_offset(query)))
+            return
+        if path == '/api/execution-artifact':
+            self.api_call(lambda: self.server.workspace.inspector.artifact(query.get('id',[''])[0], query.get('artifact',[''])[0]))
+            return
+        if path == '/api/execution-export':
+            inspector = self.server.workspace.inspector
+            if query.get('preview',[''])[0] == '1':
+                self.api_call(lambda: inspector.export(query.get('id',[''])[0], preview=True))
+            else:
+                try:
+                    body = inspector.export(query.get('id',[''])[0])
+                    self.send_bytes(body, 'application/zip', filename='vita-tree-technical-support.zip', download=True)
+                except (ValueError, OSError) as error:
+                    self.error_response(error, 400)
+            return
         if path == '/metrics':
             active = self.server.diagnostic_snapshot()['history']['running']
             self.send_bytes(self.server.diagnostics.prometheus(active).encode(), 'text/plain; version=0.0.4; charset=utf-8')
@@ -303,11 +347,23 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         if path == "/api/session":
             self.send_json({"token": self.server.token, **self.server.workspace.capabilities()})
             return
+        if path == '/api/jobenu/history':
+            self.api_call(lambda: {"runs": self.server.workspace.jobenu.history(query.get('branch', [None])[0])})
+            return
+        if path == '/api/jobenu':
+            self.api_call(self.server.workspace.jobenu.listing)
+            return
         if path == "/api/workspace":
             self.api_call(lambda: self.server.workspace.snapshot(query.get("branch", [""])[0]))
             return
         if path == "/api/providers":
             self.api_call(lambda: self.server.workspace.providers(query.get("branch", [""])[0]))
+            return
+        if path == '/api/connections':
+            self.api_call(self.server.workspace.list_connections)
+            return
+        if path == '/api/ai-settings':
+            self.api_call(lambda: self.server.workspace.ai_settings(query.get('branch', [''])[0]))
             return
         if path == "/api/job":
             ident = query.get("id", [""])[0]
@@ -318,6 +374,13 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             return
         if path == "/api/job-result":
             self.api_call(lambda: self.server.workspace.job_result(query.get("id", [""])[0]))
+            return
+        if path == '/api/factual-review':
+            self.api_call(lambda: self.server.workspace.factual_review(query.get('id', [''])[0]))
+            return
+        if path == '/api/requirements':
+            from . import requirements_review
+            self.api_call(lambda: requirements_review.view(self.server.workspace, query.get('branch',[''])[0], query.get('runId',[None])[0]))
             return
         if path == "/api/pdf-file":
             pdf = self.server.compiler.results.get(query.get("id", [""])[0])
@@ -351,7 +414,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         host = self.headers.get("Host", "")
         allowed = {f"127.0.0.1:{self.server.server_port}", f"localhost:{self.server.server_port}"}
         origin = self.headers.get("Origin")
-        if host not in allowed or (origin and origin != "http://" + host):
+        site = self.headers.get('Sec-Fetch-Site')
+        if host not in allowed or (origin and origin != "http://" + host) or site not in {None,'none','same-origin'}:
             self.send_json({"error": "This connection is not allowed. Open Vita Tree using its local address."}, status=403)
             return False
         return True
@@ -367,27 +431,54 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             return
         try:
             size = int(self.headers.get("Content-Length", "0"))
-            if size < 1 or size > 3_000_000:
+            if size < 1 or size > (24_000_000 if urlparse(self.path).path=='/api/jobenu/upload' else 3_000_000):
                 raise ValueError("Invalid request size")
             if self.headers.get_content_type() != "application/json":
                 raise ValueError("Expected application/json")
-            data = json.loads(self.rfile.read(size))
+            body = self.rfile.read(size)
+            if len(body) != size:
+                raise ValueError('Incomplete request')
+            data = json.loads(body)
             if not isinstance(data, dict):
                 raise ValueError("Expected a JSON object")
-        except (ValueError, UnicodeError) as error:
-            self.send_json({"error": str(error)}, status=400)
+        except (ValueError, UnicodeError, RecursionError, TimeoutError):
+            self.send_json({"error": 'Invalid JSON request, content type, or request size (maximum 3 MB).'}, status=400)
             return
         workspace = self.server.workspace
         path = urlparse(self.path).path
         actions = {
+            '/api/jobenu/capability': lambda: workspace.jobenu.capability(data.get('source','')),
+            '/api/jobenu/upload': lambda: workspace.jobenu.upload(data.get('filename','export.json'),data.get('content')),
+            '/api/jobenu/selection': lambda: workspace.jobenu.selection(data['id']),
+            '/api/jobenu/preview': lambda: workspace.jobenu.preview(data['id'],data),
+            '/api/jobenu/retry-preview': lambda: workspace.jobenu.retry_preview(data['id'],data.get('keys')),
+            '/api/jobenu/start': lambda: workspace.jobenu.start(data['id'],data['planId']),
+            '/api/jobenu/review': lambda: workspace.jobenu.review(data['id'],data['key']),
+            '/api/jobenu/decide': lambda: workspace.jobenu.decide(data['id'],data['key'],data['action'],data.get('revision')),
+            '/api/jobenu/log': lambda: workspace.jobenu.log(data['id'],data.get('key')),
+            '/api/jobenu/alias': lambda: workspace.jobenu.alias(data['title'],data['alias']),
+            '/api/jobenu/aliases': lambda: workspace.jobenu.aliases(data.get('aliases')),
+            '/api/jobenu/discard': lambda: workspace.jobenu.discard(data['id']),
+            '/api/connections': lambda: workspace.add_connection(data.get('name'), data.get('provider'), data.get('apiKey')),
+            '/api/connections/remove': lambda: workspace.remove_connection(data.get('id')),
+            '/api/generation-check': lambda: workspace.check_generation(data['branch'], data['step'], data.get('aiConfig'), data.get('confirmed')),
+            '/api/preflight': lambda: workspace.check_setup(data['branch'], data.get('revision'), data.get('jobRevision'), data.get('engine','auto'), data.get('workflow')),
+            '/api/factual-review/apply': lambda: workspace.apply_factual_review(data['id'], data['revision'], data['token'], data.get('decisions'), data.get('confirmed')),
+            '/api/review-continue': lambda: workspace.continue_review(data['id'], data['revision'], data['jobRevision']),
+            '/api/requirements/draft': lambda: workspace.save_requirements(data['branch'], data['token'], data['revision'], data.get('items')),
+            '/api/requirements/approve': lambda: workspace.approve_requirements(data['branch'], data['token'], data['revision'], data.get('confirmed')),
+            '/api/ai-settings': lambda: workspace.save_ai_settings(data['branch'], data.get('settings')),
+            '/api/resume-preview': lambda: workspace.resume_ai(data['id'], data['revision'], data['jobRevision'], data.get('aiConfig'), data.get('language'), preview=True),
+            '/api/resume': lambda: workspace.resume_ai(data['id'], data['revision'], data['jobRevision'], data.get('aiConfig'), data.get('language'), data.get('token')),
+            '/api/checkpoints-cleanup': workspace.cleanup_checkpoints,
             "/api/release-worktree": lambda: workspace.release_worktree(data["branch"]),
             "/api/job-reviewed": lambda: workspace.review_job(data["id"]),
             "/api/jobs-reviewed": lambda: {**workspace.review_jobs(data["ids"]), 'requestId': self.request_id},
-            "/api/save": lambda: workspace.save(data["branch"], data["path"], data["revision"], data.get("content"), data.get("leaf"), data.get("text")),
+            "/api/save": lambda: workspace.save(data["branch"], data["path"], data["revision"], data.get("content"), data.get("leaf"), data.get("text"), data.get('projectRevision')),
             "/api/commit-preview": lambda: workspace.commit_preview(data["branch"], data.get("sourceRevision"), data.get("sourceContent"), data.get("jobRevision"), data.get("jobContent")),
             "/api/commit-push": lambda: workspace.commit_and_push(data["branch"], data.get("message"), data.get("review"), data.get("sourceRevision"), data.get("sourceContent"), data.get("jobRevision"), data.get("jobContent")),
-            "/api/create": lambda: (workspace.create_application(data["base"], data["applicationName"], data["job"], data["revision"]) if "applicationName" in data else workspace.create(data["base"], data["name"], data["job"], data["revision"])),
-            "/api/adapt": lambda: workspace.start_ai(data["branch"], data["revision"], data["jobRevision"], data.get("provider", ""), data.get("language", "en"), data.get("model"), data.get("reasoning", ""), data.get("workflow")),
+            "/api/create": lambda: (workspace.create_application(data["base"], data["applicationName"], data["job"], data["revision"], data.get('projectRevision')) if "applicationName" in data else workspace.create(data["base"], data["name"], data["job"], data["revision"], project_revision=data.get('projectRevision'))),
+            "/api/adapt": lambda: workspace.start_ai(data["branch"], data["revision"], data["jobRevision"], data.get("provider", ""), data.get("language", "en"), data.get("model"), data.get("reasoning", ""), data.get("workflow"), data.get('aiConfig'), engine=data.get('engine','auto'), review_policy=data.get('reviewPolicy','manual')),
             "/api/parse": lambda: self.parse_source(data),
             "/api/lint": lambda: self.parse_source(data, lint_only=True),
             "/api/pdf-save": lambda: self.server.compiler.save(data['id'], data['branch'], data.get('existingRevision')),
@@ -417,6 +508,11 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             message = 'The operation could not finish. Open Activity & logs for details.'
         else:
             message = str(error)
+        values = list(getattr(self.server.workspace.inspector, 'secrets', ()))
+        values.append(self.server.token)
+        values.extend(item['key'] for item in self.server.workspace.connections.items.values())
+        values.extend(v for k,v in os.environ.items() if credential_name(k))
+        message = redact(message, values)
         self.send_json({'error': message + ' Reference: ' + reference, 'requestId': reference, **(extra or {})}, status=status)
 
     def api_call(self, action):
@@ -442,7 +538,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
     def end_headers(self):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
-        self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'")
+        self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'self'")
         self.send_header('X-Request-ID', getattr(self, 'request_id', ''))
         super().end_headers()
         self.headers_sent = True
@@ -459,7 +555,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
-        self.wfile.write(body)
+        if self.command != 'HEAD':
+            self.wfile.write(body)
 
     def send_json(self, payload: object, status: int = 200) -> None:
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")

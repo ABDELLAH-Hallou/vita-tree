@@ -1,49 +1,57 @@
-# Maintainer Release Runbook
+# Maintaining Vita Tree
 
-This document describes the two-stage release procedure for Vita Tree to TestPyPI and PyPI.
-It is intended for repository maintainers.
+## Development and verification
 
----
+```powershell
+python -m pip install -e ".[test]"
+python -m unittest discover -s tests -v
+python -m playwright install chromium
+python tests/browser_check.py --browser chromium
+python tests/browser_jobs.py --browser chromium
+python tests/browser_workflow.py --browser chromium
+python tests/browser_ai_settings.py --browser chromium
+```
 
-## Commit Conventions
+Browser tests cover editing, branch creation, provider settings, themes, conflicts,
+and real PDF compilation and text selection. They use synthetic CVs and a fake AI
+provider. Screenshots and PDFs are saved in ignored `.test-artifacts/`.
 
-All commits intended for release must follow the Conventional Commits specification:
-- `feat:` for new user-facing features (triggers a minor version bump in Release Please).
-- `fix:` for bug fixes and security corrections (triggers a patch version bump).
-- `chore:`, `docs:`, `test:` for changes that do not increment the release version.
+For reproducible multi-application stress tests, declared performance budgets,
+resource measurements and recovery checks, see [workflow load profiles](../docs/workflow-load.md).
 
----
+Browser/accessibility targets, repeatable keyboard checks and current coverage
+limits are in [accessibility verification](../docs/accessibility.md), with a
+[representative-user study protocol](../docs/usability-study.md).
 
-## Two-Stage Release Procedure
+PDF.js is pinned in `package-lock.json`; browser assets and its Apache license are vendored into the Python package. Node is only needed to refresh these assets:
 
-Releases use a two-stage pull request workflow to ensure that production PyPI packages are byte-identical to tested TestPyPI candidates:
+```powershell
+npm ci
+npm run vendor
+```
 
-### Stage 1: Release to TestPyPI
+Use Node 22.13+ or 24+ when updating PDF.js. The application itself runs on Python 3.10+.
 
-1. **Automated PR:** Release Please maintains a release PR updating the version in `src/vita_tree/__init__.py` and the changelog in `CHANGELOG.md`.
-2. **Review & Merge:** Merging this PR creates the version tag and initiates `.github/workflows/release.yml`.
-3. **Automated Verification:** The workflow runs code quality, browser/PDF integration, clean package builds, and credential/privacy scans (`scripts/check_privacy.py`, `scripts/check_package.py`).
-4. **Upload to TestPyPI:** Upon passing all checks, the built wheel and sdist are uploaded to TestPyPI only.
+## Releases
 
-### Stage 2: Publish to PyPI
+Use `feat:` and `fix:` commit messages. Releases have two separate PRs:
 
-1. **Promotion PR:** Release automation opens a separate promotion PR containing the verified SHA-256 hashes, TestPyPI download links, and install validation commands.
-2. **Candidate Verification:** Maintainers test the TestPyPI candidate in clean virtual environments across supported platforms.
-3. **Approval & Publish:** Merging the promotion PR triggers `.github/workflows/publish-pypi.yml`, which downloads the exact wheel and source archive from TestPyPI, verifies their SHA-256 digests, and publishes them to PyPI.
-4. **Rejection:** If a candidate has issues, close its promotion PR without merging and push a fix commit to start a new release cycle. Published candidate files and version numbers cannot be replaced.
+1. **Release to TestPyPI:** Release Please updates the version and changelog.
+   Merging this PR creates the tag/GitHub release and runs code, browser/PDF,
+   installation, and privacy checks before uploading to TestPyPI only.
+2. **Publish to PyPI:** after verifying the TestPyPI downloads, automation opens
+   a separate promotion PR with installation commands, the source commit, workflow
+   run, and SHA-256 hashes. Test that candidate, then merge this PR to publish it
+   to PyPI. Leaving it open keeps the candidate off PyPI.
 
----
+Promotion downloads the exact wheel and source archive from TestPyPI and verifies
+their hashes again; it does not rebuild from a potentially newer main branch.
+If a candidate needs fixes, close its promotion PR and release a new version.
+Published candidate files and version numbers cannot be replaced. If production
+publishing fails, rerun the failed workflow or run **Promote approved release to
+PyPI** on `main` with the already-merged promotion PR number.
 
-## Recovery and Manual Promotion
-
-If production publishing fails after the promotion PR is merged:
-1. Rerun the failed workflow run in GitHub Actions.
-2. Or manually trigger **Promote approved release to PyPI** (`publish-pypi.yml`) on `main`, supplying the merged promotion PR number.
-
----
-
-## Required Secrets and Environments
-
-- `PYPI_API_TOKEN` in the `pypi` environment (scoped to upload to PyPI).
-- `TEST_PYPI_API_TOKEN` in the `testpypi` environment (scoped to upload to TestPyPI).
-- `RELEASE_PLEASE_TOKEN` repository secret (needs contents and pull-requests permissions).
+Publishing uses `PYPI_API_TOKEN` in the `pypi` environment,
+`TEST_PYPI_API_TOKEN` in `testpypi`, and the repository's `RELEASE_PLEASE_TOKEN`.
+The release automation token needs permission to create branches and PRs. No new
+secrets or environments are required for the two-stage process.

@@ -1,0 +1,13 @@
+\documentclass[10pt]{article}
+\usepackage[margin=0.7in]{geometry}
+\pagestyle{empty}
+\listfiles
+\newcommand{\fragment}{sections/hidden}
+\begin{document}
+\section*{Dynamic include}
+\textbf{Dynamic source target}
+\input{\fragment}
+\section*{Untouched section}
+Untouched conclusion.
+
+\end{document}

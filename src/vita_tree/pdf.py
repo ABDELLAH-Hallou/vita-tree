@@ -2,30 +2,68 @@
 from __future__ import annotations
 
 import hashlib
-import io
-import os
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 import shutil
 import subprocess
 import threading
 import time
 import uuid
 import zipfile
+import tempfile
 
 from .server import run_git
 from .workspace import safe_path, atomic_write, ConflictError, read_text
 from .fileio import atomic_write_bytes
 from .exports import cv_filename
+from .security import snapshot_excluded, compiler_environment, engine_executable
+from .processes import run_owned
+
+
+class CompilationError(ValueError):
+    def __init__(self, category, message):
+        super().__init__(message)
+        self.category = category
 
 
 def export_snapshot(repository: Path, commit: str, target: Path, working: Path | None = None):
     target.mkdir(parents=True, exist_ok=True)
-    archive = subprocess.run(["git", "archive", "--format=zip", commit], cwd=repository,
-                             capture_output=True, check=True, timeout=30).stdout
     total = 0
-    with zipfile.ZipFile(io.BytesIO(archive)) as files:
+    # Spool compressed bytes to disk, rather than allocating an unbounded archive
+    # in memory before checking its expanded entries. Disk/OS quotas remain external.
+    with tempfile.TemporaryFile() as archive:
+        subprocess.run(["git", "archive", "--format=zip", commit], cwd=repository,
+                       stdout=archive, stderr=subprocess.PIPE, check=True, timeout=30)
+        if archive.tell() > 100_000_000:
+            raise ValueError('The compressed CV snapshot exceeds 100 MB')
+        archive.seek(0)
+        _extract_snapshot(archive, target)
+    if working:
+        names = run_git(working, "ls-files", "-z", "--cached", "--others", "--exclude-standard", strip=False)
+        names = set(names.split("\0")) - {""}
+        if len(names) > 10000:
+            raise ValueError('The application snapshot exceeds the 10000-file limit')
+        for name in names:
+            if snapshot_excluded(name):
+                continue
+            origin = safe_path(working, name)
+            dest = safe_path(target, name)
+            if origin.is_file():
+                total += origin.stat().st_size
+                if total > 100_000_000:
+                    raise ValueError("The application files are too large to create a PDF preview (maximum 100 MB)")
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(origin, dest)
+            elif dest.is_file():
+                dest.unlink()
+
+
+def _extract_snapshot(archive, target):
+    total = 0
+    with zipfile.ZipFile(archive) as files:
+        if len(files.infolist()) > 10000:
+            raise ValueError('The CV snapshot exceeds the 10000-file limit')
         for entry in files.infolist():
-            if entry.is_dir() or PurePosixPath(entry.filename).parts[0] in {".git", ".vita"}:
+            if entry.is_dir() or snapshot_excluded(entry.filename):
                 continue
             if (entry.external_attr >> 16) & 0o170000 == 0o120000:
                 raise ValueError("PDF previews do not support linked files. Use regular files in the application folder.")
@@ -35,21 +73,6 @@ def export_snapshot(repository: Path, commit: str, target: Path, working: Path |
             path = safe_path(target, entry.filename)
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(files.read(entry))
-    if working:
-        names = run_git(working, "ls-files", "-z", "--cached", "--others", "--exclude-standard", strip=False)
-        for name in set(names.split("\0")) - {""}:
-            if PurePosixPath(name).parts[0] in {".git", ".vita"}:
-                continue
-            origin = safe_path(working, name)
-            dest = safe_path(target, name)
-            if origin.is_file():
-                total += origin.stat().st_size
-                if total > 200_000_000:
-                    raise ValueError("The application files are too large to create a PDF preview (maximum 200 MB)")
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(origin, dest)
-            elif dest.is_file():
-                dest.unlink()
 
 
 def compile_document(folder: Path, document_path: str, engine='auto', output=None):
@@ -62,32 +85,63 @@ def compile_document(folder: Path, document_path: str, engine='auto', output=Non
         raise FileNotFoundError('No saved LaTeX document is available to compile.')
     if engine == 'auto':
         engine = 'xelatex' if any(x in source for x in ('fontspec','polyglossia','unicode-math')) else 'pdflatex'
-    executable = shutil.which(engine)
-    if not executable:
-        raise ValueError(f'{engine} not found. Install MiKTeX or TeX Live, or choose an installed engine.')
+    # LuaTeX does not implement pdfTeX's first-line suppression switch (MiKTeX
+    # rejects it). Refuse format/option directives instead of silently dropping
+    # the protection or modifying the captured document.
+    if engine == 'lualatex' and source.splitlines()[0].lstrip('\ufeff \t').startswith('%&'):
+        raise ValueError('LuaLaTeX previews do not support %& first-line directives. Remove the directive and select the engine in PDF settings.')
     output = output or folder / '__vt_output'
+    if output.is_symlink() or getattr(output,'is_junction',lambda:False)():
+        raise ValueError('Linked compiler output folders are not supported')
     output.mkdir(parents=True, exist_ok=True)
-    version = subprocess.run([executable, "--version"], capture_output=True, timeout=10).stdout.decode(errors="replace")
+    # TeX engines may need existing output subdirectories for include .aux
+    # files. Create only bounded, verified local source paths, never TeX paths
+    # computed by macros or paths supplied by a symlink.
+    from .includes import discover
+    def included_source(name):
+        path = safe_path(folder, name)
+        return read_text(path) if path.is_file() else None
+    compiled_sources = discover(document_path, included_source)['files']
+    for name in compiled_sources:
+        safe_path(output, name).parent.mkdir(parents=True, exist_ok=True)
+    env = compiler_environment(folder, output)
+    try:
+        executable = engine_executable(engine, folder, env)
+    except ValueError as error:
+        raise CompilationError('engine_missing', f'{error} Use Check CV files for setup help.') from error
+    version = subprocess.run([executable, "--version"], env=env, cwd=folder,
+                             stdin=subprocess.DEVNULL, capture_output=True, timeout=10).stdout.decode(errors="replace")
     flags = ["-interaction=nonstopmode", "-halt-on-error", "-file-line-error", "-no-shell-escape"]
     if "MiKTeX" in version:
-        flags += ["--disable-installer", "--disable-write18", "--dont-parse-first-line"]
-    else:
+        flags += ["--disable-installer", "--disable-write18"]
+        if engine != 'lualatex':
+            flags += ["--dont-parse-first-line"]
+    elif engine != 'lualatex':
         flags += ["-no-parse-first-line"]
-    env = os.environ.copy()
-    env.update(openin_any="p", openout_any="p", TEXMFOUTPUT=str(output))
     command = [executable, *flags, "-output-directory=" + str(output), "./" + document_path]
     log = ""
     try:
         for _ in range(2):
-            process = subprocess.run(command, cwd=folder, env=env, stdin=subprocess.DEVNULL,
-                                     capture_output=True, timeout=90)
-            log = process.stdout.decode("utf-8", errors="replace") + process.stderr.decode("utf-8", errors="replace")
+            with tempfile.TemporaryFile() as captured:
+                process = run_owned(command, cwd=folder, env=env, stdin=subprocess.DEVNULL,
+                                         stdout=captured, stderr=subprocess.STDOUT, timeout=90)
+                captured.seek(0,2)
+                if captured.tell() > 2_000_000:
+                    raise ValueError('PDF tool output exceeded the 2 MB diagnostic limit.')
+                captured.seek(0)
+                log = captured.read(2_000_000).decode('utf-8',errors='replace')
             if process.returncode:
                 raise ValueError("Couldn’t create the PDF.\n" + log[-6000:])
     except subprocess.TimeoutExpired as error:
-        raise ValueError("Creating the PDF took longer than 90 seconds. Check the source formatting and installed PDF tools.") from error
-    pdf = output / (entry.stem + '.pdf')
-    if not pdf.is_file() or not pdf.read_bytes().startswith(b'%PDF-'):
+        raise CompilationError('compile_timeout', "Creating the PDF took longer than 90 seconds. Check the source formatting and installed PDF tools.") from error
+    if any(included_source(name) != text for name, text in compiled_sources.items()):
+        raise CompilationError('source_changed', 'The source or its includes changed during compilation. Create a fresh PDF from the saved source.')
+    pdf = safe_path(output, entry.stem + '.pdf')
+    if not pdf.is_file() or pdf.stat().st_size > 32_000_000:
+        raise ValueError('The PDF tool did not produce a document within the 32 MB limit')
+    with pdf.open('rb') as document:
+        valid = document.read(5) == b'%PDF-'
+    if not valid:
         raise ValueError('The PDF tool did not produce a document')
     warnings = [line.strip() for line in log.splitlines() if any(x in line for x in ('Overfull','Missing character','LaTeX Warning'))]
     return {'pdf': pdf, 'engine': engine, 'warnings': warnings}
@@ -112,7 +166,8 @@ class PDFCompiler:
             self.workspace._previewing[name] = self.workspace._previewing.get(name, 0) + 1
         started = time.monotonic()
         try:
-            result = self._compile(name, side, engine, document, run_id)
+            with self.workspace.processes.scope():
+                result = self._compile(name, side, engine, document, run_id)
             self.workspace.diagnostics.record('pdf_compiled', operation='compile_pdf', duration_ms=(time.monotonic()-started)*1000)
             return result
         except Exception as error:
@@ -149,19 +204,45 @@ class PDFCompiler:
                 source = read_text(safe_path(self.workspace.root / 'runs' / run_id, 'cover-letter.tex'))
                 filename = 'cover-letter' + cv_filename(read_text(safe_path(self.workspace.root / 'runs' / run_id, 'main.tex')))[2:]
             else:
-                if not source.strip():
-                    raise ValueError('No cover letter has been saved for this application. Start the Cover letter step first.')
-                ident = uuid.uuid4().hex
-                folder = self.workspace.root / 'pdf' / ident
-                working = self.workspace.location(name) if side == 'current' else None
-                export_snapshot(self.workspace.repository, snapshot['commit' if side == 'current' else 'baseCommit'], folder, working)
-                entry = 'cover-letter.tex' if document == 'cover' else self.workspace.document_path
-                atomic_write(safe_path(folder, entry), source)
-                built = compile_document(folder, entry, engine)
+                built = self.workspace.final_pdf_result(name, document, engine) if side == 'current' else None
+                if built is not None:
+                    # Preview IDs retain immutable bytes across later publications.
+                    cached = self.workspace.root/'pdf'/uuid.uuid4().hex/filename
+                    atomic_write_bytes(cached, built.pop('content'))
+                    built['pdf'] = cached
+                if built is None:
+                    if not source.strip():
+                        raise ValueError('No cover letter has been saved for this application. Start the Cover letter step first.')
+                    ident = uuid.uuid4().hex
+                    folder = self.workspace.root / 'pdf' / ident
+                    working = self.workspace.location(name) if side == 'current' else None
+                    export_snapshot(self.workspace.repository, snapshot['commit' if side == 'current' else 'baseCommit'], folder, working)
+                    if side == 'original' and document == 'cv':
+                        for file in snapshot['files']:
+                            target = safe_path(folder, file['path'])
+                            if file['originalExists']:
+                                atomic_write(target, file['original'])
+                            else:
+                                target.unlink(missing_ok=True)
+                    entry = 'cover-letter.tex' if document == 'cover' else self.workspace.document_path
+                    atomic_write(safe_path(folder, entry), source)
+                    if document == 'cv':
+                        for file in snapshot['files']:
+                            exists = file['originalExists'] if side == 'original' else file['exists']
+                            expected = file['original' if side == 'original' else 'content'] if exists else None
+                            path = safe_path(folder, file['path'])
+                            # A current-only file can remain as an unused asset in the
+                            # exported baseline. Only captured reachable inputs matter.
+                            if exists and (not path.is_file() or read_text(path) != expected):
+                                raise ConflictError('Included files changed while capturing this PDF. Reload and create a new preview.')
+                    built = compile_document(folder, entry, engine)
+                    if self.workspace.snapshot(name)['projectRevision'] != snapshot['projectRevision']:
+                        raise ConflictError('The CV or included files changed during compilation. Create a new preview.')
             ident = uuid.uuid4().hex
             self.results[ident] = built['pdf']
             self.previews[ident] = {'branch': name, 'side': side, 'document': document,
-                'revision': hashlib.sha256(source.encode()).hexdigest(), 'filename': filename, 'commit': snapshot['commit']}
+                'revision': hashlib.sha256(source.encode()).hexdigest(), 'filename': filename, 'commit': snapshot['commit'],
+                'projectRevision': snapshot['projectRevision']}
             return {'id': ident, 'url': '/api/pdf-file?id=' + ident, 'filename': filename,
                     'engine': built['engine'], 'warnings': built['warnings'], 'revision': self.previews[ident]['revision']}
 
@@ -178,7 +259,7 @@ class PDFCompiler:
             if not snapshot['editable']:
                 raise ConflictError('Create an editable application before saving its PDF.')
             source = snapshot['cover'] if preview.get('document') == 'cover' else snapshot['original'] if preview['side']=='original' else snapshot['content']
-            if hashlib.sha256(source.encode()).hexdigest()!=preview['revision'] or snapshot['commit']!=preview['commit']:
+            if hashlib.sha256(source.encode()).hexdigest()!=preview['revision'] or snapshot['commit']!=preview['commit'] or snapshot['projectRevision']!=preview['projectRevision']:
                 raise ConflictError('The application changed after this PDF was created. Create a new preview before saving.')
             location = self.workspace.location(branch, create=True)
             target = safe_path(location, preview['filename'])

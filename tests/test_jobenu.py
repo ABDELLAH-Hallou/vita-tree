@@ -1,0 +1,781 @@
+import json
+import os
+from pathlib import Path
+import tempfile, time, unittest
+import threading
+from unittest.mock import patch
+from support import init_repo, cleanup_repo, git
+from vita_tree.workspace import Workspace, digest, ConflictError
+from vita_tree.jobenu import JobenuImports
+from vita_tree import jobenu as jobenu_module
+
+EXPORT = {
+    "exportedAt": "2026-01-01",
+    "applications": [
+        {
+            "id": "one",
+            "company": "Sample Co",
+            "position": "Data Engineer",
+            "description": "Synthetic data job",
+            "status": "SAVED",
+            "notes": "<img src=x onerror=alert(1)>",
+        },
+        {
+            "id": "two",
+            "company": "Other Co",
+            "position": "ML Engineer",
+            "description": "Synthetic ML job",
+            "status": "SAVED",
+        },
+    ],
+}
+SOURCE = Path(
+    os.environ.get(
+        "VITA_JOBENU_SOURCE",
+        str(Path(__file__).resolve().parents[1] / ".test-artifacts/vita-jobenu"),
+    )
+)
+
+
+class JobenuTests(unittest.TestCase):
+    def failed_batch(self):
+        ident = self.upload()
+        record = self.manager.record(ident)
+        entries = [dict(application_id='one', key='k-one', fingerprint='f-one',
+                        branch='app-one', company='Sample Co', position='Data Engineer',
+                        action='existing', status='failed', current_step='adapt', completed_steps=['analyze']),
+                   dict(application_id='two', key='k-two', fingerprint='f-two',
+                        branch='app-two', company='Other Co', position='ML Engineer',
+                        action='existing', status='awaiting_approval', pending={'step':'adapt','revision':'exact'})]
+        record.update(status='failed', startedAt=100, finishedAt=110, options={**self.options(ident), 'run':True},
+                      plan=dict(plan_id='original', base_commit='base', routing_sha256='routing', preferences_sha256='prefs', entries=entries),
+                      capturedRoutes={'adapt': {'provider':'codex','model':'fixture-captured'}},
+                      result=dict(results=entries))
+        self.manager.save(record)
+        return ident, record
+
+    def test_retry_preview_selects_only_failed_rows_and_preserves_original_batch(self):
+        ident, original = self.failed_batch()
+        native_plan = {**original['plan'], 'plan_id':'retry', 'status':'planned', 'schema_version':1,
+                       'entries':[original['plan']['entries'][0]]}
+        with patch.object(self.manager, 'command', return_value=(['fixture'], {})), patch.object(self.manager, 'invoke', return_value=(0,json.dumps(native_plan).encode(),b'')) as invoke:
+            child = self.manager.retry_preview(ident)
+        self.assertNotEqual(child['id'], ident)
+        self.assertEqual(child['parentBatchId'], ident)
+        self.assertEqual(self.manager.record(ident), original)
+        self.assertEqual(child['options']['ids'], ['one'])
+        self.assertFalse(child['options']['rerun'])
+        self.assertNotIn('--rerun', invoke.call_args.args[2])
+        self.assertEqual(invoke.call_args.args[1]['ADAPT_MODEL'], 'fixture-captured')
+        selected = json.loads(self.manager.selected_path(child['id']).read_text())
+        self.assertEqual(selected['applications'], [EXPORT['applications'][0]])
+        self.assertEqual(child['entries'][0]['completed_steps'], ['analyze'])
+        self.assertEqual(self.manager.running, set())  # Preview never launches work.
+
+    def test_retry_rejects_review_rows_unknown_keys_and_changed_configuration(self):
+        ident, original = self.failed_batch()
+        with patch.object(self.manager, 'invoke') as invoke:
+            for keys in ([], ['k-two'], ['unknown'], ['k-one','k-one']):
+                with self.assertRaises(ValueError):
+                    self.manager.retry_preview(ident, keys)
+            invoke.assert_not_called()
+        changed = {**original['plan'], 'routing_sha256':'new-route', 'plan_id':'retry',
+                   'schema_version':1, 'status':'planned', 'entries':[original['plan']['entries'][0]]}
+        with patch.object(self.manager, 'command', return_value=(['fixture'], {})), patch.object(self.manager, 'invoke', return_value=(0,json.dumps(changed).encode(),b'')):
+            with self.assertRaisesRegex(ValueError, 'settings|configuration'):
+                self.manager.retry_preview(ident, ['k-one'])
+        self.assertEqual(self.manager.record(ident), original)
+        self.assertEqual(len(self.manager.listing()['batches']), 1)
+
+    def test_retry_start_rechecks_failed_state_and_preserves_lineage_after_restart(self):
+        ident, original = self.failed_batch()
+        plan = {**original['plan'], 'plan_id':'retry', 'schema_version':1, 'status':'planned',
+                'entries':[original['plan']['entries'][0]]}
+        with patch.object(self.manager, 'command', return_value=(['fixture'], {})), patch.object(self.manager, 'invoke', return_value=(0,json.dumps(plan).encode(),b'')):
+            child = self.manager.retry_preview(ident, ['k-one'])
+        restarted = JobenuImports(self.ws)
+        self.assertEqual(next(b for b in restarted.listing()['batches'] if b['id']==child['id'])['parentBatchId'], ident)
+        original['result']['results'][0]['status']='complete'
+        self.manager.save(original)
+        with self.assertRaisesRegex(ValueError, 'failed|changed'):
+            self.manager.start(child['id'], 'retry')
+        self.assertFalse(self.manager.running)
+
+    def test_forgetting_batch_removes_retry_exports_and_rejects_active_attempts(self):
+        ident, original = self.failed_batch()
+        child = self.upload()
+        record = self.manager.record(child)
+        record.update(parentBatchId=ident, retryRootId=ident)
+        self.manager.save(record)
+        self.manager.running.add(child)
+        with self.assertRaises(ValueError):
+            self.manager.discard(ident)
+        self.assertTrue(self.manager.folder(ident).exists())
+        self.assertTrue(self.manager.folder(child).exists())
+        self.manager.running.clear()
+        self.manager.discard(ident)
+        self.assertFalse(self.manager.folder(ident).exists())
+        self.assertFalse(self.manager.folder(child).exists())
+
+    def test_retry_can_fail_repeatedly_after_restart_without_force_rerun(self):
+        ident, original = self.failed_batch()
+        plan = {**original['plan'], 'schema_version':1, 'status':'planned',
+                'entries':[original['plan']['entries'][0]]}
+        calls = []
+        def invoke(command, env, args, **kwargs):
+            calls.append(args)
+            self.assertNotIn('--rerun', args)
+            self.assertEqual(env['ADAPT_MODEL'], 'fixture-captured')
+            if '--dry-run' in args:
+                return 0, json.dumps(plan).encode(), b''
+            return 1, json.dumps(dict(schema_version=1, status='failed', results=plan['entries'])).encode(), b''
+        for _ in range(2):
+            with patch.object(self.manager, 'command', return_value=(['fixture'], {})), patch.object(self.manager, 'invoke', side_effect=invoke):
+                child = self.manager.retry_preview(ident)
+                self.manager.start(child['id'], plan['plan_id'])
+                for worker in list(self.manager.workers):
+                    worker.join(10)
+                self.assertFalse(self.manager.running)
+                self.assertEqual(self.manager.record(child['id'])['status'], 'failed')
+            self.manager = JobenuImports(self.ws)
+            self.ws.jobenu = self.manager
+        self.assertEqual(len(calls), 4)
+        self.assertEqual(self.manager.record(ident), original)
+        self.assertEqual(len(self.manager.listing()['batches']), 3)
+        index = self.root / '.vita/imports/jobenu/index.json'
+        index.parent.mkdir(parents=True,exist_ok=True)
+        index.write_text(json.dumps(dict(applications={'k-one':dict(versions={'f-one':dict(status='complete')})})))
+        history = self.manager.history('app-one')
+        self.assertEqual(len(history), 3)
+        self.assertTrue(all(run['status']=='failed' for run in history))
+
+    def test_batch_aliases_validate_before_writing_and_preserve_other_settings(self):
+        config = self.root / '.vita/extensions.json'
+        config.parent.mkdir(exist_ok=True)
+        original = {'language_map': {'sv': 'Swedish'}, 'role_aliases': {'Existing': 'old'}}
+        config.write_text(json.dumps(original))
+        items = [{'title': 'Data Engineer', 'alias': 'data'},
+                 {'title': 'ML Engineer', 'alias': 'ml'}]
+        for invalid in ([], 'bad', items + [items[0]],
+                        [items[0], {'title': 'Other', 'alias': 'BAD ALIAS'}]):
+            with self.assertRaises(ValueError):
+                self.manager.aliases(invalid)
+            self.assertEqual(json.loads(config.read_text()), original)
+        with patch('vita_tree.jobenu.atomic_write_bytes', wraps=jobenu_module.atomic_write_bytes) as write:
+            self.assertEqual(self.manager.aliases(items)['count'], 2)
+            self.assertEqual(write.call_count, 1)
+        self.assertEqual(json.loads(config.read_text()), {
+            **original, 'role_aliases': {'Existing': 'old', 'Data Engineer': 'data', 'ML Engineer': 'ml'}})
+        self.manager.running.add('fixture')
+        with self.assertRaises(ValueError):
+            self.manager.aliases([{'title': 'Blocked', 'alias': 'blocked'}])
+        self.assertNotIn('Blocked', json.loads(config.read_text())['role_aliases'])
+
+    def test_export_dates_are_available_after_upload_and_restart(self):
+        export = json.loads(json.dumps(EXPORT))
+        export['applications'][0].update(createdAt='2026-10-31T23:45:00-04:00',
+                                         updatedAt='2026-11-01', appliedAt=None,
+                                         deadlineAt='invalid')
+        export['applications'][1].update(createdAt='2026-02-30')
+        uploaded = self.manager.upload('dated.json', json.dumps(export))
+        dates = uploaded['applications'][0]['dates']
+        self.assertEqual(dates['createdAt'], '2026-10-31')
+        self.assertEqual(dates['updatedAt'], '2026-11-01')
+        self.assertIsNone(dates['appliedAt'])
+        self.assertIsNone(dates['deadlineAt'])
+        restarted = JobenuImports(self.ws)
+        self.assertEqual(restarted.selection(uploaded['id'])['applications'][0]['dates'], dates)
+        self.assertIsNone(uploaded['applications'][1]['dates']['createdAt'])
+        self.assertEqual(json.loads((self.manager.folder(uploaded['id'])/'original.json').read_text()) , export)
+
+    def test_date_filter_checks_selected_ids_before_calling_vita(self):
+        export = json.loads(json.dumps(EXPORT))
+        export['applications'][0]['createdAt'] = '2026-10-31T23:45:00-04:00'
+        export['applications'][1]['createdAt'] = '2026-11-01'
+        ident = self.manager.upload('dated.json', json.dumps(export))['id']
+        filters = dict(dateField='createdAt', dateFrom='2026-10-31', dateTo='2026-10-31')
+        with patch.object(self.manager, 'command', return_value=(['fixture'], {})), patch.object(self.manager, 'invoke', return_value=(0, json.dumps(dict(schema_version=1, status='planned', plan_id='dated', entries=[])).encode(), b'')) as invoke:
+            self.manager.preview(ident, self.options(ident, **filters))
+            selected = json.loads((self.manager.folder(ident)/'selected.json').read_text())
+            self.assertEqual([a['id'] for a in selected['applications']], ['one'])
+            self.assertEqual(self.manager.record(ident)['options']['dateFrom'], '2026-10-31')
+            for invalid in (dict(ids=['two']), dict(ids=[]), dict(dateFrom='bad'),
+                            dict(dateFrom='2026-11-02'), dict(dateField='description')):
+                options = {**self.options(ident), **filters, **invalid}
+                with self.assertRaises(ValueError):
+                    self.manager.preview(ident, options)
+            self.assertEqual(invoke.call_count, 1)
+
+    def test_workspace_history_does_not_wait_for_native_decision_lock(self):
+        done = threading.Event()
+        errors = []
+
+        def read_workspace():
+            try:
+                self.ws.snapshot("master")
+            except Exception as error:
+                errors.append(error)
+            finally:
+                done.set()
+
+        reader = threading.Thread(target=read_workspace)
+        with self.manager.lock:
+            reader.start()
+            independent = done.wait(20)
+        reader.join(20)
+        self.assertTrue(
+            independent, "Workspace reads deadlocked with a native review/start"
+        )
+        self.assertFalse(errors)
+
+    def test_approval_history_requires_exact_applied_revision_and_separates_attempts(
+        self,
+    ):
+        ident = self.upload()
+        folder = self.root / ".vita/imports/jobenu/worktrees/fixture"
+        facts = folder / ".vita/results/adapt.facts.json"
+        facts.parent.mkdir(parents=True)
+        row = dict(
+            key="k",
+            fingerprint="f",
+            branch="master",
+            workspace=str(folder),
+            status="awaiting_approval",
+            completed_steps=["analyze"],
+            pending=dict(step="adapt", revision="fc-exact"),
+        )
+        r = self.manager.record(ident)
+        r.update(
+            status="awaiting_approval",
+            startedAt=100,
+            attempt=1,
+            result=dict(results=[row]),
+        )
+        self.manager.save(r)
+        for revision, applied, expected in [
+            ("fc-other", "applied", "review"),
+            ("fc-exact", "not_applied", "review"),
+            ("fc-exact", "applied", "succeeded"),
+        ]:
+            facts.write_text(
+                json.dumps(
+                    dict(
+                        revision=revision, status="approved", application_status=applied
+                    )
+                )
+            )
+            run = self.manager.history("master")[0]
+            self.assertEqual(
+                next(s for s in run["stages"] if s["id"] == "adapt")["status"], expected
+            )
+        first = run["id"]
+        r.update(attempt=2, startedAt=200)
+        row.update(status="failed", current_step="cover")
+        self.manager.save(r)
+        runs = self.manager.history("master")
+        self.assertEqual(len(runs), 2)
+        self.assertNotEqual(runs[0]["id"], first)
+        self.assertEqual(runs[1]["status"], "awaiting_resume")
+        facts.write_text(
+            json.dumps(
+                dict(
+                    revision="fc-exact",
+                    status="rejected",
+                    application_status="not_applied",
+                )
+            )
+        )
+        row.update(status="awaiting_approval")
+        self.manager.save(r)
+        rejected = self.manager.history("master")[0]
+        self.assertEqual(rejected["status"], "failed")
+        self.assertEqual(
+            next(s for s in rejected["stages"] if s["id"] == "adapt")["status"],
+            "failed",
+        )
+
+    def test_workspace_loads_native_component_history_without_inventing_steps(self):
+        ident = self.upload()
+        r = self.manager.record(ident)
+        row = {
+            "key": "fixture",
+            "fingerprint": "version",
+            "branch": "master",
+            "status": "awaiting_approval",
+            "completed_steps": ["analyze"],
+            "current_step": "adapt",
+            "pending": {"step": "adapt", "revision": "fc-exact"},
+        }
+        r.update(
+            status="awaiting_approval",
+            startedAt=100,
+            finishedAt=120,
+            capturedRoutes={
+                "analyze": {"provider": "gemini", "model": "fixture-model"}
+            },
+            result={"results": [row]},
+        )
+        self.manager.save(r)
+        runs = self.ws.snapshot("master")["nativeRuns"]
+        self.assertEqual(len(runs), 1)
+        run = runs[0]
+        stages = {item["id"]: item["status"] for item in run["stages"]}
+        self.assertEqual(stages["analyze"], "succeeded")
+        self.assertEqual(stages["adapt"], "review")
+        self.assertEqual(stages["validating"], "unknown")
+        self.assertEqual(run["stepConfig"]["analyze"]["model"], "fixture-model")
+        self.assertNotIn("adapt", run["stepConfig"])
+        self.assertIsNone(run['attempt'])  # Legacy imports did not record attempt counts.
+        self.assertFalse(run["resumeAvailable"])
+        self.assertNotIn(run["id"], self.ws.jobs)
+        # Retain the history after private upload cleanup and a server restart.
+        self.manager.discard(ident)
+        cache = self.ws.root / "jobenu-history" / (run["id"] + ".json")
+        tampered = json.loads(cache.read_text())
+        tampered["env"] = {"API_KEY": "fixture-unrelated-secret"}
+        cache.write_text(json.dumps(tampered))
+        restarted = Workspace(self.root)
+        try:
+            recovered = restarted.snapshot("master")["nativeRuns"][0]
+            self.assertEqual(recovered["id"], run["id"])
+            self.assertNotIn("fixture-unrelated-secret", json.dumps(recovered))
+        finally:
+            restarted.close()
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(
+            prefix=".vita-tree-test-", dir=Path.cwd()
+        )
+        self.root = init_repo(Path(self.temp.name))
+        self.ws = Workspace(self.root)
+        self.manager = self.ws.jobenu
+
+    def tearDown(self):
+        self.ws.close()
+        cleanup_repo(self.temp)
+
+    def upload(self):
+        return self.manager.upload("jobs.json", json.dumps(EXPORT))["id"]
+
+    def options(self, ident, **extra):
+        return dict(
+            id=ident,
+            ids=["one"],
+            base="master",
+            approval="human",
+            run=False,
+            source=str(SOURCE),
+            **extra,
+        )
+
+    def test_invalid_exports_and_empty_selection(self):
+        for value in (
+            "bad",
+            "[]",
+            '{"applications":{}}',
+            json.dumps({"applications": [EXPORT["applications"][0]] * 2}),
+        ):
+            with self.assertRaises(ValueError):
+                self.manager.upload("bad.json", value)
+        ident = self.upload()
+        self.assertEqual(len(self.manager.selection(ident)["applications"]), 2)
+        self.manager.discard(ident)
+        self.assertFalse(self.manager.folder(ident).exists())
+
+    def test_unattended_preview_and_start_keep_explicit_native_policy(self):
+        ident=self.upload()
+        options=self.options(ident);options.update(approval='unattended',run=True)
+        policy={'version':'approval-policy/1','mode':'unattended'}
+        plan={'schema_version':1,'status':'planned','plan_id':'automatic-plan',
+              'approval':'unattended','approval_policy':policy,'entries':[]}
+        calls=[]
+        def invoke(command,env,args,**kwargs):
+            calls.append(list(args))
+            if args[0]=='approval-policies':
+                result={'schema_version':1,'policy_version':'approval-policy/1',
+                        'modes':[{'id':'human'},{'id':'auto'},{'id':'unattended'}],
+                        'requires_explicit_selection':['unattended'],'generated_prompt_consent':False}
+            else:result=plan if '--dry-run' in args else {'schema_version':1,'status':'complete','results':[]}
+            return 0,json.dumps(result).encode(),b''
+        with patch.object(self.manager,'command',return_value=(['fixture'],{})),patch.object(self.manager,'invoke',side_effect=invoke):
+            preview=self.manager.preview(ident,options)
+            self.assertEqual(preview['options']['approval'],'unattended')
+            self.manager.start(ident,plan['plan_id'])
+            deadline=time.monotonic()+5
+            while ident in self.manager.running and time.monotonic()<deadline:time.sleep(.01)
+        self.assertNotIn(ident,self.manager.running)
+        self.assertEqual(self.manager.record(ident)['status'],'complete')
+        for args in calls[1:]:self.assertEqual(args[args.index('--approval')+1],'unattended')
+        self.assertEqual(calls[1][:-1],calls[2][:-3])
+
+    def test_unattended_requires_supported_capability_and_matching_plan(self):
+        ident=self.upload();options=self.options(ident);options.update(approval='unattended',run=True)
+        with patch.object(self.manager,'command',return_value=(['fixture'],{})),patch.object(self.manager,'invoke',return_value=(2,b'unknown command',b'')) as invoke:
+            with self.assertRaisesRegex(ValueError,'Update Vita CV'):self.manager.preview(ident,options)
+            self.assertEqual(invoke.call_args.args[2],['approval-policies','--json'])
+        with patch.object(self.manager,'command',return_value=(['fixture'],{})),patch.object(self.manager,'supports_unattended',return_value=True),patch.object(self.manager,'invoke',return_value=(0,json.dumps({'schema_version':1,'status':'planned','plan_id':'wrong-policy','entries':[]}).encode(),b'')):
+            with self.assertRaisesRegex(ValueError,'confirm.*approval'):self.manager.preview(ident,options)
+        self.assertIsNone(self.manager.record(ident).get('plan'))
+
+    def test_changing_saved_review_mode_requires_explicit_fresh_run(self):
+        ident,original=self.failed_batch()
+        original['options']['approval']='auto';self.manager.save(original)
+        options=self.options(ident);options.update(approval='unattended',run=True)
+        with self.assertRaisesRegex(ValueError,'rerun completed steps'):self.manager.preview(ident,options)
+        self.assertEqual(self.manager.record(ident)['options']['approval'],'auto')
+
+    def test_exit_statuses_require_structured_contract(self):
+        for code, out in [
+            (2, b"usage: error"),
+            (2, b'{"schema_version":1,"status":"failed"}'),
+            (0, b'{"schema_version":1,"status":"awaiting_approval"}'),
+        ]:
+            with self.assertRaises(ValueError):
+                self.manager.envelope(code, out)
+        self.assertEqual(
+            self.manager.envelope(
+                2, b'{"schema_version":1,"status":"awaiting_approval"}'
+            )["status"],
+            "awaiting_approval",
+        )
+
+    def test_real_import_partial_selection_worktrees_idempotency_stale_plan(self):
+        if not SOURCE.exists():
+            self.skipTest("Optional local Jobenu backend reference unavailable")
+        self.assertTrue(self.manager.capability(str(SOURCE))["available"])
+        ident = self.upload()
+        options = self.options(ident)
+        before = git(self.root, "rev-parse", "HEAD")
+        preview = self.manager.preview(ident, options)
+        self.assertEqual(len(preview["plan"]["entries"]), 1)
+        selected = json.loads(
+            (self.manager.folder(ident) / "selected.json").read_text()
+        )
+        self.assertEqual(selected["applications"][0], EXPORT["applications"][0])
+        self.assertEqual(
+            len(
+                json.loads((self.manager.folder(ident) / "original.json").read_text())[
+                    "applications"
+                ]
+            ),
+            2,
+        )
+        with self.assertRaises(ValueError):
+            self.manager.start(ident, "stale")
+        self.manager.start(ident, preview["plan"]["plan_id"])
+        deadline = time.monotonic() + 60
+        while ident in self.manager.running and time.monotonic() < deadline:
+            time.sleep(0.05)
+        result = self.manager.public(self.manager.record(ident))
+        self.assertEqual(result["status"], "imported", result)
+        entry = result["entries"][0]
+        self.assertEqual(
+            self.ws.location(entry["branch"]), Path(entry["workspace"]).resolve()
+        )
+        self.assertEqual(git(self.root, "rev-parse", "HEAD"), before)
+        preview = self.manager.preview(ident, options)
+        self.assertEqual(preview["plan"]["entries"][0]["action"], "existing")
+        self.assertNotIn("--rerun", self.manager.record(ident)["args"])
+
+    def test_missing_backend_and_busy_guards(self):
+        self.assertFalse(self.manager.capability(str(self.root))["available"])
+        ident = self.upload()
+        self.manager.running.add(ident)
+        try:
+            with self.assertRaises(ValueError):
+                self.manager.discard(ident)
+            with self.assertRaises(ValueError):
+                self.manager.preview(ident, self.options(ident))
+        finally:
+            self.manager.running.clear()
+
+    def test_preserves_native_approval_and_partial_failure_states(self):
+        ident = self.upload()
+        r = self.manager.record(ident)
+        r.update(
+            plan={"plan_id": "p", "entries": []},
+            args=["import", "jobenu", "selected.json"],
+            fileHash="x",
+            status="running",
+        )
+        self.manager.save(r)
+        self.manager.running.add(ident)
+        self.manager.environments[ident] = (["fixture"], {})
+        output = {
+            "schema_version": 1,
+            "status": "failed",
+            "results": [
+                {
+                    "key": "a",
+                    "company": "One",
+                    "position": "Role",
+                    "branch": "one",
+                    "status": "awaiting_requirements_approval",
+                },
+                {
+                    "key": "b",
+                    "company": "Two",
+                    "position": "Role",
+                    "branch": "two",
+                    "status": "failed",
+                },
+            ],
+        }
+        with patch.object(
+            self.manager, "invoke", return_value=(1, json.dumps(output).encode(), b"")
+        ):
+            self.manager._run(r)
+        self.assertEqual(
+            [e["status"] for e in self.manager.public(r)["entries"]],
+            ["awaiting_requirements_approval", "failed"],
+        )
+
+    def test_preview_and_execution_share_options_and_failed_preview_revokes_consent(
+        self,
+    ):
+        ident = self.upload()
+        options = self.options(ident)
+        options.update(run=True, approval="auto", newRevision=True, rerun=True)
+        plan = {
+            "schema_version": 1,
+            "status": "planned",
+            "plan_id": "backend-plan",
+            "entries": [],
+        }
+        calls = []
+
+        def invoke(command, env, args, **kwargs):
+            calls.append((list(command), dict(env), list(args)))
+            return (
+                0,
+                json.dumps(
+                    plan
+                    if "--dry-run" in args
+                    else {"schema_version": 1, "status": "complete", "results": []}
+                ).encode(),
+                b"",
+            )
+
+        with (
+            patch.object(
+                self.manager,
+                "command",
+                return_value=(["fixture"], {"EXISTING": "captured"}),
+            ),
+            patch.object(self.manager, "invoke", side_effect=invoke),
+        ):
+            self.manager.preview(ident, options)
+            self.manager.start(ident, "backend-plan")
+            deadline = time.monotonic() + 5
+            while ident in self.manager.running and time.monotonic() < deadline:
+                time.sleep(0.01)
+            self.assertEqual(calls[0][0:2], calls[1][0:2])
+            self.assertEqual(calls[0][2][:-1], calls[1][2][:-3])
+            self.assertIn("--rerun", calls[0][2])
+            self.assertIn("--new-revision", calls[0][2])
+            self.assertIn("auto", calls[0][2])
+            self.manager.preview(ident, options)
+            with patch.object(
+                self.manager, "invoke", side_effect=ValueError("invalid backend")
+            ):
+                with self.assertRaises(ValueError):
+                    self.manager.preview(ident, options)
+            with self.assertRaises(ValueError):
+                self.manager.start(ident, "backend-plan")
+            self.manager.listing()
+
+    def test_document_decisions_use_exact_native_revision_and_workspace(self):
+        ident = self.upload()
+        r = self.manager.record(ident)
+        row = {"pending": {"step": "adapt", "revision": "fc-exact"}}
+
+        def invoke(command, env, args, **kw):
+            if args[1] == "show":
+                return 0, b'{"revision":"fc-exact"}', b""
+            self.assertEqual(args, ["facts", "approve", "adapt", "fc-exact"])
+            self.assertEqual(kw["cwd"], self.root)
+            return 0, b"", b""
+
+        with (
+            patch.object(self.manager, "target", return_value=(r, row, self.root)),
+            patch.object(self.manager, "command", return_value=(["fixture"], {})),
+            patch.object(self.manager, "invoke", side_effect=invoke),
+        ):
+            with self.assertRaises(ValueError):
+                self.manager.decide(ident, "k", "approve", "fc-stale")
+            self.assertTrue(
+                self.manager.decide(ident, "k", "approve", "fc-exact")["saved"]
+            )
+
+    def test_restart_marks_active_batch_interrupted_and_requires_fresh_preview(self):
+        ident = self.upload()
+        r = self.manager.record(ident)
+        r["status"] = "running"
+        self.manager.save(r)
+        restarted = JobenuImports(self.ws)
+        self.assertEqual(restarted.listing()["batches"][0]["status"], "interrupted")
+        with self.assertRaises(ValueError):
+            restarted.start(ident, "old")
+
+    def test_canonical_approval_is_separate_and_never_uses_factual_flags(self):
+        ident = self.upload()
+        r = self.manager.record(ident)
+
+        def invoke(command, env, args, **kw):
+            if args == ["requirements", "show"]:
+                return 0, b'{"revision":{"revision":"canonical-exact"}}', b""
+            self.assertEqual(args, ["requirements", "approve", "canonical-exact"])
+            return 0, b"Approved", b""
+
+        with (
+            patch.object(self.manager, "target", return_value=(r, {}, self.root)),
+            patch.object(self.manager, "command", return_value=(["fixture"], {})),
+            patch.object(self.manager, "invoke", side_effect=invoke),
+        ):
+            with self.assertRaises(ValueError):
+                self.manager.decide(ident, "k", "approve", "stale")
+            with self.assertRaises(ValueError):
+                self.manager.decide(ident, "k", "reject", "canonical-exact")
+            self.assertTrue(
+                self.manager.decide(ident, "k", "approve", "canonical-exact")["saved"]
+            )
+
+    def test_progress_reads_native_index_and_public_logs_redact_session_keys(self):
+        ident = self.upload()
+        r = self.manager.record(ident)
+        r.update(
+            status="running",
+            plan={"entries": [{"key": "k", "fingerprint": "f"}]},
+            error="fixture-session-secret",
+        )
+        index = self.root / ".vita/imports/jobenu/index.json"
+        index.parent.mkdir(parents=True)
+        index.write_text(
+            json.dumps(
+                {
+                    "applications": {
+                        "k": {
+                            "versions": {
+                                "f": {
+                                    "status": "running",
+                                    "current_step": "adapt",
+                                    "completed_steps": ["extract", "analyze"],
+                                }
+                            }
+                        }
+                    }
+                }
+            )
+        )
+        self.manager.environments[ident] = (
+            ["fixture"],
+            {"OPENAI_API_KEY": "fixture-session-secret"},
+        )
+        self.assertEqual(self.manager.public(r)["entries"][0]["current_step"], "adapt")
+        (self.manager.folder(ident) / "execution.log").write_text(
+            "fixture-session-secret"
+        )
+        self.assertNotIn("fixture-session-secret", self.manager.log(ident)["text"])
+        self.assertNotIn("fixture-session-secret", json.dumps(self.manager.public(r)))
+        (self.root / ".env").write_text('SERVICE_API_KEY="fixture-dotenv-secret"')
+        self.assertNotIn(
+            "fixture-dotenv-secret",
+            self.manager.clean_report({"text": "fixture-dotenv-secret"}, {})["text"],
+        )
+
+    def test_saved_stage_preferences_use_native_environment_and_aliases_preserve_config(
+        self,
+    ):
+        ident = self.upload()
+        settings = {
+            "default": {
+                "provider": "codex",
+                "model": "fixture-shared",
+                "reasoning": "high",
+                "connection": "",
+            },
+            "steps": {
+                "adapt": {
+                    "provider": "codex",
+                    "model": "fixture-adapt",
+                    "reasoning": "low",
+                    "connection": "",
+                }
+            },
+        }
+        saved = self.ws.root / "ai-settings" / (digest("master") + ".json")
+        settings['default']['backup'] = {'provider': 'gemini', 'model': 'fixture-backup',
+                                         'reasoning': '', 'connection': '', 'categories': ['timeout']}
+        saved.parent.mkdir(parents=True)
+        saved.write_text(json.dumps(settings))
+        plan = {
+            "schema_version": 1,
+            "status": "planned",
+            "plan_id": "preferences",
+            "entries": [],
+        }
+        with (
+            patch.object(self.ws, "ai_settings", return_value=settings),
+            patch.object(self.manager, "command", return_value=(["fixture"], {})),
+            patch.object(
+                self.manager, "invoke", return_value=(0, json.dumps(plan).encode(), b"")
+            ),
+        ):
+            self.manager.preview(ident, self.options(ident))
+        env = self.manager.environments[ident][1]
+        self.assertEqual(env["ANALYSIS_MODEL"], "fixture-shared")
+        self.assertEqual(env["ADAPT_MODEL"], "fixture-adapt")
+        self.assertEqual(env['ANALYSIS_FALLBACK_MODEL'], 'fixture-backup')
+        self.assertEqual(env['ANALYSIS_FALLBACK_ENABLED'], 'true')
+        self.assertEqual(env['ADAPT_FALLBACK_ENABLED'], 'false')
+        self.assertEqual(self.manager.record(ident)['capturedRoutes']['analyze']['backup']['model'], 'fixture-backup')
+        self.assertNotIn("VITA_TREE_REASONING", env)
+        self.assertNotIn("--model", self.manager.record(ident)["args"])
+        config = self.root / ".vita/extensions.json"
+        config.parent.mkdir(exist_ok=True)
+        config.write_text(json.dumps({"language_map": {"sv": "Swedish"}}))
+        self.manager.alias("Data Engineer", "data")
+        self.assertEqual(
+            json.loads(config.read_text())["language_map"], {"sv": "Swedish"}
+        )
+        self.assertEqual(
+            json.loads(config.read_text())["role_aliases"]["Data Engineer"], "data"
+        )
+
+    def test_review_reservation_blocks_only_affected_branch_and_releases_on_failure(
+        self,
+    ):
+        ident = self.upload()
+        r = self.manager.record(ident)
+        row = {"branch": "master", "pending": {"step": "adapt", "revision": "exact"}}
+
+        def invoke(*args, **kw):
+            with self.assertRaises(ConflictError):
+                self.ws.busy("master")
+            self.ws.busy("another")
+            raise ValueError("fixture native failure")
+
+        with (
+            patch.object(self.manager, "target", return_value=(r, row, self.root)),
+            patch.object(self.manager, "command", return_value=(["fixture"], {})),
+            patch.object(self.manager, "invoke", side_effect=invoke),
+        ):
+            with self.assertRaisesRegex(ValueError, "fixture native failure"):
+                self.manager.decide(ident, "k", "approve", "exact")
+        self.assertFalse(self.manager.reviewing)
+        self.ws.busy("master")
+
+    def test_failed_worktree_creation_keeps_shared_native_git_log_accessible(self):
+        ident = self.upload()
+        log = self.root / ".vita/imports/jobenu/git.log"
+        log.parent.mkdir(parents=True)
+        log.write_text("Synthetic Git permission diagnostic")
+        r = self.manager.record(ident)
+        r.update(
+            status="failed",
+            result={"results": [{"key": "failed", "execution_log": str(log)}]},
+        )
+        self.manager.save(r)
+        self.assertIn(
+            "permission diagnostic", self.manager.log(ident, "failed")["text"]
+        )

@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import patch
 
 from vita_tree.workspace import Workspace, ConflictError, digest
-from support import SOURCE, cleanup_repo, init_repo, git
+from support import SOURCE, cleanup_repo, init_repo, git, CUSTOM_ENVIRONMENT_SOURCE
 
 
 class JobTests(unittest.TestCase):
@@ -24,10 +24,13 @@ class JobTests(unittest.TestCase):
         self.command = patch.object(self.workspace, 'vita_command', return_value=[sys.executable, str(Path(__file__).with_name('fake_ai_process.py'))])
         self.command.start()
         def fake_compile(folder, entry, engine='auto', output=None):
+            if (folder/entry).read_text(encoding='utf-8') in {'invalid','invalid source','Incomplete LaTeX source'}:
+                raise ValueError('Synthetic TeX compilation failure')
             output=output or folder/'__vt_output';output.mkdir(parents=True,exist_ok=True)
             pdf=output/(Path(entry).stem+'.pdf');pdf.write_bytes(b'%PDF-1.7\nsynthetic cover fixture')
             return {'pdf':pdf,'engine':'pdflatex','warnings':[]}
         self.cover_compile=patch('vita_tree.pdf.compile_document',side_effect=fake_compile)
+        self.fake_compile=fake_compile
         self.cover_builder=self.cover_compile.start()
 
     def tearDown(self):
@@ -229,6 +232,50 @@ class JobTests(unittest.TestCase):
         self.workspace.save(label, 'job.md', branch['jobRevision'], json.dumps({'label': label, 'pipeline': True, **options}))
         return self.workspace.snapshot(label)
 
+    def test_per_step_models_providers_and_keys_reach_independent_processes(self):
+        self.pipeline_source()
+        branch = self.pipeline_branch('mixed-models', extraction=True)
+        first = self.workspace.add_connection('First account', 'openai', 'test-first-session-key')
+        second = self.workspace.add_connection('Second account', 'openai', 'test-second-session-key')
+        gemini = self.workspace.add_connection('Gemini account', 'gemini', 'test-gemini-session-key')
+        settings = {'default': {'provider': 'openai', 'model': 'unlisted-shared', 'connection': first['id']},
+                    'steps': {'analyze': {'provider': 'gemini', 'model': 'unlisted-analysis', 'connection': gemini['id']},
+                              'adapt': {'model': 'unlisted-writer', 'connection': second['id']}}}
+        expected = {'extract': ('openai', 'unlisted-shared', 'test-first-session-key'),
+                    'analyze': ('gemini', 'unlisted-analysis', 'test-gemini-session-key'),
+                    'adapt': ('openai', 'unlisted-writer', 'test-second-session-key')}
+        for step, (provider, model, key) in expected.items():
+            (self.control / ('mixed-models.' + step + '.expected-ai.json')).write_text(json.dumps(dict(provider=provider, model=model, key=key)))
+        # Hold analysis so we can prove that a submitted run captures its own keys.
+        record = self.start(branch, ai_config=settings, workflow={'steps': ['extract', 'analyze', 'adapt']})
+        self.wait(lambda: (self.control/'mixed-models.started').exists())
+        self.workspace.remove_connection(second['id'])
+        self.release('mixed-models')
+        result = self.finished(record['id'])
+        self.assertEqual(result['status'], 'succeeded', result)
+        for step, (_, model, _) in expected.items():
+            self.assertTrue((self.control / ('mixed-models.' + step + '.verified-ai')).exists())
+            self.assertEqual(result['stepConfig'][step]['model'], model)
+        self.assertEqual(result['stepConfig']['adapt']['connectionName'], 'Second account')
+        run_folder = self.workspace.root/'runs'/record['id']
+        public = json.dumps(self.workspace.list_jobs())
+        retained = ''.join(p.read_text(errors='replace') for p in run_folder.rglob('*') if p.is_file())
+        for _, _, key in expected.values():
+            self.assertNotIn(key, public)
+            self.assertNotIn(key, retained)
+        self.assertEqual(Workspace(self.root).get_job(record['id'])['stepConfig'], result['stepConfig'])
+
+    def test_expired_connection_blocks_only_selected_steps_before_run_creation(self):
+        branch = self.branch('expired-connection')
+        settings = {'default': {'provider': 'openai', 'model': 'custom'},
+                    'steps': {'adapt': {'connection': 'f' * 32}}}
+        with self.assertRaisesRegex(ValueError, 'connection is unavailable'):
+            self.start(branch, ai_config=settings, workflow={'steps': ['adapt']})
+        self.assertEqual(self.workspace.list_jobs()['runs'], [])
+        record = self.start(branch, ai_config=settings, workflow={'steps': ['analyze']})
+        self.release('expired-connection')
+        self.assertEqual(self.finished(record['id'])['status'], 'succeeded')
+
     def test_full_pipeline_retains_reports_states_and_selected_routing(self):
         self.pipeline_source()
         branch = self.pipeline_branch('pipeline', extraction=True)
@@ -283,7 +330,8 @@ class JobTests(unittest.TestCase):
         self.pipeline_source();branch=self.pipeline_branch('cover-pdf')
         record=self.start(branch,workflow={'steps':['cover']});self.release('cover-pdf')
         result=self.finished(record['id']);self.assertEqual(result['status'],'succeeded',result)
-        self.assertIn('PDF ready',result['message'])
+        self.assertIn('Final PDFs saved',result['message'])
+        self.assertTrue((Path(branch['worktree'])/'cover-letter.pdf').read_bytes().startswith(b'%PDF-'))
         self.assertEqual(self.workspace.read('cover-pdf','main.tex'),SOURCE)
         self.assertEqual(self.workspace.job_result(record['id'])['coverPdf'],{'runId':record['id']})
         compiler=PDFCompiler(self.workspace)
@@ -309,7 +357,10 @@ class JobTests(unittest.TestCase):
         self.pipeline_source();branch=self.pipeline_branch('cover-tex-failure')
         location=Path(branch['worktree']);(location/'cover-letter.tex').write_text('previous letter')
         # Recapture source revisions after adding a previous letter.
-        self.cover_builder.side_effect=ValueError('private-provider-canary: missing TeX package')
+        def failing_cover(folder,entry,**options):
+            if entry=='cover-letter.tex':raise ValueError('private-provider-canary: missing TeX package')
+            return self.fake_compile(folder,entry,**options)
+        self.cover_builder.side_effect=failing_cover
         record=self.start(branch,workflow={'steps':['cover']});self.release('cover-tex-failure')
         result=self.finished(record['id']);self.assertEqual(result['status'],'failed',result)
         self.assertIn('cover-letter PDF could not be created',result['message'])
@@ -383,7 +434,8 @@ class JobTests(unittest.TestCase):
         self.pipeline_source()
         branch = self.pipeline_branch('separate', extraction=True, require_analysis=True)
         self.release('separate')
-        for step in ('extract', 'analyze', 'adapt', 'review', 'cover', 'adapt'):
+        # Tailoring changes the evidence: refresh analysis before comparing scores.
+        for step in ('extract', 'analyze', 'adapt', 'analyze', 'review', 'cover', 'adapt'):
             # The second adaptation is a legitimate no-op, not a failed run.
             record = self.start(branch, workflow={'steps': [step]})
             self.assertEqual(self.finished(record['id'])['status'], 'succeeded', self.workspace.get_job(record['id']))
@@ -430,6 +482,19 @@ class JobTests(unittest.TestCase):
         self.assertEqual(self.finished(record['id'])['status'], 'failed')
         self.assertTrue(self.workspace.read('single-conflict', 'main.tex').endswith('% external edit'))
 
+    def test_validation_only_accepts_custom_environment_and_preserves_source(self):
+        branch = self.workspace.snapshot('master')
+        self.workspace.save('master', 'main.tex', branch['revision'], CUSTOM_ENVIRONMENT_SOURCE)
+        branch = self.workspace.snapshot('master')
+        self.assertIsNone(branch['document']['error'])
+        self.assertIn('Sample experience.', branch['document']['html'])
+        with patch.object(self.workspace, 'vita_command', side_effect=AssertionError('No AI required')):
+            record = self.start(branch, workflow={'steps': ['validating']})
+            result = self.finished(record['id'])
+        self.assertEqual(result['status'], 'succeeded', result)
+        self.assertEqual(self.workspace.read('master', 'main.tex'), CUSTOM_ENVIRONMENT_SOURCE)
+        self.assertEqual(next(stage for stage in result['stages'] if stage['id'] == 'validating')['status'], 'succeeded')
+
     def test_validate_requires_neither_cli_nor_job_and_ai_requires_saved_inputs(self):
         branch = self.workspace.snapshot('master')
         with patch.object(self.workspace, 'vita_command', return_value=None):
@@ -451,4 +516,4 @@ class JobTests(unittest.TestCase):
         record = self.start(branch, workflow={'steps': ['validating']})
         result = self.finished(record['id'])
         self.assertEqual(result['status'], 'failed')
-        self.assertIn('not parseable', result['message'])
+        self.assertIn('could not produce a PDF', result['message'])

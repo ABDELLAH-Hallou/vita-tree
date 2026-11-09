@@ -55,7 +55,7 @@ def main():
             page.locator('#step-extract').check(); page.locator('#step-cover').check()
             expect(page.locator('#step-review')).to_be_checked()
             page.locator('#step-review').uncheck()  # Run all overrides the subset.
-            page.locator('#provider').select_option('openai');page.locator('#model').select_option('fixture-model')
+            page.locator('#provider').select_option('openai');page.locator('#model').fill('fixture-model');page.locator('#model').press('Tab')
             page.locator('#run-all').click()
             review = page.locator('.dag-node[data-step=review]')
             expect(review).to_have_attribute('data-status', 'running')
@@ -63,6 +63,10 @@ def main():
             expect(page.locator('.dag-node[data-step=cover]')).to_have_attribute('data-status', 'pending')
             expect(page.locator('#step-cover')).to_be_disabled()
             review.focus();page.keyboard.press('Enter')
+            expect(page.locator('#step-ai-dialog')).to_be_visible()
+            expect(page.locator('#popup-model')).to_be_disabled()
+            expect(page.locator('#step-ai-apply')).to_be_hidden()
+            page.locator('#step-ai-cancel').click()
             expect(page.locator('#task-inspector')).to_contain_text('In progress')
             expect(page.locator('#task-output')).to_be_disabled()
             expect(page.locator('#mark-run-reviewed')).to_be_hidden()
@@ -79,7 +83,7 @@ def main():
             expect(page.locator('#current-label')).to_have_text('research-engineer')
             page.get_by_role('tab', name='Job details & AI', exact=False).click()
             page.locator('#step-extract').check()
-            page.locator('#provider').select_option('openai');page.locator('#model').select_option('fixture-model')
+            page.locator('#provider').select_option('openai');page.locator('#model').fill('fixture-model');page.locator('#model').press('Tab')
             expect(page.locator('#step-extract')).to_be_checked()
             page.locator('#run-adapt').click()
             expect(page.locator('.dag-node[data-step=extract]')).to_have_attribute('data-status', 'failed')
@@ -133,7 +137,7 @@ def main():
             expect(page.locator('#cover-pdf-pane')).to_be_hidden()
             page.get_by_role('tab',name='Job details & AI',exact=False).click()
 
-            page.locator('.dag-node[data-step=review]').click();page.locator('#task-output').click()
+            page.locator('.dag-node[data-step=review]').click();page.locator('#step-ai-cancel').click();page.locator('#task-output').click()
             expect(page.locator('#selected-run-files details[data-path=".vita/results/review.md"]')).to_have_attribute('open', '')
             page.locator('#mark-run-reviewed').click()
             expect(page.locator('#mark-run-reviewed')).to_have_text('Reviewed')
@@ -187,10 +191,14 @@ def main():
             page.locator('#back').click()
             page.get_by_role('button', name='Open independent-steps', exact=True).click()
             page.get_by_role('tab', name='Job details & AI', exact=False).click()
-            page.locator('#provider').select_option('openai');page.locator('#model').select_option('fixture-model')
+            page.locator('#provider').select_option('openai');page.locator('#model').fill('fixture-model');page.locator('#model').press('Tab')
+            prior_steps=set()
             for step in ('extract', 'analyze', 'adapt', 'review', 'cover', 'validating'):
                 node = page.locator(f'.dag-node[data-step={step}]')
                 node.click()
+                if step != 'validating':
+                    expect(page.locator('#step-ai-dialog')).to_be_visible()
+                    page.locator('#step-ai-cancel').click()
                 expect(page.locator('#task-run')).to_be_enabled()
                 with page.expect_response(lambda response: response.url.endswith('/api/adapt') and response.request.method == 'POST') as pending:
                     page.locator('#task-run').click()
@@ -198,7 +206,11 @@ def main():
                 expect(page.locator('#workflow-run')).to_have_value(record['id'])
                 expect(node).to_have_attribute('data-status', 'succeeded')
                 expect(page.locator('.dag-node[data-status=succeeded]')).to_have_count(1 if step == 'validating' else 2)
-                expect(page.locator('.dag-node[data-status=skipped]')).to_have_count(5 if step == 'validating' else 4)
+                prior_count=len(prior_steps-{step,'validating'})
+                expect(page.locator('.dag-node[data-status=skipped]')).to_have_count((5 if step == 'validating' else 4)-prior_count)
+                expect(page.locator('.dag-node[data-status=previous]')).to_have_count(prior_count)
+                assert sum(t['status']=='skipped' for t in server.workspace.get_job(record['id'])['stages'])==(5 if step=='validating' else 4)
+                prior_steps.add(step)
                 assert server.workspace.get_job(record['id'])['status'] == 'succeeded'
                 if step in ('extract','analyze'):
                     assert server.workspace.read('independent-steps', 'main.tex') == SOURCE
@@ -241,7 +253,7 @@ def main():
             expect(page.locator('#run-notifications')).to_have_count(0)
             # Unsaved job edits stop individual launch without losing the edits.
             page.locator('#job-description').fill('Unsaved job text')
-            page.locator('.dag-node[data-step=review]').click();page.locator('#task-run').click()
+            page.locator('.dag-node[data-step=review]').click();page.locator('#step-ai-cancel').click();page.locator('#task-run').click()
             expect(page.locator('#notice')).to_contain_text('Save your CV and job description')
             expect(page.locator('#job-description')).to_have_value('Unsaved job text')
             page.screenshot(path=str(artifacts / 'workflow-independent.png'), full_page=True)

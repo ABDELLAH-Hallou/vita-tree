@@ -1,0 +1,20 @@
+\documentclass[10pt]{article}
+\usepackage[margin=0.7in]{geometry}
+\pagestyle{empty}
+\listfiles
+\usepackage{hyperref}
+\newcommand{\resumeSubheading}[4]{\textbf{#1}\hfill #2\\#3\hfill #4\par}
+\newcommand{\resumeItem}[1]{\noindent #1\par}
+\newcommand{\badge}[1]{\textsf{#1}: ExpansionOnlyMarker\par}
+\begin{document}
+\section*{Macro arguments}
+\resumeSubheading{Macro role target}{2022--2026}{Synthetic organization}{Remote}
+\resumeItem{Built \textbf{Nested argument target} for a synthetic team.}
+\href{https://example.invalid/fixture}{Link label target}
+
+\badge{Badge argument target}
+
+\section*{Untouched section}
+Untouched conclusion.
+
+\end{document}

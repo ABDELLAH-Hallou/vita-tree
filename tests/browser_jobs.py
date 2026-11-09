@@ -11,7 +11,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
 from playwright.sync_api import sync_playwright, expect
 from vita_tree.server import VitaTreeServer
-from support import init_repo, git, set_theme
+from support import init_repo, git, set_theme, assert_public_run_privacy
 
 
 def main():
@@ -58,7 +58,7 @@ def main():
                 expect(page.locator('#current-label')).to_have_text(label, timeout=30000)
                 page.get_by_role('tab', name='Job details & AI', exact=False).click()
                 page.locator('#provider').select_option('openai')
-                page.locator('#model').select_option('fixture-model')
+                page.locator('#model').fill('fixture-model');page.locator('#model').press('Tab')
                 page.locator('#run-adapt').click()
                 expect(page.locator('#job-description')).to_have_attribute('readonly', '')
                 page.locator('#back').click()
@@ -80,9 +80,11 @@ def main():
             expect(page.locator('#branch-list .branch-row')).to_have_count(3)
             (control/'beta.release').touch()
             expect(page.locator('#filter-failed')).to_have_text('1', timeout=30000)
-            public = page.request.get(f'http://127.0.0.1:{server.server_port}/api/jobs').text()
-            for secret in ('private-ui-fixture-value', 'VITA_TEST_SECRET', 'provider-fail', 'main.tex', 'env', 'stdout'):
-                assert secret not in public, 'Private run details leaked into the global API'
+            public = page.request.get(f'http://127.0.0.1:{server.server_port}/api/jobs').json()
+            # Entry filenames in fixed preflight guidance are public metadata.
+            # Check actual private values and recursively reject raw payloads.
+            assert_public_run_privacy(public, ('private-ui-fixture-value', 'VITA_TEST_SECRET', 'provider-fail',
+                                              'Sample Organization', 'Engineer building'))
             expect(page.get_by_role('button', name='Open gamma', exact=True).locator('.branch-run')).to_contain_text('Checking CV match', timeout=30000)
             (control/'alpha.release').touch()
             expect(page.locator('#filter-review')).to_have_text('1', timeout=30000)
@@ -148,12 +150,14 @@ def main():
             page.set_viewport_size({'width': 390, 'height': 844})
             assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), 'Review inbox overflows mobile screen'
             page.screenshot(path=str(artifacts/'review-inbox-mobile.png'), full_page=True)
-            page.locator('#show-activity').click()
+            page.get_by_role('button',name='Navigation',exact=True).click()
+            page.get_by_role('menuitem',name='Activity & support',exact=True).click()
             expect(page.locator('#metric-failed')).to_have_text('1')
             assert page.locator('#diagnostics-dialog').evaluate('el=>el.scrollWidth<=el.clientWidth'), 'Activity panel overflows mobile'
             page.screenshot(path=str(artifacts/'activity-mobile.png'),full_page=True)
             page.get_by_role('button',name='Close activity and support').click()
-            page.locator('[data-filter=failed]').click()
+            page.get_by_role('button',name='Navigation',exact=True).click()
+            page.get_by_role('menuitem',name='Needs attention',exact=True).click()
             page.get_by_role('button', name='Open beta', exact=True).click()
             page.locator('#view-run').click()
             expect(page.locator('#current-label')).to_have_text('beta', timeout=30000)

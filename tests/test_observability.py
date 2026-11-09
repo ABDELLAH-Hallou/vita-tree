@@ -158,7 +158,7 @@ class PersistenceAndPDFTests(unittest.TestCase):
         compiler=PDFCompiler(self.workspace);pdf=self.root/'.git/preview.pdf';pdf.write_bytes(b'%PDF-1.7\nsynthetic preview')
         ident='b'*32;compiler.results[ident]=pdf
         compiler.previews[ident]={'branch':branch['branch'],'side':side,'revision':digest(branch['original'] if side=='original' else branch['content']),
-                                 'filename':cv_filename(SOURCE,side),'commit':branch['commit']}
+                                 'filename':cv_filename(SOURCE,side),'commit':branch['commit'],'projectRevision':branch['projectRevision']}
         return compiler,branch,ident,pdf
 
     def test_export_uses_existing_worktree_and_compare_before_overwrite(self):

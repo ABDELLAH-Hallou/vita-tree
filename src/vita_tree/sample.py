@@ -5,6 +5,9 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+from tempfile import TemporaryDirectory
+
+from .setup import data_directory, single_writer
 
 SAMPLE_MAIN_TEX = r"""\documentclass{article}
 \usepackage[margin=0.65in]{geometry}
@@ -14,7 +17,7 @@ SAMPLE_MAIN_TEX = r"""\documentclass{article}
 \begin{document}
 \begin{center}{\Large\textbf{Jordan Lee}}\\Software Engineer\end{center}
 \begin{rSection}{Summary}
-Engineer building \textbf{reliable systems} for people. Improved delivery by 20\%.
+Software engineer who builds reliable tools and makes them easier to maintain.
 \end{rSection}
 \begin{rSection}{Experience}
 \textbf{Software Engineer} \hfill 2023--2026\\
@@ -46,63 +49,60 @@ We are looking for a Software Engineer to build dependable software, maintain au
 
 
 def default_demo_directory() -> Path:
-    """Return the default per-user directory for the demo CV repository."""
-    if os.name == "nt":
-        base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData/Local"))
-    else:
-        base = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share"))
-    return base / "vita-tree" / "demo"
+    return data_directory() / "demo"
 
 
 def prepare_demo_repository(target: Path | None = None) -> Path:
-    """Create or reuse an isolated sample Git repository for demonstration.
+    """Create a complete sample or reopen one previously created by Vita Tree."""
+    git = shutil.which("git")
+    if git is None:
+        raise RuntimeError("Git is required to run the demo. Install Git and add it to PATH.")
 
-    Does not require any global Git identity or remote connection.
-    If the repository already exists and has main.tex, reuses it without overwriting edits.
-    """
-    git_bin = shutil.which("git")
-    if not git_bin:
-        raise RuntimeError("Git is required to create or run the demo repository. Install Git and ensure it is on your PATH.")
+    requested = (target or default_demo_directory()).expanduser().absolute()
+    if requested.is_symlink() or (hasattr(requested, "is_junction") and requested.is_junction()):
+        raise RuntimeError("Choose a fresh demo folder instead of a link.")
+    location = requested.resolve()
+    marker = Path(".git/vita-tree-demo")
+    if location.exists():
+        if (location / marker).is_file() and (location / "main.tex").is_file():
+            return location
+        raise RuntimeError("The demo folder already exists. Choose a new folder or use vt run to open it.")
 
-    location = Path(target).resolve() if target else default_demo_directory().resolve()
+    # Do not inherit a caller's Git index, repository override, hooks, or signing configuration.
+    environment = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+    environment.update(GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL=os.devnull)
+    parent = next(path for path in location.parents if path.is_dir())
+    probe = subprocess.run(
+        [git, "-C", str(parent), "rev-parse", "--git-dir"],
+        env=environment, capture_output=True, timeout=15,
+    )
+    if probe.returncode == 0:
+        raise RuntimeError("Choose a demo folder outside existing Git repositories.")
 
-    main_tex = location / "main.tex"
-    git_dir = location / ".git"
-
-    if git_dir.exists() and main_tex.is_file():
-        return location
-
-    location.mkdir(parents=True, exist_ok=True)
-
-    if not git_dir.exists():
-        init_res = subprocess.run(["git", "init", "-b", "main", str(location)], capture_output=True, text=True)
-        if init_res.returncode != 0:
-            subprocess.run(["git", "init", str(location)], check=True, capture_output=True, text=True)
-
-    if not main_tex.exists():
-        main_tex.write_text(SAMPLE_MAIN_TEX, encoding="utf-8")
-
-    job_md = location / "job.md"
-    if not job_md.exists():
-        job_md.write_text(SAMPLE_JOB_MD, encoding="utf-8")
-
-    gitignore = location / ".gitignore"
-    if not gitignore.exists():
-        gitignore.write_text(".vita/\n*.pdf\n", encoding="utf-8")
-
-    status = subprocess.run(["git", "-C", str(location), "status", "--porcelain"], check=True, capture_output=True, text=True)
-    if status.stdout.strip():
-        subprocess.run(["git", "-C", str(location), "add", "."], check=True, capture_output=True, text=True)
-        subprocess.run(
-            [
-                "git", "-C", str(location),
-                "-c", "user.name=Vita Tree Demo",
-                "-c", "user.email=demo@example.invalid",
-                "commit", "-m", "Initial sample CV and job description",
-            ],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-
+    with single_writer(location.parent / f".{location.name}.vita-tree.lock"):
+        if location.exists():
+            if (location / marker).is_file() and (location / "main.tex").is_file():
+                return location
+            raise RuntimeError("The demo folder already exists. Choose a new folder.")
+        with TemporaryDirectory(prefix=".vita-demo-", dir=location.parent) as staging:
+            repo = Path(staging) / "sample"
+            repo.mkdir()
+            files = {"main.tex": SAMPLE_MAIN_TEX, "job.md": SAMPLE_JOB_MD, ".gitignore": ".vita/\n*.pdf\n"}
+            for filename, content in files.items():
+                (repo / filename).write_text(content, encoding="utf-8")
+            try:
+                for command in (
+                    ["init", "--template=", "--initial-branch=main"],
+                    ["add", "--", *files],
+                    ["-c", "user.name=Vita Tree Demo", "-c", "user.email=demo@example.invalid",
+                     "commit", "-m", "Add synthetic CV and job description"],
+                ):
+                    subprocess.run(
+                        [git, "-C", str(repo), *command], env=environment,
+                        check=True, capture_output=True, timeout=15,
+                    )
+            except subprocess.SubprocessError as exc:
+                raise RuntimeError("Git could not initialize the demo. Check Git and folder permissions.") from exc
+            (repo / marker).touch()
+            repo.rename(location)
     return location

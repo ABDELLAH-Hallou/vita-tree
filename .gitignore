@@ -22,3 +22,6 @@ htmlcov/
 *.p12
 *.pfx
 *.bundle
+
+# Local design skill reports, browser captures, and working files.
+/.taste-skill/

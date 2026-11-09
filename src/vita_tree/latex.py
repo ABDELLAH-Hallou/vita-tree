@@ -7,16 +7,62 @@ import re
 from pylatexenc.latexwalker import (
     LatexWalker, LatexCharsNode, LatexMacroNode, LatexGroupNode,
     LatexEnvironmentNode, LatexCommentNode, LatexMathNode, LatexSpecialsNode,
-    get_default_latex_context_db, LatexWalkerError,
+    get_default_latex_context_db, LatexWalkerError, LatexWalkerParseError,
+    LatexWalkerEndOfStream,
 )
-from pylatexenc.macrospec import MacroSpec, EnvironmentSpec
+from pylatexenc.macrospec import MacroSpec, EnvironmentSpec, MacroStandardArgsParser, ParsedMacroArgs
 from pylatexenc.latex2text import LatexNodes2Text
+
+
+# Definition bodies are token lists, not independently balanced environments or
+# math expressions. In particular, newenvironment splits begin/end across two
+# arguments. Read balanced braces without expanding or interpreting those tokens.
+DEFINITIONS = {"newenvironment": 2, "renewenvironment": 2, "provideenvironment": 2,
+               "newcommand": 1, "renewcommand": 1, "providecommand": 1,
+               "DeclareRobustCommand": 1}
+
+
+class DefinitionArgsParser(MacroStandardArgsParser):
+    def __init__(self, bodies):
+        super().__init__("*{[[")
+        self.bodies = bodies
+
+    def parse_args(self, w, pos, parsing_state=None):
+        prefix, _, length = super().parse_args(w, pos, parsing_state=parsing_state)
+        end = pos + length
+        args = list(prefix.argnlist)
+        for _ in range(self.bodies):
+            start = end
+            depth = 0
+            try:
+                while True:
+                    token = w.get_token(end, environments=False, parsing_state=parsing_state)
+                    end = token.pos + token.len
+                    if token.tok == 'comment':
+                        continue
+                    if token.tok == 'brace_open':
+                        depth += 1
+                    elif token.tok == 'brace_close':
+                        depth -= 1
+                        if depth < 0:
+                            raise LatexWalkerParseError('Unexpected closing brace in definition', s=w.s, pos=token.pos)
+                    if depth == 0:
+                        break
+            except LatexWalkerEndOfStream:
+                raise LatexWalkerParseError('Incomplete command or environment definition', s=w.s, pos=start) from None
+            # An opaque node retains the exact source range, including comments.
+            # It is never rendered or exposed as an editable Structure leaf.
+            args.append(w.make_node(LatexGroupNode, pos=start, len=end-start,
+                                    nodelist=[], delimiters=('{', '}'), parsing_state=parsing_state))
+        return ParsedMacroArgs(argspec=self.argspec + '{' * self.bodies, argnlist=args), pos, end-pos
 
 
 def context():
     db = get_default_latex_context_db()
     db.add_context_category("vita", macros=[
+        *(MacroSpec(name, DefinitionArgsParser(bodies)) for name, bodies in DEFINITIONS.items()),
         MacroSpec("name", "{"), MacroSpec("address", "{"),
+        MacroSpec("input", "{"), MacroSpec("include", "{"),
         MacroSpec("href", "[{{"), MacroSpec("url", "{"),
         MacroSpec("resumeItem", "{"), MacroSpec("resumeSubheading", "{{{{"),
         MacroSpec("resumeProjectHeading", "{{"),
@@ -39,8 +85,9 @@ def escape_text(text: str) -> str:
 
 
 class Renderer:
-    def __init__(self, source: str):
+    def __init__(self, source: str, path=None):
         self.source = source
+        self.path = path
         self.warnings: set[str] = set()
         self.leaves: dict[str, dict] = {}
         self.converter = LatexNodes2Text()
@@ -53,6 +100,8 @@ class Renderer:
             return "<br><br>" if "\n\n" in text.replace("\r", "") else " "
         key = str(node.pos)
         self.leaves[key] = {"start": node.pos, "end": node.pos + node.len, "text": text}
+        if self.path is not None:
+            self.leaves[key]['path'] = self.path
         return f'<span data-leaf="{key}">{html.escape(text)}</span>'
 
     def args(self, node):
@@ -139,6 +188,9 @@ class Renderer:
             return body
         if isinstance(node, LatexMacroNode):
             name, args = node.macroname, self.args(node)
+            if name in DEFINITIONS:
+                self.warnings.add("Custom definitions are preserved, not expanded in Structure. Use PDF for exact rendering.")
+                return ""
             value = lambda: self.node(args[-1]) if args else ""
             if name in {"name", "title"}:
                 return '<h1 class="cv-name">' + value() + '</h1>'
@@ -166,8 +218,9 @@ class Renderer:
             if name in {"resumeSubheading", "resumeProjectHeading"}:
                 return '<div class="cv-entry">' + ' · '.join(self.node(a) for a in args) + '</div>'
             if name in {"input", "include"}:
-                self.warnings.add("Included files render in PDF; edit them in your source editor.")
-                return '<div class="unsupported">Included file: ' + value() + '</div>'
+                self.warnings.add("Open included files with the CV file selector. Each file has its own Structure and Source view; PDF shows the assembled document.")
+                literal = self.source[args[0].pos:args[0].pos+args[0].len] if args else ''
+                return '<div class="unsupported">Included file: ' + html.escape(literal) + '</div>'
             if name in {"vspace", "hspace", "setlength", "addtolength", "itemsep", "noindent", "smallskip", "medskip", "bigskip", "small", "footnotesize", "scriptsize", "tiny", "large", "Large", "LARGE", "huge", "Huge", "normalsize", "centering", "raggedright", "hline", "maketitle", "label", "pagestyle", "thispagestyle"} or name.startswith("resumeItemList") or name.startswith("resumeSubHeadingList"):
                 return ""
             if name in {"%", "&", "#", "_", "$", "{", "}", "textbackslash", "textasciitilde", "textasciicircum", "LaTeX", "TeX", "textbullet", "textendash", "textemdash", "'", '`', '"', "^", "~", "c", "ss"}:
@@ -180,6 +233,7 @@ class Renderer:
 def lint_source(source: str) -> list[dict]:
     """Report the first syntax problem; ranges use browser UTF-16 offsets.
 
+    Definition bodies are balanced token lists, not expanded document content.
     This does not expand arbitrary macros or validate installed TeX packages.
     """
     try:
@@ -198,13 +252,13 @@ def lint_source(source: str) -> list[dict]:
     return []
 
 
-def parse_document(source: str) -> dict:
-    renderer = Renderer(source)
+def parse_document(source: str, path=None) -> dict:
+    renderer = Renderer(source, path)
     try:
         nodes, _, _ = LatexWalker(source, latex_context=context(), tolerant_parsing=False).get_latex_nodes()
         doc = next((n for n in nodes if isinstance(n, LatexEnvironmentNode) and n.environmentname == "document"), None)
         header = [n for n in nodes if isinstance(n, LatexMacroNode) and n.macroname in {"name", "address", "title"}]
-        result = renderer.sequence(header) + renderer.sequence(doc.nodelist if doc else nodes)
+        result = (renderer.sequence(header) if doc else '') + renderer.sequence(doc.nodelist if doc else nodes)
         return {"html": result, "leaves": renderer.leaves, "warnings": sorted(renderer.warnings), "error": None}
     except (ValueError, RecursionError, LatexWalkerError) as error:
         return {"html": "", "leaves": {}, "warnings": [], "error": f"Cannot parse this LaTeX: {error}"}

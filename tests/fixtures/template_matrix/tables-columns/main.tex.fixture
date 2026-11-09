@@ -1,0 +1,32 @@
+\documentclass[10pt]{article}
+\usepackage[margin=0.7in]{geometry}
+\pagestyle{empty}
+\listfiles
+\usepackage{tabularx}
+\begin{document}
+\section*{Tables and columns}
+\begin{tabularx}{\linewidth}{@{}lX@{}}
+\textbf{TableKey} & \textbf{TableValue}\\
+Skills & \textbf{Table cell target}\\
+Tools & Python, SQL and Git\\
+\end{tabularx}
+\bigskip
+
+\noindent\begin{minipage}[t]{0.46\linewidth}
+\textbf{LeftColumn}
+
+Left column target.
+
+Left column end.
+\end{minipage}\hfill
+\begin{minipage}[t]{0.46\linewidth}
+\textbf{RightColumn}
+
+Right column target.
+
+Right column end.
+\end{minipage}
+\section*{Untouched section}
+Untouched conclusion.
+
+\end{document}
