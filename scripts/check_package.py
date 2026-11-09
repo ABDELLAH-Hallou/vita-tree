@@ -9,6 +9,17 @@ import tarfile
 import zipfile
 
 
+def check_description(metadata):
+    assert metadata['Description-Content-Type'].startswith('text/markdown')
+    description = metadata.get_payload()
+    for text in ('## Quick start', 'vt demo', 'https://raw.githubusercontent.com/',
+                 '/SECURITY.md)', '/CHANGELOG.md)', '/docs/WORKSPACE_GUIDE.md)'):
+        assert text in description, f'Missing package description content: {text}'
+    for text in ('PYPI_API_TOKEN', 'RELEASE_PLEASE_TOKEN', 'Promote approved release to PyPI'):
+        assert text not in description, 'Maintainer publishing instructions are in the package description'
+    return description
+
+
 def check(directory):
     wheels, sdists = list(directory.glob('*.whl')), list(directory.glob('*.tar.gz'))
     if len(wheels) != 1 or len(sdists) != 1:
@@ -26,6 +37,7 @@ def check(directory):
             if wheel.read(name) != path.read_bytes():
                 raise ValueError(f'Stale or changed wheel file: {name}')
         metadata = BytesParser().parsebytes(wheel.read(next(n for n in names if n.endswith('.dist-info/METADATA'))))
+        description = check_description(metadata)
         assert metadata['Name'] == 'vita-tree'
         assert getaddresses(metadata.get_all('Author-email') or []) == [
             ('Abdellah HALLOU', 'abdeallahhallou33@gmail.com')
@@ -44,7 +56,11 @@ def check(directory):
         assert 'vt = vita_tree.cli:main' in entries and 'vita-tree = vita_tree.cli:main' in entries
     with tarfile.open(sdists[0]) as sdist:
         source_names = set(sdist.getnames())
+        info = BytesParser().parsebytes(sdist.extractfile(f'vita_tree-{version}/PKG-INFO').read())
+        assert check_description(info) == description, 'Wheel and sdist descriptions differ'
         for path in ['LICENSE', 'THIRD_PARTY_NOTICES.md', 'README.md', 'CHANGELOG.md', 'pyproject.toml',
+                     'SECURITY.md', 'docs/WORKSPACE_GUIDE.md', 'docs/SECURITY_REVIEW.md',
+                     'scripts/setup.ps1', 'scripts/setup.sh',
                      'scripts/check_package.py', 'scripts/check_privacy.py', 'scripts/validate_release.py',
                      'scripts/vendor-pdf.mjs', 'tests/support.py', 'tests/browser_check.py',
                      'tests/smoke/run_installed_package.py', 'tests/smoke/installed_check.py', 'package-lock.json']:

@@ -108,7 +108,7 @@ def compile_document(folder: Path, document_path: str, engine='auto', output=Non
     try:
         executable = engine_executable(engine, folder, env)
     except ValueError as error:
-        raise CompilationError('engine_missing', str(error)) from error
+        raise CompilationError('engine_missing', f'{error} Use Check CV files for setup help.') from error
     version = subprocess.run([executable, "--version"], env=env, cwd=folder,
                              stdin=subprocess.DEVNULL, capture_output=True, timeout=10).stdout.decode(errors="replace")
     flags = ["-interaction=nonstopmode", "-halt-on-error", "-file-line-error", "-no-shell-escape"]

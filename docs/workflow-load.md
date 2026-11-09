@@ -194,7 +194,7 @@ Application checkpoints still have the existing 7-day, 20-terminal-run and
 256-MiB total limits (32 MiB per checkpoint). Active attempts and immediate
 resume parents are protected. Cleanup runs at startup, launch and completion,
 or through Activity & support; it removes checkpoint copies rather than drafts
-or history. See [retry retention](../README.md#resume-a-failed-preparation) and
+or history. See [retry retention](WORKSPACE_GUIDE.md#resume-a-failed-preparation) and
 the [checkpoint implementation](../src/vita_tree/checkpoints.py). The benchmark
 does not introduce cleanup of the separately retained source/PDF/trace caches.
 
