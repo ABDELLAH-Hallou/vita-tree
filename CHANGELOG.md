@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.20.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.19.1...v1.20.0) (2026-11-09)
+
+
+### Features
+
+* add sample demo entrypoint, guided setup, and user-facing documentation ([3a75ba6](https://github.com/ABDELLAH-Hallou/vita-tree/commit/3a75ba6e7ddfaa2e4ce67e026c089cb5e11dc079))
+* add sample demo entrypoint, guided setup, and user-facing documentation ([3817432](https://github.com/ABDELLAH-Hallou/vita-tree/commit/381743218bac2134fa062c3e47296454736e7b04))
+
+
+### Bug Fixes
+
+* complete first-run onboarding and reconcile main ([e1202d3](https://github.com/ABDELLAH-Hallou/vita-tree/commit/e1202d3e8c6bb0eebd957c860efed9a330867db6))
+
 ## [1.19.1](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.19.0...v1.19.1) (2026-11-08)
 
 
