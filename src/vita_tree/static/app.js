@@ -1,6 +1,6 @@
 import { a as e, i as t, n, r, t as i } from "./assets/frontend-jsx-runtime-DjpXSdWX.js";
-import { n as a } from "./assets/frontend-client--LMad5NK.js";
-// ../../node_modules/@tanstack/react-query/build/modern/QueryClientProvider.js
+import { n as a } from "./assets/frontend-client-Cqgf6Pc4.js";
+// node_modules/@tanstack/react-query/build/modern/QueryClientProvider.js
 var o = /* @__PURE__ */ e(t(), 1), s = i(), c = o.createContext(void 0), l = ({ client: e, children: t }) => (o.useEffect(() => (e.mount(), () => {
 	e.unmount();
 }), [e]), /* @__PURE__ */ (0, s.jsx)(c.Provider, {
@@ -971,7 +971,7 @@ function v(...e) {
 	return o.useCallback(_(...e), e);
 }
 h(v, "useComposedRefs");
-// ../../node_modules/@radix-ui/react-slot/dist/index.mjs
+// node_modules/@radix-ui/react-slot/dist/index.mjs
 var y = Object.defineProperty, b = (e, t) => y(e, "name", {
 	value: t,
 	configurable: !0
@@ -1093,7 +1093,7 @@ function ne(e, t) {
 	e && u.flushSync(() => e.dispatchEvent(t));
 }
 F(ne, "dispatchDiscreteCustomEvent");
-// ../../node_modules/@radix-ui/react-context/dist/index.mjs
+// node_modules/@radix-ui/react-context/dist/index.mjs
 var re = Object.defineProperty, L = (e, t) => re(e, "name", {
 	value: t,
 	configurable: !0
@@ -1179,7 +1179,7 @@ function ae(...e) {
 	return n.scopeName = t.scopeName, n;
 }
 L(ae, "composeContextScopes");
-// ../../node_modules/@radix-ui/react-use-layout-effect/dist/index.mjs
+// node_modules/@radix-ui/react-use-layout-effect/dist/index.mjs
 var z = globalThis?.document ? o.useLayoutEffect : () => {}, oe = Object.defineProperty, B = (e, t) => oe(e, "name", {
 	value: t,
 	configurable: !0
@@ -1633,7 +1633,7 @@ function ve(e) {
 	});
 }
 B(ve, "getChildListObserver");
-// ../../node_modules/@radix-ui/primitive/dist/index.mjs
+// node_modules/@radix-ui/primitive/dist/index.mjs
 var ye = Object.defineProperty, be = (e, t) => ye(e, "name", {
 	value: t,
 	configurable: !0
@@ -1672,7 +1672,7 @@ function Te(e) {
 	return e.tagName === "IFRAME";
 }
 be(Te, "isFrame");
-// ../../node_modules/@radix-ui/react-use-effect-event/dist/index.mjs
+// node_modules/@radix-ui/react-use-effect-event/dist/index.mjs
 var Ee = Object.defineProperty, De = (e, t) => Ee(e, "name", {
 	value: t,
 	configurable: !0
@@ -1689,7 +1689,7 @@ function Ae(e) {
 	}), o.useMemo(() => ((...e) => t.current?.(...e)), []);
 }
 De(Ae, "useEffectEvent");
-// ../../node_modules/@radix-ui/react-use-controllable-state/dist/index.mjs
+// node_modules/@radix-ui/react-use-controllable-state/dist/index.mjs
 var je = Object.defineProperty, Me = (e, t) => je(e, "name", {
 	value: t,
 	configurable: !0
@@ -1767,7 +1767,7 @@ function Re(e, t, n, r) {
 	]), [g, p];
 }
 Me(Re, "useControllableStateReducer");
-// ../../node_modules/@radix-ui/react-presence/dist/index.mjs
+// node_modules/@radix-ui/react-presence/dist/index.mjs
 var ze = Object.defineProperty, Be = (e, t) => ze(e, "name", {
 	value: t,
 	configurable: !0
@@ -1860,7 +1860,7 @@ function qe(e) {
 	return n ? e.ref : (t = Object.getOwnPropertyDescriptor(e, "ref")?.get, n = t && "isReactWarning" in t && t.isReactWarning, n ? e.props.ref : e.props.ref || e.ref);
 }
 Be(qe, "getElementRef");
-// ../../node_modules/@radix-ui/react-id/dist/index.mjs
+// node_modules/@radix-ui/react-id/dist/index.mjs
 var Je = Object.defineProperty, Ye = (e, t) => Je(e, "name", {
 	value: t,
 	configurable: !0
@@ -1872,7 +1872,7 @@ function Qe(e) {
 	}, [e]), e || (t ? `radix-${t}` : "");
 }
 Ye(Qe, "useId");
-// ../../node_modules/@radix-ui/react-direction/dist/index.mjs
+// node_modules/@radix-ui/react-direction/dist/index.mjs
 var $e = Object.defineProperty, et = (e, t) => $e(e, "name", {
 	value: t,
 	configurable: !0
@@ -1885,7 +1885,7 @@ function rt(e) {
 	return e || t || tt.LTR;
 }
 et(rt, "useDirection");
-// ../../node_modules/@radix-ui/react-use-callback-ref/dist/index.mjs
+// node_modules/@radix-ui/react-use-callback-ref/dist/index.mjs
 var it = Object.defineProperty, at = (e, t) => it(e, "name", {
 	value: t,
 	configurable: !0
@@ -1899,7 +1899,7 @@ function st(e) {
 	}), o.useMemo(() => ((...e) => t.current?.(...e)), []);
 }
 at(st, "useCallbackRef");
-// ../../node_modules/@radix-ui/react-dismissable-layer/dist/index.mjs
+// node_modules/@radix-ui/react-dismissable-layer/dist/index.mjs
 var ct = Object.defineProperty, H = (e, t) => ct(e, "name", {
 	value: t,
 	configurable: !0
@@ -2061,7 +2061,7 @@ function bt(e, t, n, { discrete: r }) {
 	t && i.addEventListener(e, t, { once: !0 }), r ? ne(i, a) : i.dispatchEvent(a);
 }
 H(bt, "handleAndDispatchCustomEvent");
-// ../../node_modules/@radix-ui/react-focus-scope/dist/index.mjs
+// node_modules/@radix-ui/react-focus-scope/dist/index.mjs
 var xt = Object.defineProperty, U = (e, t) => xt(e, "name", {
 	value: t,
 	configurable: !0
@@ -2244,7 +2244,7 @@ function Bt(e) {
 	return e.filter((e) => e.tagName !== "A");
 }
 U(Bt, "removeLinks");
-// ../../node_modules/@radix-ui/react-portal/dist/index.mjs
+// node_modules/@radix-ui/react-portal/dist/index.mjs
 var Vt = Object.defineProperty, Ht = /* @__PURE__ */ o.forwardRef(/* @__PURE__ */ ((e, t) => Vt(e, "name", {
 	value: t,
 	configurable: !0
@@ -2282,7 +2282,7 @@ function Yt() {
 	return e.setAttribute("data-radix-focus-guard", ""), e.tabIndex = 0, e.style.outline = "none", e.style.opacity = "0", e.style.position = "fixed", e.style.pointerEvents = "none", e;
 }
 Wt(Yt, "createFocusGuard");
-// ../../node_modules/tslib/tslib.es6.mjs
+// node_modules/tslib/tslib.es6.mjs
 var W = function() {
 	return W = Object.assign || function(e) {
 		for (var t, n = 1, r = arguments.length; n < r; n++) for (var i in t = arguments[n], t) Object.prototype.hasOwnProperty.call(t, i) && (e[i] = t[i]);
@@ -2299,13 +2299,13 @@ function Zt(e, t, n) {
 	if (n || arguments.length === 2) for (var r = 0, i = t.length, a; r < i; r++) (a || !(r in t)) && (a ||= Array.prototype.slice.call(t, 0, r), a[r] = t[r]);
 	return e.concat(a || Array.prototype.slice.call(t));
 }
-// ../../node_modules/react-remove-scroll-bar/dist/es2015/constants.js
+// node_modules/react-remove-scroll-bar/dist/es2015/constants.js
 var Qt = "right-scroll-bar-position", $t = "width-before-scroll-bar", en = "with-scroll-bars-hidden", tn = "--removed-body-scroll-bar-size";
-// ../../node_modules/use-callback-ref/dist/es2015/assignRef.js
+// node_modules/use-callback-ref/dist/es2015/assignRef.js
 function nn(e, t) {
 	return typeof e == "function" ? e(t) : e && (e.current = t), e;
 }
-// ../../node_modules/use-callback-ref/dist/es2015/useRef.js
+// node_modules/use-callback-ref/dist/es2015/useRef.js
 function rn(e, t) {
 	var n = (0, o.useState)(function() {
 		return {
@@ -2324,7 +2324,7 @@ function rn(e, t) {
 	})[0];
 	return n.callback = t, n.facade;
 }
-// ../../node_modules/use-callback-ref/dist/es2015/useMergeRef.js
+// node_modules/use-callback-ref/dist/es2015/useMergeRef.js
 var an = typeof window < "u" ? o.useLayoutEffect : o.useEffect, on = /* @__PURE__ */ new WeakMap();
 function sn(e, t) {
 	var n = rn(t || null, function(t) {
@@ -2345,7 +2345,7 @@ function sn(e, t) {
 		on.set(n, e);
 	}, [e]), n;
 }
-// ../../node_modules/use-sidecar/dist/es2015/medium.js
+// node_modules/use-sidecar/dist/es2015/medium.js
 function cn(e) {
 	return e;
 }
@@ -2411,7 +2411,7 @@ function un(e) {
 		ssr: !1
 	}, e), t;
 }
-// ../../node_modules/use-sidecar/dist/es2015/exports.js
+// node_modules/use-sidecar/dist/es2015/exports.js
 var dn = function(e) {
 	var t = e.sideCar, n = Xt(e, ["sideCar"]);
 	if (!t) throw Error("Sidecar: please provide `sideCar` property to import the right car");
@@ -2423,7 +2423,7 @@ dn.isSideCarExport = !0;
 function fn(e, t) {
 	return e.useMedium(t), dn;
 }
-// ../../node_modules/react-remove-scroll/dist/es2015/medium.js
+// node_modules/react-remove-scroll/dist/es2015/medium.js
 var pn = un(), mn = function() {}, hn = o.forwardRef(function(e, t) {
 	var n = o.useRef(null), r = o.useState({
 		onScrollCapture: mn,
@@ -2468,11 +2468,11 @@ hn.defaultProps = {
 	fullWidth: $t,
 	zeroRight: Qt
 };
-// ../../node_modules/get-nonce/dist/es2015/index.js
+// node_modules/get-nonce/dist/es2015/index.js
 var gn = function() {
 	if (typeof __webpack_nonce__ < "u") return __webpack_nonce__;
 };
-// ../../node_modules/react-style-singleton/dist/es2015/singleton.js
+// node_modules/react-style-singleton/dist/es2015/singleton.js
 function _n() {
 	if (!document) return null;
 	var e = document.createElement("style");
@@ -2754,7 +2754,7 @@ function tr(e) {
 	for (var t = null; e !== null;) e instanceof ShadowRoot && (t = e.host, e = e.host), e = e.parentNode;
 	return t;
 }
-// ../../node_modules/react-remove-scroll/dist/es2015/sidecar.js
+// node_modules/react-remove-scroll/dist/es2015/sidecar.js
 var nr = fn(pn, er), rr = o.forwardRef(function(e, t) {
 	return o.createElement(hn, W({}, e, {
 		ref: t,
@@ -2762,7 +2762,7 @@ var nr = fn(pn, er), rr = o.forwardRef(function(e, t) {
 	}));
 });
 rr.classNames = hn.classNames;
-// ../../node_modules/aria-hidden/dist/es2015/index.js
+// node_modules/aria-hidden/dist/es2015/index.js
 var ir = function(e) {
 	return typeof document > "u" ? null : (Array.isArray(e) ? e[0] : e).ownerDocument.body;
 }, ar = /* @__PURE__ */ new WeakMap(), or = /* @__PURE__ */ new WeakMap(), sr = {}, cr = 0, lr = function(e) {
@@ -2990,7 +2990,7 @@ function zr(e) {
 	return e ? "open" : "closed";
 }
 G(zr, "getState");
-// ../../node_modules/@radix-ui/react-use-size/dist/index.mjs
+// node_modules/@radix-ui/react-use-size/dist/index.mjs
 var Br = Object.defineProperty, Vr = (e, t) => Br(e, "name", {
 	value: t,
 	configurable: !0
@@ -3026,7 +3026,7 @@ function Hr(e) {
 	}, [e]), t;
 }
 Vr(Hr, "useSize");
-// ../../node_modules/@floating-ui/utils/dist/floating-ui.utils.mjs
+// node_modules/@floating-ui/utils/dist/floating-ui.utils.mjs
 var Ur = [
 	"top",
 	"right",
@@ -3129,7 +3129,7 @@ function mi(e) {
 		y: n
 	};
 }
-// ../../node_modules/@floating-ui/core/dist/floating-ui.core.mjs
+// node_modules/@floating-ui/core/dist/floating-ui.core.mjs
 function hi(e, t, n) {
 	let { reference: r, floating: i } = e, a = J(t), o = ti(t), s = ei(o), c = Zr(t), l = a === "y", u = r.x + r.width / 2 - i.width / 2, d = r.y + r.height / 2 - i.height / 2, f = r[s] / 2 - i[s] / 2, p;
 	switch (c) {
@@ -3463,7 +3463,7 @@ var Ei = function(e) {
 		}
 	};
 };
-// ../../node_modules/@floating-ui/utils/dist/floating-ui.utils.dom.mjs
+// node_modules/@floating-ui/utils/dist/floating-ui.utils.dom.mjs
 function Ai() {
 	return typeof window < "u";
 }
@@ -3559,7 +3559,7 @@ function Xi(e, t, n) {
 function Zi(e) {
 	return e.parent && Object.getPrototypeOf(e.parent) ? e.frameElement : null;
 }
-// ../../node_modules/@floating-ui/dom/dist/floating-ui.dom.mjs
+// node_modules/@floating-ui/dom/dist/floating-ui.dom.mjs
 function Qi(e) {
 	let t = Z(e), n = parseFloat(t.width) || 0, r = parseFloat(t.height) || 0, i = Pi(e), a = i ? e.offsetWidth : n, o = i ? e.offsetHeight : r, s = Gr(n) !== a || Gr(r) !== o;
 	return s && (n = a, r = o), {
@@ -4236,7 +4236,7 @@ function mo(e) {
 	return [t, n];
 }
 Xa(mo, "getSideAndAlignFromPlacement");
-// ../../node_modules/@radix-ui/react-use-is-hydrated/dist/index.mjs
+// node_modules/@radix-ui/react-use-is-hydrated/dist/index.mjs
 var ho = Object.defineProperty, go = (e, t) => ho(e, "name", {
 	value: t,
 	configurable: !0
@@ -4414,7 +4414,7 @@ function Go(e, t) {
 	return e.map((n, r) => e[(t + r) % e.length]);
 }
 wo(Go, "wrapArray");
-// ../../node_modules/@radix-ui/react-menu/dist/index.mjs
+// node_modules/@radix-ui/react-menu/dist/index.mjs
 var Ko = Object.defineProperty, Q = (e, t) => Ko(e, "name", {
 	value: t,
 	configurable: !0
@@ -4746,7 +4746,7 @@ function Vs(e) {
 	return (t) => t.pointerType === "mouse" ? e(t) : void 0;
 }
 Q(Vs, "whenMouse");
-// ../../node_modules/@radix-ui/react-dropdown-menu/dist/index.mjs
+// node_modules/@radix-ui/react-dropdown-menu/dist/index.mjs
 var Hs = Object.defineProperty, Us = (e, t) => Hs(e, "name", {
 	value: t,
 	configurable: !0
@@ -5600,7 +5600,7 @@ if (!dc) throw Error("Vita Tree could not find its application root.");
 	children: /* @__PURE__ */ (0, s.jsx)(uc, {})
 })));
 try {
-	await import("./assets/frontend-app-JDAo12DF.js"), dc.dataset.ready = "true";
+	await import("./assets/frontend-app-4BNlTzvp.js"), dc.dataset.ready = "true";
 } catch (e) {
 	let t = document.createElement("p");
 	throw t.setAttribute("role", "alert"), t.textContent = e instanceof Error ? e.message : "The application could not start. Reload to try again.", dc.prepend(t), e;
