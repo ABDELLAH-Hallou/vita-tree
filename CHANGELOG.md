@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.20.1](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.20.0...v1.20.1) (2026-11-14)
+
+
+### Documentation
+
+* update Vita Tree introduction and PyPI summary ([d7baf75](https://github.com/ABDELLAH-Hallou/vita-tree/commit/d7baf75ef1d12d2ac7c09b4eb8d4f5a8e6acf9d9))
+* update Vita Tree introduction and PyPI summary ([8caf4dc](https://github.com/ABDELLAH-Hallou/vita-tree/commit/8caf4dc0f24d1c7aff8715d349dc15ab3c1e0d1e))
+
 ## [1.20.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.19.1...v1.20.0) (2026-11-09)
 
 
