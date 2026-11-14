@@ -51,6 +51,11 @@ def main():
             page.screenshot(path=str(artifacts / 'workbench-light.png'), full_page=True)
             page.get_by_role('button', name='Open platform-engineer', exact=True).click()
             expect(page.locator('.dag-node')).to_have_count(6)
+            graph = page.locator('#workflow-graph')
+            expect(graph.get_by_text('Approve CV changes')).to_be_visible()
+            assert graph.locator('[data-step=review]').evaluate(
+                "(review) => review.offsetTop < review.parentElement.querySelector('[data-step=cover]').offsetTop"
+            )
             page.get_by_role('tab', name='Job details & AI', exact=False).click()
             page.locator('#step-extract').check(); page.locator('#step-cover').check()
             expect(page.locator('#step-review')).to_be_checked()
@@ -207,7 +212,12 @@ def main():
                     page.locator('#step-ai-cancel').click()
                 expect(page.locator('#task-run')).to_be_enabled()
                 with page.expect_response(lambda response: response.url.endswith('/api/adapt') and response.request.method == 'POST') as pending:
-                    page.locator('#task-run').click()
+                    if step == 'validating':
+                        page.locator('#workflow-run-one').click()
+                        page.locator('#workflow-step-choice').select_option(step)
+                        page.get_by_role('button', name='Start step', exact=True).click()
+                    else:
+                        page.locator('#task-run').click()
                 record = pending.value.json()
                 expect(page.locator('#workflow-run')).to_have_value(record['id'])
                 expect(node).to_have_attribute('data-status', 'succeeded')
@@ -267,7 +277,7 @@ def main():
             page.emulate_media(reduced_motion='reduce')
             assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), 'Page overflows mobile'
             graph = page.locator('#workflow-graph .dag')
-            assert graph.evaluate('el=>el.scrollWidth>el.clientWidth'), 'Graph should scroll within its container'
+            assert graph.evaluate('el=>el.scrollWidth<=el.clientWidth'), 'Graph should fit its mobile container'
             page.locator('.dag-node[data-step=validating]').focus();page.keyboard.press('Enter')
             expect(page.locator('#task-title')).to_have_text('Final checks')
             page.screenshot(path=str(artifacts / 'workflow-mobile.png'), full_page=True)

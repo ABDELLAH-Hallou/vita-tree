@@ -41,11 +41,18 @@ test("workflow progress counts only steps in the selected preparation", () => {
 
   const awaitingReview = renderGraph({
     stages: stages.map((stage) =>
-      stage.id === "adapt" ? { ...stage, status: "review" } : stage,
+      stage.id === "adapt"
+        ? { ...stage, status: "review", pendingReview: true }
+        : stage,
     ),
   });
   assert.match(awaitingReview, /1 of 3 steps done/);
   assert.match(awaitingReview, /Tailor CV · Needs your review/);
+  assert.match(
+    awaitingReview,
+    /<button[^>]+class="dag-gate"[^>]+data-pending="true"/,
+  );
+  assert.match(awaitingReview, /Approve CV changes.*Needs you/);
 
   assert.doesNotMatch(renderGraph({ run: undefined }), /<progress/);
   assert.doesNotMatch(
@@ -56,6 +63,46 @@ test("workflow progress counts only steps in the selected preparation", () => {
     }),
     /<progress/,
   );
+});
+
+test("an imported attempt retains the workflow map without inventing progress or approval", () => {
+  const stages: Stage[] = [
+    {
+      id: "adapt",
+      status: "unknown",
+      title: "Tailor CV",
+      detail: "",
+      output: "",
+    },
+    {
+      id: "review",
+      status: "unknown",
+      title: "Review CV with AI",
+      detail: "",
+      output: "",
+    },
+    {
+      id: "cover",
+      status: "unknown",
+      title: "Cover letter",
+      detail: "",
+      output: "",
+    },
+  ];
+  const html = renderToStaticMarkup(
+    <WorkflowGraph
+      stages={stages}
+      run={{ id: "import", source: "jobenu" }}
+      config={{}}
+      statusNames={{ unknown: "Not recorded" }}
+      select={() => {}}
+    />,
+  );
+  assert.match(html, /Step progress wasn’t recorded/);
+  assert.match(html, /Revise CV in a new preparation/);
+  assert.match(html, /dag-split/);
+  assert.match(html, /Approve CV changes.*Not recorded/);
+  assert.doesNotMatch(html, /<progress|data-pending="true"/);
 });
 
 test("a withheld effective model is not replaced with the old primary model", () => {

@@ -187,13 +187,32 @@
   background: var(--panel);
   margin: 20px 0;
 }
+:global([data-theme="dark"]) .application :global(.workflow-panel) {
+  --panel: #161b22;
+  --surface: #0d1117;
+  --ink: #e6edf3;
+  --muted: #9aa4b2;
+  --line: #262c36;
+  --border: #30363d;
+  --accent: #58a6ff;
+  --accent-light: #14203a;
+  --positive: #56c866;
+  --review: #e3ad45;
+  --review-bg: #1d1a10;
+  background: radial-gradient(
+    900px 280px at 50% 0%,
+    var(--accent-light),
+    var(--surface) 75%
+  );
+  color: var(--ink);
+}
 .application :global(.workflow-heading) {
-  padding: 16px;
+  padding: 22px var(--graph-inset, 24px) 12px;
   gap: 12px;
-  background: var(--panel);
+  background: transparent;
 }
 .application :global(.workflow-heading h2) {
-  font-size: 16px;
+  font-size: 24px;
   margin: 0;
 }
 .application :global(.workflow-heading p) {
@@ -201,12 +220,20 @@
   line-height: 1.5;
 }
 .application :global(.workflow-action) {
-  padding: 12px 16px;
-  background: var(--surface);
-  border-top: 1px solid var(--line);
+  padding: 12px 24px;
+  background: transparent;
+  border-top: 0;
 }
-.application :global(.workflow-action h3) {
-  font-size: 13px;
+.application :global(.workflow-footer-copy) {
+  min-width: 0;
+}
+.application :global(.workflow-action .actions) {
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+.application
+  :global(.workflow-panel:has(#workflow-body[hidden]) .workflow-key) {
+  display: none;
 }
 .application :global(.workflow-action p) {
   font-size: 13px;
@@ -214,13 +241,12 @@
   max-width: 65ch;
 }
 .application :global(.workflow-graph) {
-  --graph-inset: 16px;
+  --graph-inset: 24px;
 }
 .application :global(.workflow-progress) {
   display: grid;
   gap: 8px;
   padding: 12px var(--graph-inset);
-  border-top: 1px solid var(--line);
 }
 .application :global(.workflow-progress-label) {
   display: flex;
@@ -230,6 +256,16 @@
   column-gap: 16px;
   row-gap: 4px;
   font-size: 13px;
+}
+.application :global(.workflow-progress-current) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+.application :global(.workflow-elapsed) {
+  color: var(--muted);
+  white-space: nowrap;
 }
 .application :global(.workflow-progress-label button) {
   margin-block: -8px;
@@ -260,40 +296,118 @@
 .application :global(.workflow-progress progress) {
   width: 100%;
   height: 6px;
+  appearance: none;
+  border: 0;
+  border-radius: 3px;
+  background: var(--line);
   accent-color: var(--accent);
 }
+.application :global(.workflow-progress progress::-webkit-progress-bar) {
+  border-radius: 3px;
+  background: var(--line);
+}
+.application :global(.workflow-progress progress::-webkit-progress-value) {
+  border-radius: 3px;
+  background: var(--accent);
+}
+.application :global(.workflow-progress progress::-moz-progress-bar) {
+  border-radius: 3px;
+  background: var(--accent);
+}
+:global([data-theme="dark"])
+  .application
+  :global(.workflow-progress progress::-webkit-progress-value) {
+  background: linear-gradient(90deg, var(--positive), var(--accent));
+}
+:global([data-theme="dark"])
+  .application
+  :global(.workflow-progress progress::-moz-progress-bar) {
+  background: linear-gradient(90deg, var(--positive), var(--accent));
+}
 .application :global(.workflow-graph .dag) {
-  gap: 0;
-  align-items: stretch;
-  background: var(--surface);
-  padding: 12px var(--graph-inset);
+  display: block;
+  background: transparent;
+  border: 0;
+  padding: 12px var(--graph-inset) 20px;
   scroll-padding-inline: var(--graph-inset);
 }
+.application :global(.dag-map) {
+  --edge-width: clamp(30px, 3vw, 44px);
+  --lane-height: 194px;
+  display: grid;
+  grid-template-columns:
+    repeat(3, minmax(146px, 1fr) var(--edge-width))
+    minmax(128px, 0.8fr) var(--edge-width)
+    minmax(146px, 1fr) var(--edge-width) minmax(146px, 1fr);
+  grid-template-rows: 34px repeat(2, var(--lane-height));
+}
 .application :global(.dag-node) {
-  flex: 1 0 144px;
-  align-content: start;
-  grid-template-columns: 16px minmax(0, 1fr);
-  gap: 6px;
-  min-height: 120px;
-  padding: 10px;
-  border-radius: 6px;
+  grid-row: 2 / 4;
+  align-self: center;
+  align-items: center;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 5px 8px;
+  min-height: 108px;
+  padding: 12px;
+  border-radius: 12px;
   background: var(--panel);
+}
+.application :global(.dag-node[data-step="extract"]) {
+  grid-column: 1;
+}
+.application :global(.dag-node[data-step="analyze"]) {
+  grid-column: 3;
+}
+.application :global(.dag-node[data-step="adapt"]) {
+  grid-column: 5;
+}
+.application :global(.dag-node[data-step="review"]) {
+  grid-area: 2 / 9;
+}
+.application :global(.dag-node[data-step="cover"]) {
+  grid-area: 3 / 9;
+}
+.application :global(.dag-node[data-step="validating"]) {
+  grid-column: 11;
 }
 .application :global(.dag-node .dag-symbol) {
   grid-row: auto;
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
+}
+.application :global(.dag-state) {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0 6px;
+}
+.application :global(.dag-index) {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+  white-space: nowrap;
 }
 .application :global(.dag-node strong) {
   grid-column: 1 / -1;
-  font-size: 14px;
-  line-height: 1.4;
+  font-size: 16px;
+  line-height: 1.25;
 }
 .application :global(.dag-node[data-status="succeeded"]) {
   border-color: var(--border);
 }
 .application :global(.dag-node[data-status="running"]) {
   background: var(--accent-light);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .application :global(.dag-node[data-status="running"] .dag-symbol) {
+    animation: step-spin 1.2s linear infinite;
+  }
+}
+@keyframes step-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 .application :global(.dag-node[data-status="review"]) {
   background: var(--review-bg);
@@ -311,23 +425,250 @@
 }
 .application :global(.dag-status),
 .application :global(.dag-time),
-.application :global(.dag-model) {
+.application :global(.dag-model),
+.application :global(.dag-local) {
   font-size: 12px;
   line-height: 1.4;
 }
 .application :global(.dag-time) {
   margin-top: 0;
 }
-.application :global(.dag-model) {
-  color: var(--muted);
-  font-family: inherit;
+.application :global(.dag-meta) {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+.application :global(.dag-node[data-status="succeeded"] .dag-time) {
+  color: var(--positive);
+}
+.application :global(.dag-node[data-status="running"] .dag-time) {
+  color: var(--accent);
+}
+.application :global(.dag-meta .dag-model),
+.application :global(.dag-meta .dag-local) {
+  color: var(--ink);
+  font-family: var(--mono);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 2px 5px;
+  justify-self: start;
 }
 .application :global(.dag-edge) {
   position: relative;
+  grid-row: 2 / 4;
   align-self: center;
-  flex: 0 0 20px;
-  height: 1px;
+  height: 2px;
   background: currentColor;
+}
+.application :global(.dag-edge[data-from="extract"]) {
+  grid-column: 2;
+}
+.application :global(.dag-edge[data-from="analyze"]) {
+  grid-column: 4;
+}
+.application :global(.dag-edge[data-from="adapt"]) {
+  grid-column: 6;
+}
+.application :global(.dag-edge[data-status="running"]) {
+  color: var(--accent);
+  background: none;
+  border-top: 2px dashed currentColor;
+}
+.application :global(.dag-edge[data-status="review"]) {
+  color: var(--review);
+}
+.application :global(.dag-split),
+.application :global(.dag-join) {
+  grid-row: 2 / 4;
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: var(--soft);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 4;
+}
+.application :global(.dag-split) {
+  grid-column: 8;
+}
+.application :global(.dag-join) {
+  grid-column: 10;
+}
+.application :global(.dag-return) {
+  grid-area: 1 / 5 / 3 / 10;
+  position: relative;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1;
+  text-align: center;
+  pointer-events: none;
+}
+.application :global(.dag-return svg) {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: var(--soft);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 4;
+}
+.application :global(.dag-return span) {
+  position: absolute;
+  top: 9%;
+  left: 54%;
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  white-space: nowrap;
+}
+.application :global(.dag-return::before) {
+  content: "";
+  position: absolute;
+  left: calc(16% - 3px);
+  top: calc(76% - 6px);
+  width: 6px;
+  height: 6px;
+  border: solid var(--soft);
+  border-width: 0 1px 1px 0;
+  transform: rotate(45deg);
+}
+.application :global(.dag-gate) {
+  grid-area: 2 / 7 / 4 / 8;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  min-height: 52px;
+  border: 1px solid var(--review);
+  border-radius: 28px;
+  background: var(--review-bg);
+  color: var(--review);
+  text-align: start;
+  white-space: normal;
+}
+.application :global(.dag-gate > span) {
+  display: grid;
+  gap: 2px;
+  font-size: 11px;
+  line-height: 1.2;
+}
+.application :global(.dag-gate strong) {
+  color: var(--ink);
+  font-size: 13px;
+}
+.application :global(.dag-gate .dag-symbol) {
+  flex: none;
+}
+.application :global(.dag-gate[data-pending="true"]:enabled:hover) {
+  border-color: var(--ink);
+}
+@media (max-width: 860px) {
+  .application :global(.dag-map) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto 18px auto 18px auto 18px auto 22px auto auto 20px auto;
+    column-gap: 8px;
+  }
+  .application :global(.dag-map .dag-node) {
+    min-height: 82px;
+    align-self: stretch;
+    padding: 9px;
+  }
+  .application :global(.dag-map .dag-node strong) {
+    font-size: 14px;
+  }
+  .application :global(.dag-map .dag-node[data-step="extract"]) {
+    grid-row: 1;
+    grid-column: 1 / -1;
+  }
+  .application :global(.dag-map .dag-node[data-step="analyze"]) {
+    grid-row: 3;
+    grid-column: 1 / -1;
+  }
+  .application :global(.dag-map .dag-node[data-step="adapt"]) {
+    grid-row: 5;
+    grid-column: 1 / -1;
+  }
+  .application :global(.dag-map .dag-node[data-step="review"]) {
+    grid-row: 9;
+    grid-column: 1;
+  }
+  .application :global(.dag-map .dag-node[data-step="cover"]) {
+    grid-row: 9;
+    grid-column: 2;
+  }
+  .application :global(.dag-map .dag-node[data-step="validating"]) {
+    grid-row: 12;
+    grid-column: 1 / -1;
+  }
+  .application :global(.dag-map .dag-edge[data-from="extract"]) {
+    grid-row: 2;
+    grid-column: 1 / -1;
+  }
+  .application :global(.dag-map .dag-edge[data-from="analyze"]) {
+    grid-row: 4;
+    grid-column: 1 / -1;
+  }
+  .application :global(.dag-map .dag-edge[data-from="adapt"]) {
+    grid-row: 6;
+    grid-column: 1 / -1;
+  }
+  .application :global(.dag-map .dag-edge) {
+    width: 18px;
+    justify-self: center;
+    transform: rotate(90deg);
+  }
+  .application :global(.dag-map .dag-split),
+  .application :global(.dag-map .dag-join) {
+    width: 22px;
+    height: 55%;
+    justify-self: center;
+    align-self: center;
+    transform: rotate(90deg);
+  }
+  .application :global(.dag-map .dag-split) {
+    grid-row: 8;
+    grid-column: 1 / -1;
+  }
+  .application :global(.dag-map .dag-join) {
+    grid-row: 11;
+    grid-column: 1 / -1;
+  }
+  .application :global(.dag-map .dag-gate) {
+    grid-row: 7;
+    grid-column: 1 / -1;
+    justify-self: center;
+  }
+  .application :global(.dag-map .dag-return) {
+    grid-row: 10;
+    grid-column: 1 / -1;
+    margin: 8px 0 0;
+    height: auto;
+    padding: 0;
+    border: 0;
+  }
+  .application :global(.dag-map .dag-return span) {
+    position: static;
+    padding: 0;
+    border: 0;
+    background: none;
+  }
+  .application :global(.dag-map .dag-return svg),
+  .application :global(.dag-map .dag-return::before) {
+    display: none;
+  }
+}
+.application :global(.workflow-panel .primary) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--panel);
+}
+:global([data-theme="dark"]) .application :global(.workflow-panel .primary) {
+  color: #0d1117;
 }
 .application :global(.dag-edge::after) {
   content: "";
@@ -347,11 +688,21 @@
   list-style: none;
   margin: 0;
   padding: 0;
+  color: var(--muted);
+  font-size: 12px;
 }
 .application :global(.workflow-key li) {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+.application :global(#workflow-step-picker) {
+  width: min(420px, calc(100% - 32px));
+}
+.application :global(#workflow-step-picker label) {
+  display: grid;
+  gap: 6px;
+  margin: 16px;
 }
 .application :global(.workflow-key .status-dot.review) {
   background: var(--review);

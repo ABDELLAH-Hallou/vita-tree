@@ -9,7 +9,8 @@ async function ensureSession() {
 }
 import {createLatexEditor} from './vendor/editor.mjs';
 import {createRunMonitor, isActiveRun, runLabel, runSteps} from './runs.js';
-import {renderGraph, graphStages, statusNames} from './workflow.js';
+import {renderGraph, graphStages, statusNames, needsDecision, taskNeedsReview} from './workflow.js';
+import {formatWorkflowElapsed} from '../components/WorkflowGraph';
 import {reportDetails,fileLabel,coverOutputs} from './reports.js';
 import {initDiagnostics} from './diagnostics.js';
 import {createAIConfiguration} from './ai-settings.js';
@@ -398,8 +399,6 @@ $('#edit-form').onsubmit=async event=>{
   try{await api('/api/save',{branch:s.branch,...state.editOrigin,leaf:state.leaf,text:$('#edit-text').value});$('#edit-dialog').close();await openBranch(s.branch,true);toast('CV draft updated on this computer');}
   catch(error){$('#edit-error').textContent=error.message;}finally{event.submitter.disabled=false;}
 };
-const needsDecision=run=>!!(run?.requirementsApprovalNeeded||run?.factualReview?.state==='pending'||run?.status==='awaiting_review');
-const taskNeedsReview=(run,step)=>needsDecision(run)&&(run.source==='jobenu'?run.pendingStep===step:run.factualReview?.step===step||step==='extract'&&run.requirementsApprovalNeeded);
 async function reviewPending(run){
   if(!run||state.openingRunId)return;
   state.openingRunId=run.id;renderWorkflow();
@@ -547,10 +546,12 @@ function renderWorkflow(){
   if(run?.reviewPolicy==='automatic')$('#workflow-summary').textContent+=' Automatic approvals selected for this preparation.';
   if(run?.contextInvalidated)$('#workflow-summary').textContent+=' Earlier analysis did not match the captured inputs and was excluded. Select Check CV match to refresh it.';
   renderGraph($('#workflow-graph'),{run,history:runs,options:workflowOptions(),available:state.session.workflow,selected:state.selectedTask,select:selectTask,config:run?.stepConfig||Object.fromEntries(aiSteps.map(step=>[step,aiSetup.route(step)]))});
-  const next=$('#workflow-next');next.disabled=!!state.snapshot.running||!!state.launching||!!state.openingRunId;
-  next.textContent=run?.requirementsApprovalNeeded?'Review job requirements':run?.factualReview?.state==='pending'?'Review CV changes':run?.resumeAvailable?'Continue preparation':finished&&run.status==='succeeded'?'Preview your PDF':'Prepare application';
+  const busy=!!state.snapshot.running||!!state.launching||!!state.openingRunId;
+  const next=$('#workflow-next');next.disabled=busy||(!run&&$('#run-adapt').disabled);
+  $('#workflow-run-one').disabled=busy||!state.snapshot.editable;
+  next.textContent=run?.requirementsApprovalNeeded?'Review job requirements':run?.factualReview?.state==='pending'?'Review CV changes':run?.resumeAvailable?'Continue preparation':finished&&run.status==='succeeded'?'Preview your PDF':'Start selected steps';
   $('#workflow-action').dataset.state=needsDecision(run)?'review':run?.status==='failed'?'failed':'ready';
-  $('#workflow-next-help').textContent=needsDecision(run)?'One review, then the remaining steps continue automatically.':run?.status==='failed'?(runFailureText(run)||run.message):finished&&run.status==='succeeded'?'Your application is updated. Check the final layout before saving.':'Prepare everything, or choose individual steps in Job details & AI.';
+  $('#workflow-next-help').textContent=needsDecision(run)?'One review, then the remaining steps continue automatically.':run?.status==='failed'?(runFailureText(run)||run.message):finished&&run.status==='succeeded'?'Your application is updated. Check the final layout before saving.':'If AI review and cover letter are both selected, review runs first.';
   if(run?.source==='jobenu'){
     next.textContent=needsDecision(run)?(run.pendingStep==='extract'?'Review requirements':'Review changes'):run.status==='failed'?'Start selected steps':'Open import activity';
     $('#workflow-next-help').textContent=run.status==='failed'?'Start a new preparation with your current AI setup. The imported attempt keeps its captured settings.':run.message;
@@ -596,9 +597,20 @@ $('#workflow-next').onclick=()=>{
   if(run?.factualReview?.state==='pending')return factualReview.open(run).catch(e=>notice(e.message,true));
   if(run?.resumeAvailable){state.resumeCaptured=true;$('#resume-current-config').checked=false;return reviewResume();}
   if(run?.status==='succeeded'){setView('pdf');return;}
-  const steps=aiSteps.filter(stepAvailable);
+  const steps=workflowOptions().steps;
   if(aiSetup.problem(steps)||!state.snapshot.job.trim()){setView('ai');$('#ai-panel').scrollIntoView({block:'start'});notice('Add the job description and choose your AI setup, then prepare the application.');return;}
   return runAdapt(steps);
+};
+$('#workflow-run-one').onclick=()=>{
+  const dialog=$('#workflow-step-picker'), choice=$('#workflow-step-choice');
+  choice.replaceChildren(...graphStages(null,workflowOptions(),state.session.workflow)
+    .filter(task=>stepAvailable(task.id))
+    .map(task=>new Option(task.title,task.id)));
+  dialog.returnValue='';
+  dialog.showModal();
+};
+$('#workflow-step-picker').onclose=event=>{
+  if(event.currentTarget.returnValue==='run')runAdapt([$('#workflow-step-choice').value]);
 };
 $('#view-run').onclick=async()=>{
   const run=state.displayedRun;if(!run||isActiveRun(run)||state.openingRunId)return;
@@ -809,4 +821,4 @@ $('#inspect-step-dialog').onclick=()=>{
 };
 try{await ensureSession();await loadBranches();const params=new URLSearchParams(location.search), branch=params.get('branch');if(['structure','source','pdf','changes','ai'].includes(params.get('view')))state.view=params.get('view');if(branch)await openBranch(branch);runMonitor=createRunMonitor({api,changed:runsChanged});runMonitor.start();}catch(error){$('#branch-list').innerHTML=`<p class="empty">${esc(error.message)}</p>`;}
 
-setInterval(()=>{document.querySelectorAll(".dag-time[data-started-at]").forEach(el=>{el.textContent=`${Math.max(0,Math.floor(Date.now()/1000-Number(el.dataset.startedAt)))}s`;});},1000);
+setInterval(()=>{document.querySelectorAll(".dag-time[data-started-at]").forEach(el=>{el.textContent=formatWorkflowElapsed(Date.now()/1000-Number(el.dataset.startedAt),el.hasAttribute('data-clock'));});},1000);

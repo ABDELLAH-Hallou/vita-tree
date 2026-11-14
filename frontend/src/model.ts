@@ -22,6 +22,7 @@ export interface Stage {
   finishedAt?: number;
   reusedFrom?: string;
   previousRun?: string;
+  pendingReview?: boolean;
 }
 export interface Route {
   provider?: string;
@@ -32,6 +33,9 @@ export interface Route {
 export interface GraphRun {
   id: string;
   source?: "jobenu";
+  status?: string;
+  startedAt?: number;
+  finishedAt?: number;
   requirementsRevision?: string;
   requirementsStatus?: string;
   requirementsApprovalNeeded?: boolean;
