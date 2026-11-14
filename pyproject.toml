@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "vita-tree"
 dynamic = ["version"]
-description = "A local Git and LaTeX CV workspace with branch comparison, editing, and PDF previews"
+description = "Local LaTeX CV editor and job application workspace with Git version comparison, PDF previews, and optional AI tailoring."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"

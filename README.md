@@ -1,6 +1,24 @@
-# Vita Tree
+# Vita-Tree — LaTeX CV Editor and AI Application Workspace
 
-Edit a LaTeX CV, compare versions across Git branches, and preview the finished PDF in a local browser workspace.
+Edit your LaTeX CV, compare tailored versions, and manage job applications in a local browser workspace.
+
+Vita-Tree brings CV editing, Git version history, and PDF previews into one visual interface. Keep a separate CV version and job description for each application, review changes side by side, and check the compiled PDF before sending it.
+
+With optional Vita-CV integration, you can analyze job descriptions, tailor your CV, review AI-generated changes, and generate cover letters using your configured AI provider.
+
+- **Edit LaTeX CVs:** work with your existing LaTeX source and preview compiled PDFs.
+- **Compare versions:** inspect changes between your starting CV and an application-specific version.
+- **Organize applications:** keep CV variants and job descriptions together, backed by Git.
+- **Run AI workflows:** prepare application materials and review the results before saving.
+- **Try the demo:** explore a sample CV with `vt demo`, without an AI account or an existing CV repository.
+
+## Vita-Tree and Vita-CV: what’s the difference?
+
+**Vita-Tree is the visual workspace.** Use it to edit CVs, compare versions, preview PDFs, and run application workflows from your browser.
+
+**[Vita-CV](https://github.com/ABDELLAH-Hallou/vita-cv) is the command-line tool.** It manages CVs as code and provides the AI workflows that Vita-Tree integrates.
+
+Choose Vita-Tree for a visual interface or Vita-CV for a terminal-based workflow. Vita-Tree supports editing, comparisons, and PDF previews without the optional AI integration. Install `vita-tree[ai]` to add Vita-CV-powered AI workflows.
 
 ## Quick start
 
