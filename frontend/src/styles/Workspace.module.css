@@ -214,19 +214,100 @@
   max-width: 65ch;
 }
 .application :global(.workflow-graph) {
-  padding: 16px;
-  background: var(--panel);
-  background-image: none;
+  --graph-inset: 16px;
+}
+.application :global(.workflow-progress) {
+  display: grid;
+  gap: 8px;
+  padding: 12px var(--graph-inset);
+  border-top: 1px solid var(--line);
+}
+.application :global(.workflow-progress-label) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  column-gap: 16px;
+  row-gap: 4px;
+  font-size: 13px;
+}
+.application :global(.workflow-progress-label button) {
+  margin-block: -8px;
+  padding: 4px 0;
+  min-height: 36px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  text-align: start;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.application
+  :global(.workflow-progress-label button[data-status="running"]:enabled) {
+  color: var(--accent);
+}
+.application
+  :global(.workflow-progress-label button[data-status="review"]:enabled) {
+  color: var(--review);
+}
+.application
+  :global(
+    .workflow-progress-label
+      button:is([data-status="failed"], [data-status="interrupted"]):enabled
+  ) {
+  color: var(--negative);
+}
+.application :global(.workflow-progress progress) {
+  width: 100%;
+  height: 6px;
+  accent-color: var(--accent);
+}
+.application :global(.workflow-graph .dag) {
+  gap: 0;
+  align-items: stretch;
+  background: var(--surface);
+  padding: 12px var(--graph-inset);
+  scroll-padding-inline: var(--graph-inset);
 }
 .application :global(.dag-node) {
-  min-height: 104px;
-  padding: 12px;
+  flex: 1 0 144px;
+  align-content: start;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 6px;
+  min-height: 120px;
+  padding: 10px;
   border-radius: 6px;
   background: var(--panel);
 }
+.application :global(.dag-node .dag-symbol) {
+  grid-row: auto;
+  width: 16px;
+  height: 16px;
+}
 .application :global(.dag-node strong) {
-  font-size: 13px;
+  grid-column: 1 / -1;
+  font-size: 14px;
   line-height: 1.4;
+}
+.application :global(.dag-node[data-status="succeeded"]) {
+  border-color: var(--border);
+}
+.application :global(.dag-node[data-status="running"]) {
+  background: var(--accent-light);
+}
+.application :global(.dag-node[data-status="review"]) {
+  background: var(--review-bg);
+}
+.application
+  :global(.dag-node:is([data-status="failed"], [data-status="interrupted"])) {
+  background: var(--negative-bg);
+}
+.application :global(.dag-node:enabled:hover) {
+  border-color: var(--ink);
+}
+.application :global(.dag-node[data-status="previous"] .dag-status),
+.application :global(.dag-node[data-status="previous"] .dag-symbol) {
+  color: var(--muted);
 }
 .application :global(.dag-status),
 .application :global(.dag-time),
@@ -234,12 +315,46 @@
   font-size: 12px;
   line-height: 1.4;
 }
-.application :global(.dag-edge) {
-  font-size: 18px;
-  width: 20px;
+.application :global(.dag-time) {
+  margin-top: 0;
 }
-.application :global(.workflow-stage-group) {
-  display: contents;
+.application :global(.dag-model) {
+  color: var(--muted);
+  font-family: inherit;
+}
+.application :global(.dag-edge) {
+  position: relative;
+  align-self: center;
+  flex: 0 0 20px;
+  height: 1px;
+  background: currentColor;
+}
+.application :global(.dag-edge::after) {
+  content: "";
+  position: absolute;
+  right: 3px;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  border: solid currentColor;
+  border-width: 1px 1px 0 0;
+  transform: translateY(-50%) rotate(45deg);
+}
+.application :global(.workflow-key) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.application :global(.workflow-key li) {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.application :global(.workflow-key .status-dot.review) {
+  background: var(--review);
 }
 .application :global(.branch-icon) {
   stroke: currentColor;
@@ -482,7 +597,13 @@
   }
   .application :global(.workflow-heading) {
     align-items: flex-start;
-    flex-wrap: wrap;
+    flex-direction: column;
+  }
+  .application :global(.workflow-heading > .actions) {
+    max-width: 100%;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
   }
 }
 @media (max-width: 600px) {
@@ -560,7 +681,10 @@
     min-height: 420px;
   }
   .application :global(.workflow-graph) {
-    padding: 12px;
+    --graph-inset: 12px;
+  }
+  .application :global(.workflow-progress-label button) {
+    min-height: 44px;
   }
   .application :global(.workflow-heading),
   .application :global(.workflow-action) {

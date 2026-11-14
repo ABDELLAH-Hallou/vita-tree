@@ -77,20 +77,26 @@ export const ApplicationWorkspace = memo(function ApplicationWorkspace() {
         <div id="workflow-body">
           <div
             id="workflow-graph"
-            className="dag"
+            className="workflow-graph"
             role="group"
             aria-label="Application preparation steps"
           ></div>
           <footer className="workflow-footer">
-            <span>
-              Click an AI step to configure it. Prepare everything, choose a few
-              steps, or start one step on its own.
-            </span>
-            <span>
-              <i className="status-dot running"></i>In progress{" "}
-              <i className="status-dot succeeded"></i>Done{" "}
-              <i className="status-dot failed"></i>Couldn’t finish
-            </span>
+            <span>Select a step to see its details.</span>
+            <ul className="workflow-key" aria-label="Step status key">
+              <li>
+                <i className="status-dot running"></i>In progress
+              </li>
+              <li>
+                <i className="status-dot succeeded"></i>Done
+              </li>
+              <li>
+                <i className="status-dot failed"></i>Couldn’t finish
+              </li>
+              <li>
+                <i className="status-dot review"></i>Needs review
+              </li>
+            </ul>
           </footer>
           <div id="task-inspector" className="task-inspector" hidden={true}>
             <div>
