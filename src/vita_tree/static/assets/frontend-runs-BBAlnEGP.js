@@ -1,4 +1,4 @@
-import { o as e } from "./frontend-workflow-DzZcoqia.js";
+import { o as e } from "./frontend-workflow-BHnwUV3Z.js";
 // frontend/src/compat/runs.js
 var t = (e) => e && ["queued", "running"].includes(e.status), n = (e) => e.source === "jobenu" ? "Jobenu · " + ({
 	succeeded: "Completed",

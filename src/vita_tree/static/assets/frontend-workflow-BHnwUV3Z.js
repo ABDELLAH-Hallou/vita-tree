@@ -151,28 +151,19 @@ function f({ stages: e, run: t, statusNames: n, disabled: r, focusStep: i }) {
 		})]
 	});
 }
-function p({ task: e, run: t, select: n, disabled: r }) {
-	let i = e.pendingReview, a = i ? "Needs you" : t?.factualReview?.step === "adapt" && t.factualReview.state === "resolved" ? "Decisions saved" : e.status === "unknown" ? "Not recorded" : [
-		"skipped",
-		"previous",
-		"unavailable"
-	].includes(e.status) ? "Skipped" : e.status === "succeeded" ? "No review recorded" : "If changes need review", o = /* @__PURE__ */ (0, s.jsxs)(s.Fragment, { children: [/* @__PURE__ */ (0, s.jsx)("svg", {
-		className: "dag-symbol",
-		viewBox: "0 0 24 24",
-		"aria-hidden": "true",
-		children: /* @__PURE__ */ (0, s.jsx)("path", { d: u.review })
-	}), /* @__PURE__ */ (0, s.jsxs)("span", { children: [/* @__PURE__ */ (0, s.jsx)("strong", { children: "Approve CV changes" }), /* @__PURE__ */ (0, s.jsx)("span", { children: a })] })] });
-	return i ? /* @__PURE__ */ (0, s.jsx)("button", {
+function p({ task: e, select: t, disabled: n }) {
+	return /* @__PURE__ */ (0, s.jsxs)("button", {
 		type: "button",
 		className: "dag-gate",
-		"data-pending": "true",
-		disabled: r,
+		disabled: n,
 		"aria-haspopup": "dialog",
-		onClick: () => n(e),
-		children: o
-	}) : /* @__PURE__ */ (0, s.jsx)("div", {
-		className: "dag-gate",
-		children: o
+		onClick: () => t(e),
+		children: [/* @__PURE__ */ (0, s.jsx)("svg", {
+			className: "dag-symbol",
+			viewBox: "0 0 24 24",
+			"aria-hidden": "true",
+			children: /* @__PURE__ */ (0, s.jsx)("path", { d: u.review })
+		}), /* @__PURE__ */ (0, s.jsxs)("span", { children: [/* @__PURE__ */ (0, s.jsx)("strong", { children: e.id === "extract" ? "Approve requirements" : e.id === "cover" ? "Approve cover letter" : "Approve CV changes" }), /* @__PURE__ */ (0, s.jsx)("span", { children: "Needs you" })] })]
 	});
 }
 function m({ stages: e, run: t, selected: n, select: r, config: i, statusNames: a, disabled: o = !1 }) {
@@ -201,11 +192,7 @@ function m({ stages: e, run: t, selected: n, select: r, config: i, statusNames: 
 						})
 					}), /* @__PURE__ */ (0, s.jsx)("span", { children: "Revise CV in a new preparation" })]
 				}),
-				[
-					"extract",
-					"analyze",
-					"adapt"
-				].map((e) => m[e] && /* @__PURE__ */ (0, s.jsx)("span", {
+				["extract", "analyze"].map((e) => m[e] && /* @__PURE__ */ (0, s.jsx)("span", {
 					className: "dag-edge",
 					"data-from": e,
 					"data-status": m[e],
@@ -213,6 +200,7 @@ function m({ stages: e, run: t, selected: n, select: r, config: i, statusNames: 
 				}, e)),
 				m.review && m.cover && /* @__PURE__ */ (0, s.jsxs)(s.Fragment, { children: [/* @__PURE__ */ (0, s.jsx)("svg", {
 					className: "dag-split",
+					"data-status": m.adapt,
 					viewBox: "0 0 100 100",
 					preserveAspectRatio: "none",
 					"aria-hidden": "true",
@@ -231,88 +219,91 @@ function m({ stages: e, run: t, selected: n, select: r, config: i, statusNames: 
 					})
 				})] }),
 				e.map((e, c) => {
-					let f = (a[e.status] || e.status) + (e.reusedFrom ? " · reused" : "");
-					t?.factualReview?.step === e.id && (f = {
+					let l = (a[e.status] || e.status) + (e.reusedFrom ? " · reused" : "");
+					t?.factualReview?.step === e.id && (l = {
 						pending: "Needs factual review",
 						resolved: "Factual decisions saved",
 						unavailable: "Review unavailable"
-					}[t.factualReview.state] || "Review unavailable"), e.id === "extract" && t?.requirementsApprovalNeeded && (f = "Needs requirements review"), [
+					}[t.factualReview.state] || "Review unavailable"), e.id === "extract" && t?.requirementsApprovalNeeded && (l = "Needs requirements review"), [
 						"analyze",
 						"adapt",
 						"review",
 						"cover"
-					].includes(e.id) && e.status === "succeeded" && t?.requirementsStatus && t.requirementsStatus !== "current" && (f += " · requirements changed");
-					let m = i[e.id], h = t?.outcomes?.[e.id]?.backend?.routing, g = h?.effective, _ = !!h?.chain?.length && h.chain.length > 1 && (!!g?.model && g.model !== h.chain[0]?.model || !!g?.provider && g.provider !== h.chain[0]?.provider), v = e.previousRun ? "This step completed in an earlier preparation. Its results were not loaded or verified for this preparation. Use Retry on that earlier preparation to check checkpoint reuse." : e.id === "validating" ? void 0 : t ? "View the AI settings captured for this step" : "Configure the AI for this step";
-					return /* @__PURE__ */ (0, s.jsxs)(l.Fragment, { children: [/* @__PURE__ */ (0, s.jsxs)("button", {
-						type: "button",
-						className: "dag-node",
-						disabled: o,
-						"data-step": e.id,
-						"data-status": e.status,
-						"aria-pressed": n === e.id,
-						"aria-haspopup": e.id === "validating" ? void 0 : "dialog",
-						"aria-label": `${e.title}: ${f}. ${e.detail}`,
-						title: v,
-						onClick: () => r(e),
-						onFocus: (e) => {
-							let t = e.currentTarget;
-							requestAnimationFrame(() => {
-								document.activeElement === t && t.scrollIntoView({
-									block: "nearest",
-									inline: "nearest"
+					].includes(e.id) && e.status === "succeeded" && t?.requirementsStatus && t.requirementsStatus !== "current" && (l += " · requirements changed");
+					let f = i[e.id], m = t?.outcomes?.[e.id]?.backend?.routing, h = m?.effective, g = !!m?.chain?.length && m.chain.length > 1 && (!!h?.model && h.model !== m.chain[0]?.model || !!h?.provider && h.provider !== m.chain[0]?.provider), _ = e.previousRun ? "This step completed in an earlier preparation. Its results were not loaded or verified for this preparation. Use Retry on that earlier preparation to check checkpoint reuse." : e.id === "validating" ? void 0 : t ? "View the AI settings captured for this step" : "Configure the AI for this step";
+					return /* @__PURE__ */ (0, s.jsxs)("div", {
+						className: "dag-stage",
+						"data-stage": e.id,
+						children: [/* @__PURE__ */ (0, s.jsxs)("button", {
+							type: "button",
+							className: "dag-node",
+							disabled: o,
+							"data-step": e.id,
+							"data-status": e.status,
+							"aria-pressed": n === e.id,
+							"aria-haspopup": e.id === "validating" ? void 0 : "dialog",
+							"aria-label": `${e.title}: ${l}. ${e.detail}`,
+							title: _,
+							onClick: () => r(e),
+							onFocus: (e) => {
+								let t = e.currentTarget;
+								requestAnimationFrame(() => {
+									document.activeElement === t && t.scrollIntoView({
+										block: "nearest",
+										inline: "nearest"
+									});
 								});
-							});
-						},
-						children: [
-							/* @__PURE__ */ (0, s.jsx)("svg", {
-								className: "dag-symbol",
-								viewBox: "0 0 24 24",
-								"aria-hidden": "true",
-								children: /* @__PURE__ */ (0, s.jsx)("path", { d: u[e.status] || "M21 12a9 9 0 1 1-9-9 9 9 0 0 1 9 9" })
-							}),
-							/* @__PURE__ */ (0, s.jsxs)("span", {
-								className: "dag-state",
-								children: [/* @__PURE__ */ (0, s.jsxs)("span", {
-									className: "dag-index",
-									children: ["Step ", c + 1]
-								}), /* @__PURE__ */ (0, s.jsx)("span", {
-									className: "dag-status",
-									children: f
-								})]
-							}),
-							/* @__PURE__ */ (0, s.jsx)("strong", { children: e.title }),
-							t?.requirementsRevision && e.id !== "validating" && /* @__PURE__ */ (0, s.jsxs)("span", {
-								className: "dag-requirements",
-								title: t.requirementsRevision,
-								children: ["Requirements ", t.requirementsRevision.slice(0, 12)]
-							}),
-							/* @__PURE__ */ (0, s.jsxs)("span", {
-								className: "dag-meta",
-								children: [m ? /* @__PURE__ */ (0, s.jsxs)("span", {
-									className: "dag-model",
-									title: g?.provider ? `Used ${g.provider} / ${g.model || "model unreported"}${_ ? " (backup)" : ""}. Requested ${m.provider} / ${m.model}` : [
-										m.provider,
-										m.model,
-										m.reasoning || "Automatic reasoning"
-									].filter(Boolean).join(" · "),
-									children: [(g?.provider ? g.model || `${g.provider} · model unreported` : null) || m.model || `${m.provider} default`, _ ? " · Backup" : ""]
-								}) : e.id === "validating" ? /* @__PURE__ */ (0, s.jsx)("span", {
-									className: "dag-local",
-									children: "No AI"
-								}) : null, (e.previousRun || e.startedAt) && /* @__PURE__ */ (0, s.jsx)("span", {
-									className: "dag-time",
-									"data-clock": e.status === "running" ? "" : void 0,
-									"data-started-at": e.startedAt && !e.finishedAt && e.status === "running" ? e.startedAt : void 0,
-									children: e.previousRun ? "Historical result · not loaded" : e.startedAt ? d((e.finishedAt || Date.now() / 1e3) - e.startedAt, e.status === "running") : ""
-								})]
-							})
-						]
-					}), e.id === "adapt" && /* @__PURE__ */ (0, s.jsx)(p, {
-						task: e,
-						run: t,
-						select: r,
-						disabled: o
-					})] }, e.id);
+							},
+							children: [
+								/* @__PURE__ */ (0, s.jsx)("svg", {
+									className: "dag-symbol",
+									viewBox: "0 0 24 24",
+									"aria-hidden": "true",
+									children: /* @__PURE__ */ (0, s.jsx)("path", { d: u[e.status] || "M21 12a9 9 0 1 1-9-9 9 9 0 0 1 9 9" })
+								}),
+								/* @__PURE__ */ (0, s.jsxs)("span", {
+									className: "dag-state",
+									children: [/* @__PURE__ */ (0, s.jsxs)("span", {
+										className: "dag-index",
+										children: ["Step ", c + 1]
+									}), /* @__PURE__ */ (0, s.jsx)("span", {
+										className: "dag-status",
+										children: l
+									})]
+								}),
+								/* @__PURE__ */ (0, s.jsx)("strong", { children: e.title }),
+								t?.requirementsRevision && e.id !== "validating" && /* @__PURE__ */ (0, s.jsxs)("span", {
+									className: "dag-requirements",
+									title: t.requirementsRevision,
+									children: ["Requirements ", t.requirementsRevision.slice(0, 12)]
+								}),
+								/* @__PURE__ */ (0, s.jsxs)("span", {
+									className: "dag-meta",
+									children: [f ? /* @__PURE__ */ (0, s.jsxs)("span", {
+										className: "dag-model",
+										title: h?.provider ? `Used ${h.provider} / ${h.model || "model unreported"}${g ? " (backup)" : ""}. Requested ${f.provider} / ${f.model}` : [
+											f.provider,
+											f.model,
+											f.reasoning || "Automatic reasoning"
+										].filter(Boolean).join(" · "),
+										children: [(h?.provider ? h.model || `${h.provider} · model unreported` : null) || f.model || `${f.provider} default`, g ? " · Backup" : ""]
+									}) : e.id === "validating" ? /* @__PURE__ */ (0, s.jsx)("span", {
+										className: "dag-local",
+										children: "No AI"
+									}) : null, (e.previousRun || e.startedAt) && /* @__PURE__ */ (0, s.jsx)("span", {
+										className: "dag-time",
+										"data-clock": e.status === "running" ? "" : void 0,
+										"data-started-at": e.startedAt && !e.finishedAt && e.status === "running" ? e.startedAt : void 0,
+										children: e.previousRun ? "Historical result · not loaded" : e.startedAt ? d((e.finishedAt || Date.now() / 1e3) - e.startedAt, e.status === "running") : ""
+									})]
+								})
+							]
+						}), e.pendingReview && /* @__PURE__ */ (0, s.jsx)(p, {
+							task: e,
+							select: r,
+							disabled: o
+						})]
+					}, e.id);
 				})
 			]
 		})
@@ -402,11 +393,11 @@ function T(e, t = {}, n = {}) {
 	});
 }
 function E(e, { run: t, options: n, available: r, selected: i, select: a, history: o = [], config: s = {} }) {
-	let c = T(t, n, r).map((e) => {
+	let c = t?.status === "awaiting_review" && t.reviewPolicy !== "automatic", l = T(t, n, r).map((e) => {
 		if (w(t, e.id)) return {
 			...e,
 			status: "review",
-			pendingReview: !0
+			pendingReview: c
 		};
 		if (e.status === "skipped") {
 			let n = o.find((n) => n.id !== t?.id && (!t || n.createdAt < t.createdAt) && n.stages?.some((t) => t.id === e.id && t.status === "succeeded"));
@@ -417,14 +408,14 @@ function E(e, { run: t, options: n, available: r, selected: i, select: a, histor
 			};
 		}
 		return e;
-	}), l = e.contains(document.activeElement) ? document.activeElement.dataset.step : null;
+	}), u = e.contains(document.activeElement) ? document.activeElement.dataset.step : null;
 	y(e, {
-		stages: c,
+		stages: l,
 		run: t,
 		selected: i,
 		select: a,
 		config: s,
 		statusNames: S
-	}), l && e.querySelector(`[data-step="${l}"]`)?.focus({ preventScroll: !0 });
+	}), u && e.querySelector(`[data-step="${u}"]`)?.focus({ preventScroll: !0 });
 }
 export { w as a, v as c, S as i, d as l, C as n, x as o, E as r, b as s, T as t };

@@ -334,16 +334,39 @@
 .application :global(.dag-map) {
   --edge-width: clamp(30px, 3vw, 44px);
   --lane-height: 194px;
+  --step-track: minmax(146px, 1fr);
+  --gate-width: 128px;
+  --approval-track: minmax(
+    calc(146px + var(--edge-width) + var(--gate-width)),
+    1.8fr
+  );
   display: grid;
   grid-template-columns:
-    repeat(3, minmax(146px, 1fr) var(--edge-width))
-    minmax(128px, 0.8fr) var(--edge-width)
-    minmax(146px, 1fr) var(--edge-width) minmax(146px, 1fr);
+    var(--extract-track, var(--step-track)) var(--edge-width)
+    var(--step-track) var(--edge-width)
+    var(--adapt-track, var(--step-track)) var(--edge-width)
+    var(--review-track, var(--step-track)) var(--edge-width) var(--step-track);
   grid-template-rows: 34px repeat(2, var(--lane-height));
 }
-.application :global(.dag-node) {
-  grid-row: 2 / 4;
+.application :global(.dag-map:has([data-stage="extract"] .dag-gate)) {
+  --extract-track: var(--approval-track);
+}
+.application :global(.dag-map:has([data-stage="adapt"] .dag-gate)) {
+  --adapt-track: var(--approval-track);
+}
+.application :global(.dag-map:has([data-stage="cover"] .dag-gate)) {
+  --review-track: var(--approval-track);
+}
+.application :global(.dag-stage) {
+  display: flex;
+  align-items: center;
   align-self: center;
+  gap: var(--edge-width);
+  grid-row: 2 / 4;
+}
+.application :global(.dag-stage > .dag-node) {
+  flex: 1 1 0;
+  min-width: 0;
   align-items: center;
   grid-template-columns: 20px minmax(0, 1fr);
   gap: 5px 8px;
@@ -352,23 +375,23 @@
   border-radius: 12px;
   background: var(--panel);
 }
-.application :global(.dag-node[data-step="extract"]) {
+.application :global(.dag-stage[data-stage="extract"]) {
   grid-column: 1;
 }
-.application :global(.dag-node[data-step="analyze"]) {
+.application :global(.dag-stage[data-stage="analyze"]) {
   grid-column: 3;
 }
-.application :global(.dag-node[data-step="adapt"]) {
+.application :global(.dag-stage[data-stage="adapt"]) {
   grid-column: 5;
 }
-.application :global(.dag-node[data-step="review"]) {
-  grid-area: 2 / 9;
+.application :global(.dag-stage[data-stage="review"]) {
+  grid-area: 2 / 7;
 }
-.application :global(.dag-node[data-step="cover"]) {
-  grid-area: 3 / 9;
+.application :global(.dag-stage[data-stage="cover"]) {
+  grid-area: 3 / 7;
 }
-.application :global(.dag-node[data-step="validating"]) {
-  grid-column: 11;
+.application :global(.dag-stage[data-stage="validating"]) {
+  grid-column: 9;
 }
 .application :global(.dag-node .dag-symbol) {
   grid-row: auto;
@@ -470,9 +493,6 @@
 .application :global(.dag-edge[data-from="analyze"]) {
   grid-column: 4;
 }
-.application :global(.dag-edge[data-from="adapt"]) {
-  grid-column: 6;
-}
 .application :global(.dag-edge[data-status="running"]) {
   color: var(--accent);
   background: none;
@@ -492,13 +512,16 @@
   stroke-dasharray: 4 4;
 }
 .application :global(.dag-split) {
-  grid-column: 8;
+  grid-column: 6;
+}
+.application :global(.dag-split[data-status="running"]) {
+  stroke: var(--accent);
 }
 .application :global(.dag-join) {
-  grid-column: 10;
+  grid-column: 8;
 }
 .application :global(.dag-return) {
-  grid-area: 1 / 5 / 3 / 10;
+  grid-area: 1 / 5 / 3 / 8;
   position: relative;
   color: var(--muted);
   font-size: 12px;
@@ -537,8 +560,9 @@
   transform: rotate(45deg);
 }
 .application :global(.dag-gate) {
-  grid-area: 2 / 7 / 4 / 8;
-  align-self: center;
+  position: relative;
+  flex: 0 0 var(--gate-width);
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -564,16 +588,33 @@
 .application :global(.dag-gate .dag-symbol) {
   flex: none;
 }
-.application :global(.dag-gate[data-pending="true"]:enabled:hover) {
+.application :global(.dag-gate:enabled:hover) {
   border-color: var(--ink);
+}
+.application :global(.dag-gate::before) {
+  position: absolute;
+  top: 50%;
+  inset-inline-end: 100%;
+  width: var(--edge-width);
+  height: 2px;
+  background: var(--review);
+  content: "";
+  pointer-events: none;
 }
 @media (max-width: 860px) {
   .application :global(.dag-map) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: auto 18px auto 18px auto 18px auto 22px auto auto 20px auto;
+    grid-template-rows: auto 18px auto 18px auto 22px auto auto 20px auto;
     column-gap: 8px;
   }
-  .application :global(.dag-map .dag-node) {
+  .application :global(.dag-map .dag-stage) {
+    flex-direction: column;
+    align-self: stretch;
+    gap: 18px;
+  }
+  .application :global(.dag-map .dag-stage > .dag-node) {
+    flex: auto;
+    width: 100%;
     min-height: 82px;
     align-self: stretch;
     padding: 9px;
@@ -581,28 +622,28 @@
   .application :global(.dag-map .dag-node strong) {
     font-size: 14px;
   }
-  .application :global(.dag-map .dag-node[data-step="extract"]) {
+  .application :global(.dag-map .dag-stage[data-stage="extract"]) {
     grid-row: 1;
     grid-column: 1 / -1;
   }
-  .application :global(.dag-map .dag-node[data-step="analyze"]) {
+  .application :global(.dag-map .dag-stage[data-stage="analyze"]) {
     grid-row: 3;
     grid-column: 1 / -1;
   }
-  .application :global(.dag-map .dag-node[data-step="adapt"]) {
+  .application :global(.dag-map .dag-stage[data-stage="adapt"]) {
     grid-row: 5;
     grid-column: 1 / -1;
   }
-  .application :global(.dag-map .dag-node[data-step="review"]) {
-    grid-row: 9;
+  .application :global(.dag-map .dag-stage[data-stage="review"]) {
+    grid-row: 7;
     grid-column: 1;
   }
-  .application :global(.dag-map .dag-node[data-step="cover"]) {
-    grid-row: 9;
+  .application :global(.dag-map .dag-stage[data-stage="cover"]) {
+    grid-row: 7;
     grid-column: 2;
   }
-  .application :global(.dag-map .dag-node[data-step="validating"]) {
-    grid-row: 12;
+  .application :global(.dag-map .dag-stage[data-stage="validating"]) {
+    grid-row: 10;
     grid-column: 1 / -1;
   }
   .application :global(.dag-map .dag-edge[data-from="extract"]) {
@@ -611,10 +652,6 @@
   }
   .application :global(.dag-map .dag-edge[data-from="analyze"]) {
     grid-row: 4;
-    grid-column: 1 / -1;
-  }
-  .application :global(.dag-map .dag-edge[data-from="adapt"]) {
-    grid-row: 6;
     grid-column: 1 / -1;
   }
   .application :global(.dag-map .dag-edge) {
@@ -631,20 +668,27 @@
     transform: rotate(90deg);
   }
   .application :global(.dag-map .dag-split) {
-    grid-row: 8;
+    grid-row: 6;
     grid-column: 1 / -1;
   }
   .application :global(.dag-map .dag-join) {
-    grid-row: 11;
+    grid-row: 9;
     grid-column: 1 / -1;
   }
   .application :global(.dag-map .dag-gate) {
-    grid-row: 7;
-    grid-column: 1 / -1;
-    justify-self: center;
+    flex: none;
+    max-width: 100%;
+  }
+  .application :global(.dag-map .dag-gate::before) {
+    top: auto;
+    bottom: 100%;
+    inset-inline-end: auto;
+    left: 50%;
+    width: 2px;
+    height: 18px;
   }
   .application :global(.dag-map .dag-return) {
-    grid-row: 10;
+    grid-row: 8;
     grid-column: 1 / -1;
     margin: 8px 0 0;
     height: auto;

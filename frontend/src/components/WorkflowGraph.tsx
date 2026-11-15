@@ -1,4 +1,4 @@
-import { Fragment, useRef } from "react";
+import { useRef } from "react";
 import type { GraphRun, Route, Stage, StageStatus, StepId } from "../model";
 export interface WorkflowGraphProps {
   stages: Stage[];
@@ -99,52 +99,35 @@ function WorkflowProgress({
 
 function ApprovalGate({
   task,
-  run,
   select,
   disabled,
 }: {
   task: Stage;
-  run?: GraphRun;
   select: WorkflowGraphProps["select"];
   disabled: boolean;
 }) {
-  const pending = task.pendingReview;
-  const state = pending
-    ? "Needs you"
-    : run?.factualReview?.step === "adapt" &&
-        run.factualReview.state === "resolved"
-      ? "Decisions saved"
-      : task.status === "unknown"
-        ? "Not recorded"
-        : ["skipped", "previous", "unavailable"].includes(task.status)
-          ? "Skipped"
-          : task.status === "succeeded"
-            ? "No review recorded"
-            : "If changes need review";
-  const label = (
-    <>
-      <svg className="dag-symbol" viewBox="0 0 24 24" aria-hidden="true">
-        <path d={stepSymbols.review} />
-      </svg>
-      <span>
-        <strong>Approve CV changes</strong>
-        <span>{state}</span>
-      </span>
-    </>
-  );
-  return pending ? (
+  return (
     <button
       type="button"
       className="dag-gate"
-      data-pending="true"
       disabled={disabled}
       aria-haspopup="dialog"
       onClick={() => select(task)}
     >
-      {label}
+      <svg className="dag-symbol" viewBox="0 0 24 24" aria-hidden="true">
+        <path d={stepSymbols.review} />
+      </svg>
+      <span>
+        <strong>
+          {task.id === "extract"
+            ? "Approve requirements"
+            : task.id === "cover"
+              ? "Approve cover letter"
+              : "Approve CV changes"}
+        </strong>
+        <span>Needs you</span>
+      </span>
     </button>
-  ) : (
-    <div className="dag-gate">{label}</div>
   );
 }
 
@@ -194,7 +177,7 @@ export function WorkflowGraph({
               <span>Revise CV in a new preparation</span>
             </div>
           )}
-          {(["extract", "analyze", "adapt"] as const).map(
+          {(["extract", "analyze"] as const).map(
             (id) =>
               statuses[id] && (
                 <span
@@ -210,6 +193,7 @@ export function WorkflowGraph({
             <>
               <svg
                 className="dag-split"
+                data-status={statuses.adapt}
                 viewBox="0 0 100 100"
                 preserveAspectRatio="none"
                 aria-hidden="true"
@@ -272,7 +256,7 @@ export function WorkflowGraph({
                   ? "View the AI settings captured for this step"
                   : "Configure the AI for this step";
             return (
-              <Fragment key={task.id}>
+              <div key={task.id} className="dag-stage" data-stage={task.id}>
                 <button
                   type="button"
                   className="dag-node"
@@ -374,15 +358,14 @@ export function WorkflowGraph({
                     )}
                   </span>
                 </button>
-                {task.id === "adapt" && (
+                {task.pendingReview && (
                   <ApprovalGate
                     task={task}
-                    run={run}
                     select={select}
                     disabled={disabled}
                   />
                 )}
-              </Fragment>
+              </div>
             );
           })}
         </div>

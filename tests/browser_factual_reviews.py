@@ -156,11 +156,16 @@ def main():
             for step in ('extract','adapt'):page.locator('#step-'+step).check()
             page.locator('#run-adapt').click()
             expect(page.locator('#workflow-next')).to_have_text('Review job requirements',timeout=90000)
-            page.locator('#workflow-next').click();expect(page.locator('#requirements-dialog')).to_be_visible()
+            graph=page.locator('#workflow-graph')
+            graph.get_by_role('button', name='Approve requirements Needs you').click()
+            expect(page.locator('#requirements-dialog')).to_be_visible()
             page.locator('#requirements-confirm').check();page.locator('#requirements-approve').click()
             expect(page.locator('#requirements-dialog')).not_to_be_visible()
             expect(page.locator('#workflow-next')).to_have_text('Review CV changes',timeout=90000)
-            page.locator('#workflow-next').click();page.locator('#accept-all-facts').click();page.locator('#confirm-factual-meaning').check()
+            expect(graph.get_by_role('button', name='Approve requirements Needs you')).to_have_count(0)
+            graph.get_by_role('button', name='Approve CV changes Needs you').click()
+            expect(page.locator('#factual-review-panel')).to_be_visible()
+            page.locator('#accept-all-facts').click();page.locator('#confirm-factual-meaning').check()
             # A fast checkpoint-only continuation can finish before its HTTP
             # response arrives. It must still refresh the visible CV, without Retry.
             def completed_continuation(route):
@@ -176,6 +181,7 @@ def main():
             page.route('**/api/review-continue',completed_continuation)
             page.locator('#apply-factual-review').click();expect(page.locator('#factual-review-panel')).to_be_hidden()
             expect(page.locator('.dag-node[data-step=validating]')).to_have_attribute('data-status','succeeded',timeout=90000)
+            expect(graph.locator('.dag-gate')).to_have_count(0)
             assert 'dependable systems' in server.workspace.read('guided-requirements-ui','main.tex')
             expect(page.locator('#current-document')).to_contain_text('dependable systems')
             page.get_by_role('tab',name='Source · Advanced',exact=True).click()
@@ -195,6 +201,7 @@ def main():
             page.locator('#run-adapt').click()
             expect(page.locator('.dag-node[data-step=validating]')).to_have_attribute('data-status','succeeded',timeout=180000)
             expect(page.locator('#factual-review-panel')).to_be_hidden()
+            expect(graph.locator('.dag-gate')).to_have_count(0)
             auto=server.workspace.list_jobs()['runs'][0]
             assert auto['reviewPolicy']=='automatic' and auto['attempt']==3,auto
             assert 'Built OOP services' in server.workspace.read('automatic-ui','main.tex')

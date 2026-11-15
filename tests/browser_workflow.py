@@ -52,10 +52,28 @@ def main():
             page.get_by_role('button', name='Open platform-engineer', exact=True).click()
             expect(page.locator('.dag-node')).to_have_count(6)
             graph = page.locator('#workflow-graph')
-            expect(graph.get_by_text('Approve CV changes')).to_be_visible()
+            expect(graph.locator('.dag-gate')).to_have_count(0)
             assert graph.locator('[data-step=review]').evaluate(
-                "(review) => review.offsetTop < review.parentElement.querySelector('[data-step=cover]').offsetTop"
+                "(review) => review.getBoundingClientRect().top < review.closest('.dag-map').querySelector('[data-step=cover]').getBoundingClientRect().top"
             )
+            assert graph.evaluate("""async () => {
+                const {renderGraph} = await import('/workflow.js');
+                const host = document.createElement('div');
+                const run = {id: 'fixture', status: 'awaiting_review',
+                    factualReview: {step: 'adapt', state: 'pending'}};
+                let selected;
+                const render = (current) => renderGraph(host, {run: current,
+                    select: (step) => {selected = step.id;}});
+                for (const overrides of [{status: 'running'}, {reviewPolicy: 'automatic'},
+                    {factualReview: {step: 'adapt', state: 'resolved'}}]) {
+                    render({...run, ...overrides});
+                    if (host.querySelector('.dag-gate')) return false;
+                }
+                render(run);
+                const gate = host.querySelector('button.dag-gate');
+                gate?.click();
+                return selected === 'adapt';
+            }""")
             page.get_by_role('tab', name='Job details & AI', exact=False).click()
             page.locator('#step-extract').check(); page.locator('#step-cover').check()
             expect(page.locator('#step-review')).to_be_checked()

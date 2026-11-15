@@ -38,6 +38,7 @@ test("workflow progress counts only steps in the selected preparation", () => {
   assert.match(running, /1 of 3 steps done/);
   assert.match(running, /Tailor CV · In progress/);
   assert.match(running, /<progress[^>]+value="1"[^>]+max="3"/);
+  assert.doesNotMatch(running, /class="dag-gate"/);
 
   const awaitingReview = renderGraph({
     stages: stages.map((stage) =>
@@ -50,11 +51,31 @@ test("workflow progress counts only steps in the selected preparation", () => {
   assert.match(awaitingReview, /Tailor CV · Needs your review/);
   assert.match(
     awaitingReview,
-    /<button[^>]+class="dag-gate"[^>]+data-pending="true"/,
+    /<button[^>]+class="dag-gate"[^>]+aria-haspopup="dialog"/,
   );
   assert.match(awaitingReview, /Approve CV changes.*Needs you/);
 
-  assert.doesNotMatch(renderGraph({ run: undefined }), /<progress/);
+  const awaitingRequirements = renderGraph({
+    stages: stages.map((stage) =>
+      stage.id === "extract"
+        ? { ...stage, status: "review", pendingReview: true }
+        : stage,
+    ),
+  });
+  assert.match(awaitingRequirements, /Approve requirements.*Needs you/);
+  assert.doesNotMatch(awaitingRequirements, /Approve CV changes/);
+
+  const approved = renderGraph({
+    stages: stages.map((stage) =>
+      stage.id === "adapt" ? { ...stage, status: "succeeded" } : stage,
+    ),
+    run: { id: "run", factualReview: { step: "adapt", state: "resolved" } },
+  });
+  assert.doesNotMatch(approved, /class="dag-gate"/);
+  assert.doesNotMatch(
+    renderGraph({ run: undefined }),
+    /<progress|class="dag-gate"/,
+  );
   assert.doesNotMatch(
     renderGraph({
       stages: stages.map((stage) =>
@@ -101,8 +122,7 @@ test("an imported attempt retains the workflow map without inventing progress or
   assert.match(html, /Step progress wasn’t recorded/);
   assert.match(html, /Revise CV in a new preparation/);
   assert.match(html, /dag-split/);
-  assert.match(html, /Approve CV changes.*Not recorded/);
-  assert.doesNotMatch(html, /<progress|data-pending="true"/);
+  assert.doesNotMatch(html, /<progress|class="dag-gate"/);
 });
 
 test("a withheld effective model is not replaced with the old primary model", () => {

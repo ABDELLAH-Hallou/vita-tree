@@ -24,8 +24,9 @@ export function graphStages(run, options={}, available={}) {
   });
 }
 export function renderGraph(container, {run, options, available, selected, select, history=[], config={}}) {
+  const awaitingManualReview=run?.status==='awaiting_review'&&run.reviewPolicy!=='automatic';
   const stages = graphStages(run, options, available).map(task=>{
-    if(taskNeedsReview(run,task.id))return {...task,status:'review',pendingReview:true};
+    if(taskNeedsReview(run,task.id))return {...task,status:'review',pendingReview:awaitingManualReview};
     if(task.status==='skipped'){
       const prior=history.find(item=>item.id!==run?.id&&(!run||item.createdAt<run.createdAt)&&item.stages?.some(stage=>stage.id===task.id&&stage.status==='succeeded'));
       if(prior)return {...task,status:'previous',previousRun:prior.id};

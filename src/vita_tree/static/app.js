@@ -4874,18 +4874,18 @@ var Hs = Object.defineProperty, Us = (e, t) => Hs(e, "name", {
 		ref: t
 	});
 }, "DropdownMenuItem")), $ = {
-	application: "_application_awy36_1",
-	"step-spin": "_step-spin_awy36_1",
-	quickTrigger: "_quickTrigger_awy36_801",
-	navigationTrigger: "_navigationTrigger_awy36_802",
-	overlay: "_overlay_awy36_830",
-	command: "_command_awy36_836",
-	commandHeading: "_commandHeading_awy36_852",
-	commandDescription: "_commandDescription_awy36_862",
-	commandSearch: "_commandSearch_awy36_867",
-	commandItems: "_commandItems_awy36_882",
-	menu: "_menu_awy36_904",
-	menuItem: "_menuItem_awy36_915"
+	application: "_application_1l2lz_1",
+	"step-spin": "_step-spin_1l2lz_1",
+	quickTrigger: "_quickTrigger_1l2lz_845",
+	navigationTrigger: "_navigationTrigger_1l2lz_846",
+	overlay: "_overlay_1l2lz_874",
+	command: "_command_1l2lz_880",
+	commandHeading: "_commandHeading_1l2lz_896",
+	commandDescription: "_commandDescription_1l2lz_906",
+	commandSearch: "_commandSearch_1l2lz_911",
+	commandItems: "_commandItems_1l2lz_926",
+	menu: "_menu_1l2lz_948",
+	menuItem: "_menuItem_1l2lz_959"
 }, rc = [
 	{
 		name: "New application",
@@ -5634,7 +5634,7 @@ if (!dc) throw Error("Vita Tree could not find its application root.");
 	children: /* @__PURE__ */ (0, s.jsx)(uc, {})
 })));
 try {
-	await import("./assets/frontend-app-DAlQ2VIa.js"), dc.dataset.ready = "true";
+	await import("./assets/frontend-app-DKRAoclI.js"), dc.dataset.ready = "true";
 } catch (e) {
 	let t = document.createElement("p");
 	throw t.setAttribute("role", "alert"), t.textContent = e instanceof Error ? e.message : "The application could not start. Reload to try again.", dc.prepend(t), e;
