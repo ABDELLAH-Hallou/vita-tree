@@ -36,6 +36,80 @@ class RequirementsTests(unittest.TestCase):
     def change(self,view,items=None,approve=False):
         return review.change(self.workspace,'requirements',view['token'],view['revision'],items,approve,approve)
 
+    def test_independent_steps_use_raw_job_without_extract(self):
+        self.independent_command()
+        for step in ('analyze', 'adapt', 'review', 'cover'):
+            with self.subTest(step=step):
+                name = 'raw-' + step
+                branch = self.branch(json.dumps(dict(label=name, pipeline=True)), name=name)
+                self.release(name)
+                self.assertEqual(review.view(self.workspace, name)['state'], 'missing')
+                run = self.workspace.start_ai(name, branch['revision'], branch['jobRevision'],
+                                             provider='codex', workflow={'steps': [step]})
+                result = self.finished(run['id'])
+                self.wait(lambda: not self.workspace._ai_threads)
+                self.assert_independent_result(result, step)
+                self.assertIsNone(result['requirementsRevision'])
+                self.assertIsNone(result['requirementsDraft'])
+                captured = review.read(self.control / (name + '.context.json'))
+                self.assertIsNone(captured['revision'])
+                self.assertEqual(captured['jobHash'], branch['jobRevision'])
+                self.assertFalse(captured['structured'])
+                self.assertEqual(review.view(self.workspace, name)['state'], 'missing')
+
+    def test_independent_steps_capture_approved_requirements_without_extract(self):
+        self.independent_command()
+        for step in ('analyze', 'adapt', 'review', 'cover'):
+            with self.subTest(step=step):
+                name = 'approved-' + step
+                branch = self.branch(json.dumps(dict(label=name, pipeline=True)), name=name)
+                definition = seed(self.workspace, name)
+                self.release(name)
+                run = self.workspace.start_ai(name, branch['revision'], branch['jobRevision'],
+                                             provider='codex', workflow={'steps': [step]})
+                result = self.finished(run['id'])
+                self.wait(lambda: not self.workspace._ai_threads)
+                self.assert_independent_result(result, step)
+                self.assertEqual(result['requirementsRevision'], definition['revision'])
+                self.assertEqual(result['requirementsStatus'], 'current')
+                self.assertEqual(review.view(self.workspace, name, run['id'])['definition'], definition)
+                self.assertFalse((self.control / (name + '.extract.calls')).exists())
+                stage = self.workspace.root / 'runs' / run['id']
+                pointer = stage / '.vita/criteria-snapshot/approved' / (digest(branch['job']) + '.json')
+                self.assertEqual(review.read(pointer)['revision'], definition['revision'])
+                captured = review.read(self.control / (name + '.context.json'))
+                self.assertEqual(captured['revision'], definition['revision'])
+                self.assertEqual(captured['jobHash'], branch['jobRevision'])
+                self.assertTrue(captured['structured'])
+                if step in ('analyze', 'review'):
+                    report = review.read(stage / ('.vita/results/' + ('analysis' if step == 'analyze' else step) + '.json'))
+                    self.assertEqual(report['metadata']['requirements_revision'], definition['revision'])
+
+    def independent_command(self):
+        config = self.root / '.vita/config.json'
+        config.parent.mkdir(exist_ok=True)
+        config.write_text(json.dumps({'tex_entry': 'main.tex', 'cover_tex_entry': 'cover-letter.tex'}))
+        self.command.stop()
+        self.command = patch.object(self.workspace, 'vita_command', return_value=[
+            sys.executable, str(Path(__file__).with_name('independent_ai.py'))])
+        self.command.start()
+
+    def assert_independent_result(self, result, step):
+        # New factual wording still needs its own manual decision, not Extract.
+        expected = 'awaiting_review' if step in ('adapt', 'cover') else 'succeeded'
+        self.assertEqual(result['status'], expected, result)
+        self.assertEqual(result['failures'], {})
+        stages = {item['id']: item['status'] for item in result['stages']}
+        self.assertEqual(stages['extract'], 'skipped')
+        self.assertEqual(stages[step], 'review' if expected == 'awaiting_review' else 'succeeded')
+        self.assertFalse((self.control / (result['branch'] + '.extract.calls')).exists())
+        if expected == 'awaiting_review':
+            self.assertEqual(result['factualReview']['step'], step)
+            self.assertEqual(result['factualReview']['state'], 'pending')
+            self.assertEqual(self.workspace.read(result['branch'], 'main.tex'), SOURCE)
+        else:
+            self.assertIn(step, self.workspace.snapshot(result['branch'])['artifacts'])
+
     def test_backend_classification_sources_conditions_approval_and_cancellation(self):
         self.branch();original=seed(self.workspace,'requirements',False)
         view=review.view(self.workspace,'requirements')

@@ -193,7 +193,9 @@ def main():
             page.get_by_role('tab', name='Job details & AI', exact=False).click()
             page.locator('#provider').select_option('openai');page.locator('#model').fill('fixture-model');page.locator('#model').press('Tab')
             prior_steps=set()
-            for step in ('extract', 'analyze', 'adapt', 'review', 'cover', 'validating'):
+            # Exercise raw-input steps before any extraction report exists.
+            for step in ('analyze', 'adapt', 'review', 'cover', 'extract', 'validating'):
+                before_source = server.workspace.read('independent-steps', 'main.tex')
                 node = page.locator(f'.dag-node[data-step={step}]')
                 node.click()
                 if step != 'validating':
@@ -205,6 +207,7 @@ def main():
                 record = pending.value.json()
                 expect(page.locator('#workflow-run')).to_have_value(record['id'])
                 expect(node).to_have_attribute('data-status', 'succeeded')
+                expect(page.locator('.dag-node[data-step=validating]')).to_have_attribute('data-status', 'succeeded')
                 expect(page.locator('.dag-node[data-status=succeeded]')).to_have_count(1 if step == 'validating' else 2)
                 prior_count=len(prior_steps-{step,'validating'})
                 expect(page.locator('.dag-node[data-status=skipped]')).to_have_count((5 if step == 'validating' else 4)-prior_count)
@@ -212,8 +215,10 @@ def main():
                 assert sum(t['status']=='skipped' for t in server.workspace.get_job(record['id'])['stages'])==(5 if step=='validating' else 4)
                 prior_steps.add(step)
                 assert server.workspace.get_job(record['id'])['status'] == 'succeeded'
-                if step in ('extract','analyze'):
-                    assert server.workspace.read('independent-steps', 'main.tex') == SOURCE
+                if step != 'adapt':
+                    assert server.workspace.read('independent-steps', 'main.tex') == before_source
+                if step in ('analyze', 'adapt', 'review', 'cover'):
+                    assert not (control / 'independent-steps.extract.calls').exists()
             # Arbitrary selection: no implicit analysis or adaptation.
             page.get_by_role('tab', name='Job details & AI', exact=False).click()
             for step in ('extract','analyze','adapt','review','cover'):
