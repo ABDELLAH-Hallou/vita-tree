@@ -17,6 +17,15 @@ from vita_tree.workspace import digest
 from support import init_repo, SOURCE, set_theme
 
 
+def wait_for_run(page, ident):
+    # Setup and real PDF compilation have their own budget. UI assertions still
+    # require prompt rendering after the monitor receives a terminal run.
+    with page.expect_response(lambda response: response.url.endswith('/api/jobs') and any(
+            run['id'] == ident and run['status'] not in ('queued', 'running')
+            for run in response.json().get('runs', [])), timeout=120000):
+        pass
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--browser', choices=('chrome', 'chromium'), default='chromium')
@@ -56,7 +65,9 @@ def main():
             expect(page.locator('#step-review')).to_be_checked()
             page.locator('#step-review').uncheck()  # Run all overrides the subset.
             page.locator('#provider').select_option('openai');page.locator('#model').fill('fixture-model');page.locator('#model').press('Tab')
-            page.locator('#run-all').click()
+            with page.expect_response(lambda response: response.url.endswith('/api/adapt') and response.request.method == 'POST') as started:
+                page.locator('#run-all').click()
+            pipeline_id = started.value.json()['id']
             review = page.locator('.dag-node[data-step=review]')
             expect(review).to_have_attribute('data-status', 'running')
             expect(page.locator('.dag-node[data-step=extract]')).to_have_attribute('data-status', 'succeeded')
@@ -91,6 +102,7 @@ def main():
             set_theme(page, 'dark')
             page.screenshot(path=str(artifacts / 'workflow-failed-dark.png'), full_page=True)
             (control / 'platform-engineer.review.release').touch()
+            wait_for_run(page, pipeline_id)
             expect(page.locator('#filter-review')).to_have_text('1')
             page.locator('#back').click()
             page.locator('[data-filter=review]').click()
@@ -193,7 +205,9 @@ def main():
             page.get_by_role('tab', name='Job details & AI', exact=False).click()
             page.locator('#provider').select_option('openai');page.locator('#model').fill('fixture-model');page.locator('#model').press('Tab')
             prior_steps=set()
-            for step in ('extract', 'analyze', 'adapt', 'review', 'cover', 'validating'):
+            # Exercise raw-input steps before any extraction report exists.
+            for step in ('analyze', 'adapt', 'review', 'cover', 'extract', 'validating'):
+                before_source = server.workspace.read('independent-steps', 'main.tex')
                 node = page.locator(f'.dag-node[data-step={step}]')
                 node.click()
                 if step != 'validating':
@@ -203,8 +217,10 @@ def main():
                 with page.expect_response(lambda response: response.url.endswith('/api/adapt') and response.request.method == 'POST') as pending:
                     page.locator('#task-run').click()
                 record = pending.value.json()
+                wait_for_run(page, record['id'])
                 expect(page.locator('#workflow-run')).to_have_value(record['id'])
                 expect(node).to_have_attribute('data-status', 'succeeded')
+                expect(page.locator('.dag-node[data-step=validating]')).to_have_attribute('data-status', 'succeeded')
                 expect(page.locator('.dag-node[data-status=succeeded]')).to_have_count(1 if step == 'validating' else 2)
                 prior_count=len(prior_steps-{step,'validating'})
                 expect(page.locator('.dag-node[data-status=skipped]')).to_have_count((5 if step == 'validating' else 4)-prior_count)
@@ -212,8 +228,10 @@ def main():
                 assert sum(t['status']=='skipped' for t in server.workspace.get_job(record['id'])['stages'])==(5 if step=='validating' else 4)
                 prior_steps.add(step)
                 assert server.workspace.get_job(record['id'])['status'] == 'succeeded'
-                if step in ('extract','analyze'):
-                    assert server.workspace.read('independent-steps', 'main.tex') == SOURCE
+                if step != 'adapt':
+                    assert server.workspace.read('independent-steps', 'main.tex') == before_source
+                if step in ('analyze', 'adapt', 'review', 'cover'):
+                    assert not (control / 'independent-steps.extract.calls').exists()
             # Arbitrary selection: no implicit analysis or adaptation.
             page.get_by_role('tab', name='Job details & AI', exact=False).click()
             for step in ('extract','analyze','adapt','review','cover'):
@@ -223,6 +241,7 @@ def main():
             with page.expect_response(lambda response: response.url.endswith('/api/adapt') and response.request.method == 'POST') as pending:
                 page.locator('#run-adapt').click()
             record = pending.value.json()
+            wait_for_run(page, record['id'])
             expect(page.locator('#workflow-run')).to_have_value(record['id'])
             expect(page.locator('.dag-node[data-status=succeeded]')).to_have_count(3)
             assert {t['id'] for t in server.workspace.get_job(record['id'])['stages'] if t['status']=='succeeded'} == {'review','cover','validating'}
@@ -246,7 +265,10 @@ def main():
             expect(page.locator('#branch-list')).to_contain_text('No completed preparations need review.')
             page.locator('[data-filter=all]').click()
             page.get_by_role('button', name='Open independent-steps', exact=True).click()
-            page.locator('#workflow-run').select_option(oldest['id'])
+            extracted = next(run for run in runs if any(
+                stage['id'] == 'extract' and stage['status'] == 'succeeded'
+                for stage in run['stages']))
+            page.locator('#workflow-run').select_option(extracted['id'])
             page.locator('#view-run').click()
             expect(page.locator('#selected-run-files')).to_contain_text('Job requirements')
             expect(page.locator('#mark-run-reviewed')).to_be_disabled()
