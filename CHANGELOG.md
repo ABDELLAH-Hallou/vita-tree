@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.21.0](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.20.1...v1.21.0) (2026-11-19)
+
+
+### Features
+
+* implement the branching workflow graph ([d613fb4](https://github.com/ABDELLAH-Hallou/vita-tree/commit/d613fb4d671f4fbb4a2f35c1afd76042c712e0d6))
+
+
+### Bug Fixes
+
+* show workflow approvals only when needed ([8fdb213](https://github.com/ABDELLAH-Hallou/vita-tree/commit/8fdb213f68e0cbc4820ee9465b9003981f549a1c))
+
 ## [1.20.1](https://github.com/ABDELLAH-Hallou/vita-tree/compare/v1.20.0...v1.20.1) (2026-11-14)
 
 
