@@ -39,10 +39,10 @@ jobs:
       - name: Configure Ubuntu package downloads
         timeout-minutes: 2
         run: |
-          # Keep browser setup off the hosted runner's unreliable Azure mirror.
+          # Use the Ubuntu archive for browser and TeX dependencies.
           for source in /etc/apt/apt-mirrors.txt /etc/apt/sources.list /etc/apt/sources.list.d/ubuntu.sources; do
             if [ -f "$source" ]; then
-              sudo sed -i -E 's|https?://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' "$source"
+              sudo sed -i -E 's~https?://(azure|[a-z0-9-]+\.ec2)\.archive\.ubuntu\.com/ubuntu~https://archive.ubuntu.com/ubuntu~g' "$source"
             fi
           done
           sudo tee /etc/apt/apt.conf.d/80-ci-network > /dev/null <<'EOF'

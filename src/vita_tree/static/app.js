@@ -276,80 +276,113 @@ var o = /* @__PURE__ */ e(t(), 1), s = i(), c = o.createContext(void 0), l = ({ 
 						})]
 					}),
 					/* @__PURE__ */ (0, s.jsxs)("div", {
-						id: "workflow-action",
-						className: "workflow-action",
-						children: [/* @__PURE__ */ (0, s.jsxs)("div", { children: [/* @__PURE__ */ (0, s.jsx)("strong", { children: "Your next step" }), /* @__PURE__ */ (0, s.jsx)("p", { id: "workflow-next-help" })] }), /* @__PURE__ */ (0, s.jsx)("button", {
-							id: "workflow-next",
-							className: "primary",
-							children: "Prepare application"
+						id: "workflow-body",
+						children: [/* @__PURE__ */ (0, s.jsx)("div", {
+							id: "workflow-graph",
+							className: "workflow-graph",
+							role: "group",
+							"aria-label": "Application preparation steps"
+						}), /* @__PURE__ */ (0, s.jsxs)("div", {
+							id: "task-inspector",
+							className: "task-inspector",
+							hidden: !0,
+							children: [/* @__PURE__ */ (0, s.jsxs)("div", { children: [
+								/* @__PURE__ */ (0, s.jsx)("strong", { id: "task-title" }),
+								/* @__PURE__ */ (0, s.jsx)("p", { id: "task-description" }),
+								/* @__PURE__ */ (0, s.jsx)("span", {
+									id: "task-status",
+									className: "helper"
+								})
+							] }), /* @__PURE__ */ (0, s.jsxs)("div", {
+								className: "actions",
+								children: [
+									/* @__PURE__ */ (0, s.jsx)("button", {
+										id: "task-requirements",
+										hidden: !0,
+										children: "Review job requirements"
+									}),
+									/* @__PURE__ */ (0, s.jsx)("button", {
+										id: "task-configure",
+										children: "Configure AI"
+									}),
+									/* @__PURE__ */ (0, s.jsx)("button", {
+										id: "inspect-step",
+										className: "quiet",
+										hidden: !0,
+										children: "Inspect execution"
+									}),
+									/* @__PURE__ */ (0, s.jsx)("button", {
+										id: "task-output",
+										children: "View results"
+									}),
+									/* @__PURE__ */ (0, s.jsx)("button", {
+										id: "task-run",
+										className: "primary",
+										children: "Start this step"
+									})
+								]
+							})]
 						})]
 					}),
-					/* @__PURE__ */ (0, s.jsxs)("div", {
-						id: "workflow-body",
-						children: [
-							/* @__PURE__ */ (0, s.jsx)("div", {
-								id: "workflow-graph",
-								className: "dag",
-								role: "group",
-								"aria-label": "Application preparation steps"
-							}),
-							/* @__PURE__ */ (0, s.jsxs)("footer", {
-								className: "workflow-footer",
-								children: [/* @__PURE__ */ (0, s.jsx)("span", { children: "Click an AI step to configure it. Prepare everything, choose a few steps, or start one step on its own." }), /* @__PURE__ */ (0, s.jsxs)("span", { children: [
-									/* @__PURE__ */ (0, s.jsx)("i", { className: "status-dot running" }),
-									"In progress",
-									" ",
-									/* @__PURE__ */ (0, s.jsx)("i", { className: "status-dot succeeded" }),
-									"Done",
-									" ",
-									/* @__PURE__ */ (0, s.jsx)("i", { className: "status-dot failed" }),
-									"Couldn’t finish"
-								] })]
-							}),
-							/* @__PURE__ */ (0, s.jsxs)("div", {
-								id: "task-inspector",
-								className: "task-inspector",
-								hidden: !0,
-								children: [/* @__PURE__ */ (0, s.jsxs)("div", { children: [
-									/* @__PURE__ */ (0, s.jsx)("strong", { id: "task-title" }),
-									/* @__PURE__ */ (0, s.jsx)("p", { id: "task-description" }),
-									/* @__PURE__ */ (0, s.jsx)("span", {
-										id: "task-status",
-										className: "helper"
-									})
-								] }), /* @__PURE__ */ (0, s.jsxs)("div", {
-									className: "actions",
-									children: [
-										/* @__PURE__ */ (0, s.jsx)("button", {
-											id: "task-requirements",
-											hidden: !0,
-											children: "Review job requirements"
-										}),
-										/* @__PURE__ */ (0, s.jsx)("button", {
-											id: "task-configure",
-											children: "Configure AI"
-										}),
-										/* @__PURE__ */ (0, s.jsx)("button", {
-											id: "inspect-step",
-											className: "quiet",
-											hidden: !0,
-											children: "Inspect execution"
-										}),
-										/* @__PURE__ */ (0, s.jsx)("button", {
-											id: "task-output",
-											children: "View results"
-										}),
-										/* @__PURE__ */ (0, s.jsx)("button", {
-											id: "task-run",
-											className: "primary",
-											children: "Start this step"
-										})
-									]
-								})]
-							})
-						]
+					/* @__PURE__ */ (0, s.jsxs)("footer", {
+						id: "workflow-action",
+						className: "workflow-action",
+						children: [/* @__PURE__ */ (0, s.jsxs)("div", {
+							className: "workflow-footer-copy",
+							children: [/* @__PURE__ */ (0, s.jsxs)("ul", {
+								className: "workflow-key",
+								"aria-label": "Step status key",
+								children: [
+									/* @__PURE__ */ (0, s.jsxs)("li", { children: [/* @__PURE__ */ (0, s.jsx)("i", { className: "status-dot running" }), "In progress"] }),
+									/* @__PURE__ */ (0, s.jsxs)("li", { children: [/* @__PURE__ */ (0, s.jsx)("i", { className: "status-dot succeeded" }), "Done"] }),
+									/* @__PURE__ */ (0, s.jsxs)("li", { children: [/* @__PURE__ */ (0, s.jsx)("i", { className: "status-dot failed" }), "Couldn’t finish"] }),
+									/* @__PURE__ */ (0, s.jsxs)("li", { children: [/* @__PURE__ */ (0, s.jsx)("i", { className: "status-dot review" }), "Needs review"] })
+								]
+							}), /* @__PURE__ */ (0, s.jsx)("p", { id: "workflow-next-help" })]
+						}), /* @__PURE__ */ (0, s.jsxs)("div", {
+							className: "actions",
+							children: [/* @__PURE__ */ (0, s.jsx)("button", {
+								id: "workflow-run-one",
+								type: "button",
+								"aria-haspopup": "dialog",
+								children: "Run one step"
+							}), /* @__PURE__ */ (0, s.jsx)("button", {
+								id: "workflow-next",
+								type: "button",
+								className: "primary",
+								children: "Start selected steps"
+							})]
+						})]
 					})
 				]
+			}),
+			/* @__PURE__ */ (0, s.jsx)("dialog", {
+				id: "workflow-step-picker",
+				"aria-labelledby": "workflow-step-picker-title",
+				children: /* @__PURE__ */ (0, s.jsxs)("form", {
+					method: "dialog",
+					children: [
+						/* @__PURE__ */ (0, s.jsx)("div", {
+							className: "dialog-heading",
+							children: /* @__PURE__ */ (0, s.jsx)("h2", {
+								id: "workflow-step-picker-title",
+								children: "Run one step"
+							})
+						}),
+						/* @__PURE__ */ (0, s.jsxs)("label", { children: ["Step", /* @__PURE__ */ (0, s.jsx)("select", { id: "workflow-step-choice" })] }),
+						/* @__PURE__ */ (0, s.jsxs)("div", {
+							className: "dialog-footer",
+							children: [/* @__PURE__ */ (0, s.jsx)("button", {
+								value: "cancel",
+								children: "Cancel"
+							}), /* @__PURE__ */ (0, s.jsx)("button", {
+								value: "run",
+								className: "primary",
+								children: "Start step"
+							})]
+						})
+					]
+				})
 			}),
 			/* @__PURE__ */ (0, s.jsxs)("dialog", {
 				id: "factual-review-panel",
@@ -4841,17 +4874,18 @@ var Hs = Object.defineProperty, Us = (e, t) => Hs(e, "name", {
 		ref: t
 	});
 }, "DropdownMenuItem")), $ = {
-	application: "_application_c0l5u_1",
-	quickTrigger: "_quickTrigger_c0l5u_335",
-	navigationTrigger: "_navigationTrigger_c0l5u_336",
-	overlay: "_overlay_c0l5u_364",
-	command: "_command_c0l5u_370",
-	commandHeading: "_commandHeading_c0l5u_386",
-	commandDescription: "_commandDescription_c0l5u_396",
-	commandSearch: "_commandSearch_c0l5u_401",
-	commandItems: "_commandItems_c0l5u_416",
-	menu: "_menu_c0l5u_438",
-	menuItem: "_menuItem_c0l5u_449"
+	application: "_application_1l2lz_1",
+	"step-spin": "_step-spin_1l2lz_1",
+	quickTrigger: "_quickTrigger_1l2lz_845",
+	navigationTrigger: "_navigationTrigger_1l2lz_846",
+	overlay: "_overlay_1l2lz_874",
+	command: "_command_1l2lz_880",
+	commandHeading: "_commandHeading_1l2lz_896",
+	commandDescription: "_commandDescription_1l2lz_906",
+	commandSearch: "_commandSearch_1l2lz_911",
+	commandItems: "_commandItems_1l2lz_926",
+	menu: "_menu_1l2lz_948",
+	menuItem: "_menuItem_1l2lz_959"
 }, rc = [
 	{
 		name: "New application",
@@ -5600,7 +5634,7 @@ if (!dc) throw Error("Vita Tree could not find its application root.");
 	children: /* @__PURE__ */ (0, s.jsx)(uc, {})
 })));
 try {
-	await import("./assets/frontend-app-C4XSgSe3.js"), dc.dataset.ready = "true";
+	await import("./assets/frontend-app-DKRAoclI.js"), dc.dataset.ready = "true";
 } catch (e) {
 	let t = document.createElement("p");
 	throw t.setAttribute("role", "alert"), t.textContent = e instanceof Error ? e.message : "The application could not start. Reload to try again.", dc.prepend(t), e;

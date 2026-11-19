@@ -51,6 +51,29 @@ def main():
             page.screenshot(path=str(artifacts / 'workbench-light.png'), full_page=True)
             page.get_by_role('button', name='Open platform-engineer', exact=True).click()
             expect(page.locator('.dag-node')).to_have_count(6)
+            graph = page.locator('#workflow-graph')
+            expect(graph.locator('.dag-gate')).to_have_count(0)
+            assert graph.locator('[data-step=review]').evaluate(
+                "(review) => review.getBoundingClientRect().top < review.closest('.dag-map').querySelector('[data-step=cover]').getBoundingClientRect().top"
+            )
+            assert graph.evaluate("""async () => {
+                const {renderGraph} = await import('/workflow.js');
+                const host = document.createElement('div');
+                const run = {id: 'fixture', status: 'awaiting_review',
+                    factualReview: {step: 'adapt', state: 'pending'}};
+                let selected;
+                const render = (current) => renderGraph(host, {run: current,
+                    select: (step) => {selected = step.id;}});
+                for (const overrides of [{status: 'running'}, {reviewPolicy: 'automatic'},
+                    {factualReview: {step: 'adapt', state: 'resolved'}}]) {
+                    render({...run, ...overrides});
+                    if (host.querySelector('.dag-gate')) return false;
+                }
+                render(run);
+                const gate = host.querySelector('button.dag-gate');
+                gate?.click();
+                return selected === 'adapt';
+            }""")
             page.get_by_role('tab', name='Job details & AI', exact=False).click()
             page.locator('#step-extract').check(); page.locator('#step-cover').check()
             expect(page.locator('#step-review')).to_be_checked()
@@ -62,7 +85,12 @@ def main():
             expect(page.locator('.dag-node[data-step=extract]')).to_have_attribute('data-status', 'succeeded')
             expect(page.locator('.dag-node[data-step=cover]')).to_have_attribute('data-status', 'pending')
             expect(page.locator('#step-cover')).to_be_disabled()
-            review.focus();page.keyboard.press('Enter')
+            progress = page.get_by_role('progressbar', name='Steps done')
+            expect(progress).to_have_attribute('value', '3')
+            expect(progress).to_have_attribute('max', '6')
+            page.get_by_role('button', name='Review CV with AI · In progress').click()
+            expect(review).to_be_focused()
+            page.keyboard.press('Enter')
             expect(page.locator('#step-ai-dialog')).to_be_visible()
             expect(page.locator('#popup-model')).to_be_disabled()
             expect(page.locator('#step-ai-apply')).to_be_hidden()
@@ -96,6 +124,7 @@ def main():
             page.locator('[data-filter=review]').click()
             page.get_by_role('button', name='Open platform-engineer', exact=True).click()
             expect(page.locator('.dag-node[data-status=succeeded]')).to_have_count(6)
+            expect(progress).to_have_attribute('value', '6')
             expect(page.locator('#selected-run-files .report-prose table').first).to_be_visible()
             expect(page.locator('#selected-run-files .report-prose h3').first).to_contain_text('Initial analysis')
             expect(page.locator('#selected-run-files')).to_contain_text('cover-letter.tex')
@@ -201,7 +230,12 @@ def main():
                     page.locator('#step-ai-cancel').click()
                 expect(page.locator('#task-run')).to_be_enabled()
                 with page.expect_response(lambda response: response.url.endswith('/api/adapt') and response.request.method == 'POST') as pending:
-                    page.locator('#task-run').click()
+                    if step == 'validating':
+                        page.locator('#workflow-run-one').click()
+                        page.locator('#workflow-step-choice').select_option(step)
+                        page.get_by_role('button', name='Start step', exact=True).click()
+                    else:
+                        page.locator('#task-run').click()
                 record = pending.value.json()
                 expect(page.locator('#workflow-run')).to_have_value(record['id'])
                 expect(node).to_have_attribute('data-status', 'succeeded')
@@ -260,8 +294,8 @@ def main():
             page.set_viewport_size({'width': 390, 'height': 844})
             page.emulate_media(reduced_motion='reduce')
             assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), 'Page overflows mobile'
-            graph = page.locator('#workflow-graph')
-            assert graph.evaluate('el=>el.scrollWidth>el.clientWidth'), 'Graph should scroll within its container'
+            graph = page.locator('#workflow-graph .dag')
+            assert graph.evaluate('el=>el.scrollWidth<=el.clientWidth'), 'Graph should fit its mobile container'
             page.locator('.dag-node[data-step=validating]').focus();page.keyboard.press('Enter')
             expect(page.locator('#task-title')).to_have_text('Final checks')
             page.screenshot(path=str(artifacts / 'workflow-mobile.png'), full_page=True)

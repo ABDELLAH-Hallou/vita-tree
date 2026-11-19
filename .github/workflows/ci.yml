@@ -121,7 +121,7 @@ jobs:
 
   browser:
     name: Browser and real PDF integration
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -134,11 +134,11 @@ jobs:
       - name: Configure Ubuntu package downloads
         timeout-minutes: 2
         run: |
-          # The hosted runner's Azure mirror can trickle downloads until the
+          # Hosted runner mirrors can trickle downloads until the
           # entire job times out, before any browser/PDF tests have started.
           for source in /etc/apt/apt-mirrors.txt /etc/apt/sources.list /etc/apt/sources.list.d/ubuntu.sources; do
             if [ -f "$source" ]; then
-              sudo sed -i -E 's|https?://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' "$source"
+              sudo sed -i -E 's~https?://(azure|[a-z0-9-]+\.ec2)\.archive\.ubuntu\.com/ubuntu~https://archive.ubuntu.com/ubuntu~g' "$source"
             fi
           done
           sudo tee /etc/apt/apt.conf.d/80-ci-network > /dev/null <<'EOF'

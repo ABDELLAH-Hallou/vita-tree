@@ -8,6 +8,9 @@ export const tasks = [
   {id:'validating', title:'Final checks', detail:'Check the final files and protect your existing edits. Final tailoring and local checks compile and save a fresh CV PDF in the application folder.', output:'Application files and final PDFs'},
 ];
 export const statusNames = {pending:'Not started', running:'In progress', succeeded:'Done', failed:'Couldn’t finish', blocked:'Waiting for an earlier step', interrupted:'Stopped before finishing', skipped:'Skipped', unavailable:'Not available', unknown:'No earlier details',review:'Needs your review',previous:'Earlier run only'};
+export const needsDecision=run=>!!(run?.requirementsApprovalNeeded||run?.factualReview?.state==='pending'||run?.status==='awaiting_review');
+export const taskNeedsReview=(run,step)=>needsDecision(run)&&(run.source==='jobenu'?run.pendingStep===step:
+  step==='extract'&&run.requirementsApprovalNeeded||run.factualReview?.state==='pending'&&run.factualReview.step===step);
 export function graphStages(run, options={}, available={}) {
   return tasks.map(task => {
     let stage = run?.stages?.find(item => item.id === task.id);
@@ -21,8 +24,9 @@ export function graphStages(run, options={}, available={}) {
   });
 }
 export function renderGraph(container, {run, options, available, selected, select, history=[], config={}}) {
+  const awaitingManualReview=run?.status==='awaiting_review'&&run.reviewPolicy!=='automatic';
   const stages = graphStages(run, options, available).map(task=>{
-    if(run?.factualReview?.state==='pending'&&run.factualReview.step===task.id||task.id==='extract'&&run?.requirementsApprovalNeeded)return {...task,status:'review'};
+    if(taskNeedsReview(run,task.id))return {...task,status:'review',pendingReview:awaitingManualReview};
     if(task.status==='skipped'){
       const prior=history.find(item=>item.id!==run?.id&&(!run||item.createdAt<run.createdAt)&&item.stages?.some(stage=>stage.id===task.id&&stage.status==='succeeded'));
       if(prior)return {...task,status:'previous',previousRun:prior.id};

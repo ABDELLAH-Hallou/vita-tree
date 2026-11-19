@@ -2,7 +2,128 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ApplicationList } from "../src/components/ApplicationList";
-import { WorkflowGraph } from "../src/components/WorkflowGraph";
+import {
+  WorkflowGraph,
+  type WorkflowGraphProps,
+} from "../src/components/WorkflowGraph";
+import type { Stage } from "../src/model";
+
+test("workflow progress counts only steps in the selected preparation", () => {
+  const stageStates: Pick<Stage, "id" | "status" | "title">[] = [
+    { id: "extract", status: "previous", title: "Job requirements" },
+    { id: "analyze", status: "succeeded", title: "Check CV match" },
+    { id: "adapt", status: "running", title: "Tailor CV" },
+    { id: "review", status: "skipped", title: "Review CV" },
+    { id: "cover", status: "unavailable", title: "Cover letter" },
+    { id: "validating", status: "pending", title: "Final checks" },
+  ];
+  const stages = stageStates.map((stage) => ({
+    detail: "",
+    output: "",
+    ...stage,
+  }));
+  const renderGraph = (overrides: Partial<WorkflowGraphProps>) =>
+    renderToStaticMarkup(
+      <WorkflowGraph
+        stages={stages}
+        run={{ id: "run" }}
+        config={{}}
+        select={() => {}}
+        statusNames={{ running: "In progress", review: "Needs your review" }}
+        {...overrides}
+      />,
+    );
+
+  const running = renderGraph({});
+  assert.match(running, /1 of 3 steps done/);
+  assert.match(running, /Tailor CV · In progress/);
+  assert.match(running, /<progress[^>]+value="1"[^>]+max="3"/);
+  assert.doesNotMatch(running, /class="dag-gate"/);
+
+  const awaitingReview = renderGraph({
+    stages: stages.map((stage) =>
+      stage.id === "adapt"
+        ? { ...stage, status: "review", pendingReview: true }
+        : stage,
+    ),
+  });
+  assert.match(awaitingReview, /1 of 3 steps done/);
+  assert.match(awaitingReview, /Tailor CV · Needs your review/);
+  assert.match(
+    awaitingReview,
+    /<button[^>]+class="dag-gate"[^>]+aria-haspopup="dialog"/,
+  );
+  assert.match(awaitingReview, /Approve CV changes.*Needs you/);
+
+  const awaitingRequirements = renderGraph({
+    stages: stages.map((stage) =>
+      stage.id === "extract"
+        ? { ...stage, status: "review", pendingReview: true }
+        : stage,
+    ),
+  });
+  assert.match(awaitingRequirements, /Approve requirements.*Needs you/);
+  assert.doesNotMatch(awaitingRequirements, /Approve CV changes/);
+
+  const approved = renderGraph({
+    stages: stages.map((stage) =>
+      stage.id === "adapt" ? { ...stage, status: "succeeded" } : stage,
+    ),
+    run: { id: "run", factualReview: { step: "adapt", state: "resolved" } },
+  });
+  assert.doesNotMatch(approved, /class="dag-gate"/);
+  assert.doesNotMatch(
+    renderGraph({ run: undefined }),
+    /<progress|class="dag-gate"/,
+  );
+  assert.doesNotMatch(
+    renderGraph({
+      stages: stages.map((stage) =>
+        stage.id === "extract" ? { ...stage, status: "unknown" } : stage,
+      ),
+    }),
+    /<progress/,
+  );
+});
+
+test("an imported attempt retains the workflow map without inventing progress or approval", () => {
+  const stages: Stage[] = [
+    {
+      id: "adapt",
+      status: "unknown",
+      title: "Tailor CV",
+      detail: "",
+      output: "",
+    },
+    {
+      id: "review",
+      status: "unknown",
+      title: "Review CV with AI",
+      detail: "",
+      output: "",
+    },
+    {
+      id: "cover",
+      status: "unknown",
+      title: "Cover letter",
+      detail: "",
+      output: "",
+    },
+  ];
+  const html = renderToStaticMarkup(
+    <WorkflowGraph
+      stages={stages}
+      run={{ id: "import", source: "jobenu" }}
+      config={{}}
+      statusNames={{ unknown: "Not recorded" }}
+      select={() => {}}
+    />,
+  );
+  assert.match(html, /Step progress wasn’t recorded/);
+  assert.match(html, /Revise CV in a new preparation/);
+  assert.match(html, /dag-split/);
+  assert.doesNotMatch(html, /<progress|class="dag-gate"/);
+});
 
 test("a withheld effective model is not replaced with the old primary model", () => {
   const html = renderToStaticMarkup(

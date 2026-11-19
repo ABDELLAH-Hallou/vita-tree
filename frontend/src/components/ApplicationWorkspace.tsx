@@ -65,33 +65,13 @@ export const ApplicationWorkspace = memo(function ApplicationWorkspace() {
             </button>
           </div>
         </header>
-        <div id="workflow-action" className="workflow-action">
-          <div>
-            <strong>Your next step</strong>
-            <p id="workflow-next-help"></p>
-          </div>
-          <button id="workflow-next" className="primary">
-            Prepare application
-          </button>
-        </div>
         <div id="workflow-body">
           <div
             id="workflow-graph"
-            className="dag"
+            className="workflow-graph"
             role="group"
             aria-label="Application preparation steps"
           ></div>
-          <footer className="workflow-footer">
-            <span>
-              Click an AI step to configure it. Prepare everything, choose a few
-              steps, or start one step on its own.
-            </span>
-            <span>
-              <i className="status-dot running"></i>In progress{" "}
-              <i className="status-dot succeeded"></i>Done{" "}
-              <i className="status-dot failed"></i>Couldn’t finish
-            </span>
-          </footer>
           <div id="task-inspector" className="task-inspector" hidden={true}>
             <div>
               <strong id="task-title"></strong>
@@ -113,7 +93,54 @@ export const ApplicationWorkspace = memo(function ApplicationWorkspace() {
             </div>
           </div>
         </div>
+        <footer id="workflow-action" className="workflow-action">
+          <div className="workflow-footer-copy">
+            <ul className="workflow-key" aria-label="Step status key">
+              <li>
+                <i className="status-dot running"></i>In progress
+              </li>
+              <li>
+                <i className="status-dot succeeded"></i>Done
+              </li>
+              <li>
+                <i className="status-dot failed"></i>Couldn’t finish
+              </li>
+              <li>
+                <i className="status-dot review"></i>Needs review
+              </li>
+            </ul>
+            <p id="workflow-next-help"></p>
+          </div>
+          <div className="actions">
+            <button id="workflow-run-one" type="button" aria-haspopup="dialog">
+              Run one step
+            </button>
+            <button id="workflow-next" type="button" className="primary">
+              Start selected steps
+            </button>
+          </div>
+        </footer>
       </section>
+      <dialog
+        id="workflow-step-picker"
+        aria-labelledby="workflow-step-picker-title"
+      >
+        <form method="dialog">
+          <div className="dialog-heading">
+            <h2 id="workflow-step-picker-title">Run one step</h2>
+          </div>
+          <label>
+            Step
+            <select id="workflow-step-choice"></select>
+          </label>
+          <div className="dialog-footer">
+            <button value="cancel">Cancel</button>
+            <button value="run" className="primary">
+              Start step
+            </button>
+          </div>
+        </form>
+      </dialog>
       <dialog
         id="factual-review-panel"
         className="factual-review"
